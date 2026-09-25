@@ -1,0 +1,9 @@
+[Unit]
+Description=ContextKeep verified Server Dell NAS backup
+After=contextkeep.service network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/contextkeep/ops/backup-three-hosts.py
+UMask=0077
+Nice=15
+TimeoutStartSec=10min

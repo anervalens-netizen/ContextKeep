@@ -1,0 +1,909 @@
+[
+  {
+    "id": "H-P01",
+    "language": "en",
+    "categories": [
+      "paraphrase",
+      "current_vs_old"
+    ],
+    "query": "Which build is serving traffic at this moment?",
+    "targetRecordIds": [
+      "eval-release-current"
+    ],
+    "currentRecordIds": [
+      "eval-release-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-release-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P02",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording",
+      "current_vs_old"
+    ],
+    "query": "Ce versiune este încărcată în instanța de producție în prezent?",
+    "targetRecordIds": [
+      "eval-release-current"
+    ],
+    "currentRecordIds": [
+      "eval-release-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-release-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P03",
+    "language": "en",
+    "categories": [
+      "paraphrase"
+    ],
+    "query": "Where does ContextKeep persist its state file?",
+    "targetRecordIds": [
+      "eval-db-path"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P04",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording"
+    ],
+    "query": "În ce fișier sunt ținute datele persistente ale aplicației?",
+    "targetRecordIds": [
+      "eval-db-path"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P05",
+    "language": "en",
+    "categories": [
+      "paraphrase",
+      "current_vs_old"
+    ],
+    "query": "Which listener receives login requests right now?",
+    "targetRecordIds": [
+      "eval-gateway-current"
+    ],
+    "currentRecordIds": [
+      "eval-gateway-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-gateway-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P06",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording",
+      "current_vs_old"
+    ],
+    "query": "Pe ce port intră cererile de autentificare în acest moment?",
+    "targetRecordIds": [
+      "eval-gateway-current"
+    ],
+    "currentRecordIds": [
+      "eval-gateway-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-gateway-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P07",
+    "language": "en",
+    "categories": [
+      "paraphrase",
+      "current_vs_old"
+    ],
+    "query": "How many NAS snapshots does the policy in force retain?",
+    "targetRecordIds": [
+      "eval-backup-current"
+    ],
+    "currentRecordIds": [
+      "eval-backup-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P08",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording",
+      "current_vs_old"
+    ],
+    "query": "Câte snapshot-uri NAS sunt păstrate conform regulii aflate în vigoare?",
+    "targetRecordIds": [
+      "eval-backup-current"
+    ],
+    "currentRecordIds": [
+      "eval-backup-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P09",
+    "language": "en",
+    "categories": [
+      "paraphrase",
+      "dependency"
+    ],
+    "query": "What has to be operational before a rollout can proceed?",
+    "targetRecordIds": [
+      "eval-dep-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P10",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording",
+      "dependency"
+    ],
+    "query": "Ce trebuie să fie funcțional înainte de publicarea unei versiuni?",
+    "targetRecordIds": [
+      "eval-dep-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P11",
+    "language": "en",
+    "categories": [
+      "paraphrase",
+      "blocker_next_action"
+    ],
+    "query": "What should the operator do after checking the runtime?",
+    "targetRecordIds": [
+      "eval-next-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-P12",
+    "language": "ro",
+    "categories": [
+      "paraphrase",
+      "ro_en_wording",
+      "blocker_next_action"
+    ],
+    "query": "Care este acțiunea de continuare după validarea runtime-ului?",
+    "targetRecordIds": [
+      "eval-next-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D01",
+    "language": "en",
+    "categories": [
+      "dependency"
+    ],
+    "query": "What two prerequisites gate rollout readiness?",
+    "targetRecordIds": [
+      "eval-dep-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D02",
+    "language": "ro",
+    "categories": [
+      "dependency",
+      "ro_en_wording"
+    ],
+    "query": "Ce două condiții trebuie îndeplinite ca publicarea să poată continua?",
+    "targetRecordIds": [
+      "eval-dep-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D03",
+    "language": "en",
+    "categories": [
+      "dependency"
+    ],
+    "query": "Which components does the MCP memory flow rely upon?",
+    "targetRecordIds": [
+      "eval-schema-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D04",
+    "language": "ro",
+    "categories": [
+      "dependency",
+      "ro_en_wording"
+    ],
+    "query": "De ce piese are nevoie fluxul MCP ca să obțină context?",
+    "targetRecordIds": [
+      "eval-schema-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D05",
+    "language": "en",
+    "categories": [
+      "dependency",
+      "working_memory"
+    ],
+    "query": "What network reachability does the unreviewed release check rely upon?",
+    "targetRecordIds": [
+      "eval-working-dependency"
+    ]
+  },
+  {
+    "id": "H-D06",
+    "language": "ro",
+    "categories": [
+      "dependency",
+      "working_memory",
+      "ro_en_wording"
+    ],
+    "query": "Ce conexiune trebuie să fie disponibilă pentru verificarea candidatului neconfirmat?",
+    "targetRecordIds": [
+      "eval-working-dependency"
+    ]
+  },
+  {
+    "id": "H-D07",
+    "language": "en",
+    "categories": [
+      "dependency"
+    ],
+    "query": "If contextkeep.service is unavailable, what operation cannot safely proceed?",
+    "targetRecordIds": [
+      "eval-dep-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-D08",
+    "language": "en",
+    "categories": [
+      "dependency"
+    ],
+    "query": "What prerequisite couples project resolution to the bounded context endpoint?",
+    "targetRecordIds": [
+      "eval-schema-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C01",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "What SHA superseded the retired production build?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-release-current"
+    ],
+    "currentRecordIds": [
+      "eval-release-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-release-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C02",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "Which SHA belonged to the retired production release?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-release-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C03",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "Which port replaced the former login listener?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-gateway-current"
+    ],
+    "currentRecordIds": [
+      "eval-gateway-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-gateway-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C04",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "Which port did the retired authentication gateway use?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-gateway-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C05",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "How many copies are retained by the backup rule currently in force?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-backup-current"
+    ],
+    "currentRecordIds": [
+      "eval-backup-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-C06",
+    "language": "en",
+    "categories": [
+      "current_vs_old",
+      "superseded"
+    ],
+    "query": "How many copies did the superseded backup retention rule keep?",
+    "includeHistorical": true,
+    "targetRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "H-A01",
+    "language": "en",
+    "categories": [
+      "missing_info_abstention"
+    ],
+    "query": "Which HSM slot signs production certificates?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-A02",
+    "language": "ro",
+    "categories": [
+      "missing_info_abstention",
+      "ro_en_wording"
+    ],
+    "query": "În ce regiune AWS rulează instanța ContextKeep?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-A03",
+    "language": "en",
+    "categories": [
+      "missing_info_abstention"
+    ],
+    "query": "What Redis endpoint stores user sessions?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-A04",
+    "language": "ro",
+    "categories": [
+      "missing_info_abstention",
+      "ro_en_wording"
+    ],
+    "query": "Ce versiune de kernel rulează serverul?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-A05",
+    "language": "en",
+    "categories": [
+      "missing_info_abstention"
+    ],
+    "query": "Which S3 bucket receives the verified backups?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-A06",
+    "language": "ro",
+    "categories": [
+      "missing_info_abstention",
+      "ro_en_wording"
+    ],
+    "query": "Care este adresa IP a synthetic-host?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "H-W01",
+    "language": "en",
+    "categories": [
+      "working_memory",
+      "blocker_next_action"
+    ],
+    "query": "What part of the candidate release smoke remains unverified?",
+    "targetRecordIds": [
+      "eval-working-release"
+    ]
+  },
+  {
+    "id": "H-W02",
+    "language": "ro",
+    "categories": [
+      "working_memory",
+      "blocker_next_action",
+      "ro_en_wording"
+    ],
+    "query": "Ce parte din smoke-ul candidatului mai așteaptă validare live?",
+    "targetRecordIds": [
+      "eval-working-release"
+    ]
+  },
+  {
+    "id": "H-W03",
+    "language": "en",
+    "categories": [
+      "working_memory",
+      "blocker_next_action"
+    ],
+    "query": "Who must resolve the pending runtime confirmation blocker?",
+    "targetRecordIds": [
+      "eval-working-blocker"
+    ]
+  },
+  {
+    "id": "H-W04",
+    "language": "ro",
+    "categories": [
+      "working_memory",
+      "blocker_next_action",
+      "ro_en_wording"
+    ],
+    "query": "Ce blochează confirmarea runtime în notița de lucru?",
+    "targetRecordIds": [
+      "eval-working-blocker"
+    ]
+  },
+  {
+    "id": "H-W05",
+    "language": "en",
+    "categories": [
+      "working_memory",
+      "blocker_next_action"
+    ],
+    "query": "What should the next operator do according to working memory?",
+    "targetRecordIds": [
+      "eval-working-next"
+    ]
+  },
+  {
+    "id": "H-W06",
+    "language": "en",
+    "categories": [
+      "working_memory",
+      "dependency"
+    ],
+    "query": "Which reachability condition is noted for the pending release check?",
+    "targetRecordIds": [
+      "eval-working-dependency"
+    ]
+  },
+  {
+    "id": "H-W07",
+    "language": "en",
+    "categories": [
+      "working_memory",
+      "blocker_next_action"
+    ],
+    "query": "What health check does the working handoff request next?",
+    "targetRecordIds": [
+      "eval-working-handoff"
+    ]
+  },
+  {
+    "id": "K-EN-01",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "exact_identifier"
+    ],
+    "query": "What exact UUID identifies the ContextKeep project in the recorded context?",
+    "targetRecordIds": [
+      "eval-project-id"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-02",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "exact_identifier",
+      "paraphrase"
+    ],
+    "query": "Which SQLite file under /srv/ck-eval holds the application state?",
+    "targetRecordIds": [
+      "eval-db-path"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-03",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "current_vs_old",
+      "paraphrase"
+    ],
+    "query": "Give the hexadecimal revision that is deployed now, not the retired one.",
+    "targetRecordIds": [
+      "eval-release-current"
+    ],
+    "currentRecordIds": [
+      "eval-release-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-release-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-04",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "paraphrase"
+    ],
+    "query": "Where on synthetic-host is the active ContextKeep release deployed?",
+    "targetRecordIds": [
+      "eval-release-current"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-05",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "blocker_next_action",
+      "paraphrase"
+    ],
+    "query": "What is preventing release verification until the owner confirms the runtime revision?",
+    "targetRecordIds": [
+      "eval-blocker-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-06",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "blocker_next_action",
+      "paraphrase"
+    ],
+    "query": "After the runtime check, what comparison is recorded as the next action?",
+    "targetRecordIds": [
+      "eval-next-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-07",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "paraphrase"
+    ],
+    "query": "Which startup flow resolves a project and then requests one bounded work context?",
+    "targetRecordIds": [
+      "eval-mcp-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-08",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "dependency",
+      "paraphrase"
+    ],
+    "query": "What runtime and schema conditions must hold before deployment can continue?",
+    "targetRecordIds": [
+      "eval-dep-en"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-09",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "current_vs_old",
+      "paraphrase"
+    ],
+    "query": "How many verified NAS copies does the active backup policy retain today?",
+    "targetRecordIds": [
+      "eval-backup-current"
+    ],
+    "currentRecordIds": [
+      "eval-backup-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-EN-A1",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "missing_info_abstention"
+    ],
+    "query": "Which PostgreSQL cluster stores ContextKeep canonical memory?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "K-EN-A2",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "missing_info_abstention"
+    ],
+    "query": "What Kubernetes namespace runs the ContextKeep service?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "K-EN-A3",
+    "language": "en",
+    "categories": [
+      "ckr_independent",
+      "missing_info_abstention"
+    ],
+    "query": "Which hardware security module serial signs the current release?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "K-RO-01",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "paraphrase"
+    ],
+    "query": "Ce flux pornește agentul prin rezolvarea proiectului și apoi cere un singur context limitat?",
+    "targetRecordIds": [
+      "eval-mcp-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-02",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "blocker_next_action",
+      "paraphrase"
+    ],
+    "query": "Ce împiedică verificarea release-ului până când proprietarul confirmă SHA-ul runtime?",
+    "targetRecordIds": [
+      "eval-blocker-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-03",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "blocker_next_action",
+      "paraphrase"
+    ],
+    "query": "După verificarea runtime, ce comparație trebuie făcută ca următoare acțiune?",
+    "targetRecordIds": [
+      "eval-next-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-04",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "exact_identifier",
+      "paraphrase"
+    ],
+    "query": "Care este calea activă de deploy de pe synthetic-host?",
+    "targetRecordIds": [
+      "eval-deploy-path-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-05",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "paraphrase"
+    ],
+    "query": "Unde se află copia de siguranță verificată care poate fi restaurată?",
+    "targetRecordIds": [
+      "eval-backup-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-06",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "dependency",
+      "paraphrase"
+    ],
+    "query": "De ce servicii sau migrare depinde continuarea deploy-ului?",
+    "targetRecordIds": [
+      "eval-dep-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-07",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "dependency",
+      "paraphrase"
+    ],
+    "query": "De ce componente depinde fluxul MCP care furnizează contextul proiectului?",
+    "targetRecordIds": [
+      "eval-schema-ro"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-08",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "current_vs_old",
+      "paraphrase"
+    ],
+    "query": "Câte copii NAS verificate păstrează politica de backup aflată acum în vigoare?",
+    "targetRecordIds": [
+      "eval-backup-current"
+    ],
+    "currentRecordIds": [
+      "eval-backup-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-backup-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-09",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "current_vs_old",
+      "paraphrase"
+    ],
+    "query": "Pe ce port ascultă acum gateway-ul de autentificare, fără portul vechi?",
+    "targetRecordIds": [
+      "eval-gateway-current"
+    ],
+    "currentRecordIds": [
+      "eval-gateway-current"
+    ],
+    "forbiddenRecordIds": [
+      "eval-gateway-old"
+    ],
+    "requiresEvidence": true
+  },
+  {
+    "id": "K-RO-A1",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "missing_info_abstention"
+    ],
+    "query": "Ce cluster PostgreSQL păstrează memoria canonică ContextKeep?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "K-RO-A2",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "missing_info_abstention"
+    ],
+    "query": "În ce namespace Kubernetes rulează serviciul ContextKeep?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "K-RO-A3",
+    "language": "ro",
+    "categories": [
+      "ckr_independent",
+      "ro_en_wording",
+      "missing_info_abstention"
+    ],
+    "query": "Care este numărul serial al modulului hardware care semnează release-ul?",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  }
+]

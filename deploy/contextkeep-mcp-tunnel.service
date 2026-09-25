@@ -1,0 +1,21 @@
+[Unit]
+Description=ContextKeep private Secure MCP Tunnel to ChatGPT
+Documentation=file:///home/operator/releases/contextkeep/current/docs/contextkeep-mcp.md
+After=network-online.target contextkeep.service
+Wants=network-online.target contextkeep.service
+ConditionPathExists=/home/operator/.config/contextkeep/tunnel.env
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=/home/operator/.config/contextkeep/tunnel.env
+ExecStart=/home/operator/.local/lib/contextkeep-tunnel/v0.0.14/tunnel-client run --config /home/operator/.config/contextkeep/mcp-tunnel.yaml
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

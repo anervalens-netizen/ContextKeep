@@ -1,0 +1,505 @@
+@import "tailwindcss";
+
+/* =====================================================================
+   ContextKeep design tokens
+   - Semantic naming (surface / ink / brand / line / status) so themes
+     are CSS-attribute swaps, not class renames.
+   - Light = default; [data-theme="dark"] overrides; [data-theme="auto"]
+     follows prefers-color-scheme.
+   - WCAG AA audit lives in docs/decisions/0016-design-tokens-wcag-aa.md.
+   ===================================================================== */
+
+@theme {
+  /* ---- Color: surfaces ---- */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f6f4;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eeede8;
+  --color-overlay: rgba(15, 23, 23, 0.45);
+
+  /* ---- Color: ink (text) ---- */
+  --color-ink: #1a2e2e;
+  --color-ink-muted: #4d6160;
+  --color-ink-subtle: #748482;
+  --color-ink-on-brand: #ffffff;
+  --color-ink-on-status: #ffffff;
+  /* Foreground for elements sitting on the brand background (buttons,
+     tabs in their active state, the install affordance, etc.). Light
+     = white (dark brand surface); dark = near-black (light brand
+     surface). See docs/decisions/0016 for the WCAG audit. */
+  --color-on-brand: #ffffff;
+
+  /* ---- Color: brand (CK teal) ---- */
+  --color-brand: #0e7c7b;
+  --color-brand-hover: #0a5c5b;
+  --color-brand-active: #084d4c;
+  --color-brand-soft: #e0f0ef;
+  --color-brand-soft-hover: #c9e6e4;
+  --color-brand-fg: #0a5c5b;
+  --color-brand-ring: rgba(14, 124, 123, 0.4);
+
+  /* ---- Color: lines ---- */
+  --color-line: #e3e5e1;
+  --color-line-strong: #d1d4cf;
+
+  /* ---- Color: status (bg + fg + border per status) ---- */
+  /* Success */
+  --color-success-bg: #dcfce7;
+  --color-success-fg: #14532d;
+  --color-success-border: #86efac;
+  --color-success-text: #14532d;
+  /* Warning */
+  --color-warning-bg: #fef3c7;
+  --color-warning-fg: #78350f;
+  --color-warning-border: #fcd34d;
+  --color-warning-text: #78350f;
+  /* Danger */
+  --color-danger-bg: #fee2e2;
+  --color-danger-fg: #991b1b;
+  --color-danger-border: #fca5a5;
+  --color-danger-text: #991b1b;
+  /* Info */
+  --color-info-bg: #dbeafe;
+  --color-info-fg: #1e40af;
+  --color-info-border: #93c5fd;
+  --color-info-text: #1e40af;
+  /* Neutral */
+  --color-neutral-bg: #f1f5f4;
+  --color-neutral-fg: #475569;
+  --color-neutral-border: #cbd5d1;
+  --color-neutral-text: #475569;
+
+  /* ---- Back-compat aliases (M0 pages used these names) ---- */
+  --color-ck-teal: var(--color-brand);
+  --color-ck-teal-dark: var(--color-brand-fg);
+  --color-ck-teal-soft: var(--color-brand-soft);
+  --color-ck-bg: var(--color-surface-muted);
+  --color-ck-surface: var(--color-surface);
+  --color-ck-ink: var(--color-ink);
+  --color-ck-muted: var(--color-ink-muted);
+  --color-ck-line: var(--color-line);
+  --color-ck-amber: var(--color-warning-fg);
+  --color-ck-red: var(--color-danger-fg);
+  --color-ck-green: var(--color-success-fg);
+  --color-ck-blue: var(--color-info-fg);
+
+  /* ---- Spacing scale ---- */
+  --space-px: 1px;
+  --space-0_5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1_5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---- Radius scale ---- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ---- Shadow scale ---- */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 23, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 23, 0.06), 0 1px 2px rgba(15, 23, 23, 0.04);
+  --shadow-md: 0 4px 6px rgba(15, 23, 23, 0.06), 0 2px 4px rgba(15, 23, 23, 0.04);
+  --shadow-lg: 0 10px 15px rgba(15, 23, 23, 0.08), 0 4px 6px rgba(15, 23, 23, 0.04);
+  --shadow-xl: 0 20px 25px rgba(15, 23, 23, 0.10), 0 10px 10px rgba(15, 23, 23, 0.04);
+  --shadow-focus: 0 0 0 3px var(--color-brand-ring);
+
+  /* ---- Typography ---- */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", "Apple Color Emoji", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+
+  /* ---- Motion ---- */
+  --motion-instant: 80ms;
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --easing-decel: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ---- z-index ---- */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-overlay: 20;
+  --z-modal: 30;
+  --z-toast: 40;
+  --z-tooltip: 50;
+
+  /* ---- Tailwind v4 named tokens for backward compat with existing
+         utility classes (text-ck-*, bg-ck-*, border-ck-*). The @theme
+         block above defines the variables; these aliases map to the
+         same Tailwind utility names so existing JSX keeps working. ---- */
+  --color-ck-teal-50: #e0f0ef;
+  --color-ck-teal-100: #c9e6e4;
+  --color-ck-ink-900: #1a2e2e;
+  --color-ck-muted-500: #4d6160;
+  --color-ck-muted-700: #748482;
+  --color-ck-line-200: #e3e5e1;
+  --color-ck-bg-50: #f6f6f4;
+  --color-ck-amber-50: #fef3c7;
+  --color-ck-amber-600: #b45309;
+  --color-ck-amber-700: #92400e;
+  --color-ck-red-50: #fee2e2;
+  --color-ck-red-600: #b91c1c;
+  --color-ck-red-700: #991b1b;
+  --color-ck-green-50: #dcfce7;
+  --color-ck-green-600: #15803d;
+  --color-ck-green-700: #14532d;
+  --color-ck-blue-50: #dbeafe;
+  --color-ck-blue-600: #1d4ed8;
+  --color-ck-blue-700: #1e40af;
+}
+
+/* =====================================================================
+   Theme overrides
+   - [data-theme="dark"] is the explicit dark choice
+   - [data-theme="auto"] + prefers-color-scheme: dark -> dark tokens
+   - Light is the default @theme above (no attribute needed)
+   ===================================================================== */
+
+[data-theme="dark"] {
+  --color-surface: #0f1818;
+  --color-surface-muted: #0a1212;
+  --color-surface-raised: #152222;
+  --color-surface-sunken: #050a0a;
+  --color-overlay: rgba(0, 0, 0, 0.65);
+
+  --color-ink: #e6efee;
+  --color-ink-muted: #a0b3b2;
+  --color-ink-subtle: #6f8584;
+
+  /* Brand lighter for dark mode so teal-on-dark stays readable. */
+  --color-brand: #4ec9c7;
+  --color-brand-hover: #6fd6d4;
+  --color-brand-active: #8adcdb;
+  --color-brand-soft: #14302f;
+  --color-brand-soft-hover: #1c3f3e;
+  --color-brand-fg: #6fd6d4;
+  --color-brand-ring: rgba(78, 201, 199, 0.45);
+
+  --color-line: #1f2e2e;
+  --color-line-strong: #2a3a3a;
+
+  --color-success-bg: #052e16;
+  --color-success-fg: #86efac;
+  --color-success-border: #14532d;
+  --color-success-text: #bbf7d0;
+  --color-warning-bg: #422006;
+  --color-warning-fg: #fcd34d;
+  --color-warning-border: #78350f;
+  --color-warning-text: #fde68a;
+  --color-danger-bg: #450a0a;
+  --color-danger-fg: #fca5a5;
+  --color-danger-border: #7f1d1d;
+  --color-danger-text: #fecaca;
+  --color-info-bg: #0c1e3e;
+  --color-info-fg: #93c5fd;
+  --color-info-border: #1e3a8a;
+  --color-info-text: #bfdbfe;
+  --color-neutral-bg: #1e2a2a;
+  --color-neutral-fg: #94a3b8;
+  --color-neutral-border: #334155;
+  --color-neutral-text: #cbd5e1;
+
+  --color-ck-teal-50: #14302f;
+  --color-ck-teal-100: #1c3f3e;
+  --color-ck-ink-900: #e6efee;
+  --color-ck-muted-500: #a0b3b2;
+  --color-ck-muted-700: #6f8584;
+  --color-ck-line-200: #1f2e2e;
+  --color-ck-bg-50: #0a1212;
+  --color-ck-amber-50: #422006;
+  --color-ck-amber-600: #fcd34d;
+  --color-ck-amber-700: #fde68a;
+  --color-ck-red-50: #450a0a;
+  --color-ck-red-600: #fca5a5;
+  --color-ck-red-700: #fecaca;
+  --color-ck-green-50: #052e16;
+  --color-ck-green-600: #86efac;
+  --color-ck-green-700: #bbf7d0;
+  --color-ck-blue-50: #0c1e3e;
+  --color-ck-blue-600: #93c5fd;
+  --color-ck-blue-700: #bfdbfe;
+
+  /* Dark theme: light-teal brand needs dark text to keep ≥4.5:1 on the
+     button face (white-on-light-teal is ~3.2:1, below AA for body text). */
+  --color-on-brand: #0a1212;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.45), 0 4px 6px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --color-surface: #0f1818;
+    --color-surface-muted: #0a1212;
+    --color-surface-raised: #152222;
+    --color-surface-sunken: #050a0a;
+    --color-overlay: rgba(0, 0, 0, 0.65);
+
+    --color-ink: #e6efee;
+    --color-ink-muted: #a0b3b2;
+    --color-ink-subtle: #6f8584;
+
+    --color-brand: #4ec9c7;
+    --color-brand-hover: #6fd6d4;
+    --color-brand-active: #8adcdb;
+    --color-brand-soft: #14302f;
+    --color-brand-soft-hover: #1c3f3e;
+    --color-brand-fg: #6fd6d4;
+    --color-brand-ring: rgba(78, 201, 199, 0.45);
+
+    --color-line: #1f2e2e;
+    --color-line-strong: #2a3a3a;
+
+    --color-success-bg: #052e16;
+    --color-success-fg: #86efac;
+    --color-success-border: #14532d;
+    --color-success-text: #bbf7d0;
+    --color-warning-bg: #422006;
+    --color-warning-fg: #fcd34d;
+    --color-warning-border: #78350f;
+    --color-warning-text: #fde68a;
+    --color-danger-bg: #450a0a;
+    --color-danger-fg: #fca5a5;
+    --color-danger-border: #7f1d1d;
+    --color-danger-text: #fecaca;
+    --color-info-bg: #0c1e3e;
+    --color-info-fg: #93c5fd;
+    --color-info-border: #1e3a8a;
+    --color-info-text: #bfdbfe;
+    --color-neutral-bg: #1e2a2a;
+    --color-neutral-fg: #94a3b8;
+    --color-neutral-border: #334155;
+    --color-neutral-text: #cbd5e1;
+
+    --color-ck-teal-50: #14302f;
+    --color-ck-teal-100: #1c3f3e;
+    --color-ck-ink-900: #e6efee;
+    --color-ck-muted-500: #a0b3b2;
+    --color-ck-muted-700: #6f8584;
+    --color-ck-line-200: #1f2e2e;
+    --color-ck-bg-50: #0a1212;
+    --color-ck-amber-50: #422006;
+    --color-ck-amber-600: #fcd34d;
+    --color-ck-amber-700: #fde68a;
+    --color-ck-red-50: #450a0a;
+    --color-ck-red-600: #fca5a5;
+    --color-ck-red-700: #fecaca;
+    --color-ck-green-50: #052e16;
+    --color-ck-green-600: #86efac;
+    --color-ck-green-700: #bbf7d0;
+    --color-ck-blue-50: #0c1e3e;
+    --color-ck-blue-600: #93c5fd;
+    --color-ck-blue-700: #bfdbfe;
+    --color-on-brand: #0a1212;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.45), 0 4px 6px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* =====================================================================
+   Base styles
+   ===================================================================== */
+
+html,
+body {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  transition:
+    background-color var(--motion-base) var(--easing-standard),
+    color var(--motion-base) var(--easing-standard);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* =====================================================================
+   Typography helpers (semantic class names — used by new components;
+   existing pages keep their raw Tailwind sizes)
+   ===================================================================== */
+
+.ck-display {
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+.ck-h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+.ck-h2 {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.ck-body {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--color-ink);
+}
+.ck-small {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+.ck-meta {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-ink-subtle);
+  letter-spacing: 0.01em;
+}
+.ck-eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-muted);
+}
+.ck-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* =====================================================================
+   Focus + interaction polish
+   - Visible focus ring ≥3:1 contrast against any surface
+   - Subtle transitions on common interactive surfaces
+   ===================================================================== */
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-xs);
+}
+
+button,
+[role="button"],
+a,
+input,
+textarea,
+select,
+[tabindex]:not([tabindex="-1"]) {
+  transition:
+    background-color var(--motion-fast) var(--easing-standard),
+    border-color var(--motion-fast) var(--easing-standard),
+    color var(--motion-fast) var(--easing-standard),
+    box-shadow var(--motion-fast) var(--easing-standard),
+    transform var(--motion-fast) var(--easing-standard);
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(0.5px);
+}
+
+/* Subtle hover for clickable cards/links (not buttons — Tailwind handles
+   their background colors). */
+.ck-card-interactive:not(:disabled):hover {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+/* =====================================================================
+   Reusable status surfaces (used by StatusBlock, banners, badges)
+   ===================================================================== */
+
+.ck-surface-banner {
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  border-width: 1px;
+  border-style: solid;
+}
+.ck-surface-banner-success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+.ck-surface-banner-warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
+}
+.ck-surface-banner-danger {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+.ck-surface-banner-info {
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
+}
+.ck-surface-banner-neutral {
+  background: var(--color-neutral-bg);
+  border-color: var(--color-neutral-border);
+  color: var(--color-neutral-text);
+}
+
+/* Skeleton shimmer for loading states */
+@keyframes ck-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.ck-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-sunken) 0%,
+    var(--color-line) 50%,
+    var(--color-surface-sunken) 100%
+  );
+  background-size: 200% 100%;
+  animation: ck-shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

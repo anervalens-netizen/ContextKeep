@@ -1,0 +1,20 @@
+# Private Secure MCP Tunnel. Secret material lives outside the repository.
+control_plane:
+  base_url: https://api.openai.com
+  api_key: env:CONTROL_PLANE_API_KEY
+mcp:
+  server_urls:
+    - channel: main
+      url: http://127.0.0.1:3082/mcp
+  extra_headers:
+    Authorization: file:/home/operator/.config/contextkeep/mcp-authorization
+  discovery_extra_headers:
+    Authorization: file:/home/operator/.config/contextkeep/mcp-authorization
+  startup_wait_timeout: 60s
+health:
+  listen_addr: 127.0.0.1:3083
+log:
+  level: info
+  format: json
+admin_ui:
+  open_browser: false

@@ -1,0 +1,35 @@
+name: Gaming CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contextkeep-gaming-ci
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: typecheck + functional tests + build on Gaming
+    runs-on: [self-hosted, Linux, X64, gaming-ci, contextkeep-build]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.22.0
+      - name: Install
+        run: nice -n 5 taskset -c 0-3 pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: nice -n 5 taskset -c 0-3 pnpm typecheck
+      - name: Scoped static quality gates
+        run: nice -n 5 taskset -c 0-3 pnpm check:context-value
+      - name: Functional tests
+        run: nice -n 5 taskset -c 0-3 pnpm test:functional
+      - name: Build
+        run: nice -n 5 taskset -c 0-3 pnpm build

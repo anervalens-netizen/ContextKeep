@@ -1,0 +1,45 @@
+node_modules/
+dist/
+data/
+backups/
+.env
+# Timestamped .env snapshots are owner-local safety copies of a file that
+# holds live provider secrets. They must never be committable: keep them
+# outside the repo (~/.config/contextkeep/env-backups/).
+apps/server/.env.pre-*
+*.log
+coverage/
+.DS_Store
+apps/web/dev-dist/
+test-results/
+playwright-report/
+
+# M0.7 screenshot harness temp store (Playwright runs against a secondary
+# server on :3083 with a disposable SQLite at this path).
+apps/server/data.screenshots/
+
+# The harness writes a manifest.json with the run metadata on every capture;
+# it's regenerated, never hand-edited, and noisy in diffs.
+docs/verification/design-screenshots/manifest.json
+
+# Python operational scripts
+__pycache__/
+
+# Isolated CI/release evidence artifacts (never production data)
+.audit-reports/
+
+# Private operator and build material
+.private/
+private/
+.local/
+*.sqlite
+*.sqlite3
+*.db
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+.env.*
+!.env.example

@@ -1,0 +1,27 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# security/esbuild-ghsa-67mh
+# Patch the single vulnerable esbuild edge pulled in by drizzle-kit's
+# deprecated @esbuild-kit/* wrappers. The override is scoped to the exact
+# parent so the patched copies already used by vite/tsx/drizzle-kit-direct
+# (0.25.12, 0.28.2) stay untouched. Resolves GHSA-67mh-4wv8-2f99.
+overrides:
+  "@esbuild-kit/core-utils>esbuild": "0.25.12"
+
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+  - sharp
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+# Exact stable SDK revisions reviewed and tested for CV07. General release-age
+# policy remains unchanged; this is not an exclusion for future versions.
+minimumReleaseAgeExclude:
+  - '@modelcontextprotocol/client@2.1.0'
+  - '@modelcontextprotocol/core@2.1.0'
+  - '@modelcontextprotocol/node@2.1.0'
+  - '@modelcontextprotocol/sdk@1.30.1'
+  - '@modelcontextprotocol/server@2.1.0'

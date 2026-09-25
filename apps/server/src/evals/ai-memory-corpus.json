@@ -1,0 +1,519 @@
+[
+  {
+    "id": "A5.1-EXACT-01",
+    "language": "en",
+    "categories": ["exact_identifier", "current_vs_old", "evidence"],
+    "query": "a5f1c0de1234567890abcdef1234567890abcd01",
+    "targetRecordIds": ["eval-release-current"],
+    "currentRecordIds": ["eval-release-current"],
+    "forbiddenRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EXACT-02",
+    "language": "en",
+    "categories": ["exact_identifier", "evidence"],
+    "query": "/srv/ck-eval/contextkeep.sqlite3",
+    "targetRecordIds": ["eval-db-path"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EXACT-03",
+    "language": "en",
+    "categories": ["exact_identifier", "evidence"],
+    "query": "22222222-3333-4444-8555-666666666666",
+    "targetRecordIds": ["eval-project-id"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EXACT-04",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "evidence"],
+    "query": "calea /srv/ck-eval/contextkeep synthetic-host",
+    "targetRecordIds": ["eval-deploy-path-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EXACT-05",
+    "language": "en",
+    "categories": ["exact_identifier", "superseded"],
+    "query": "b6e2d1af1234567890abcdef1234567890abcd02",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EXACT-06",
+    "language": "en",
+    "categories": ["exact_identifier", "current_vs_old", "evidence"],
+    "query": "current authentication gateway port 3082",
+    "targetRecordIds": ["eval-gateway-current"],
+    "currentRecordIds": ["eval-gateway-current"],
+    "forbiddenRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-01",
+    "language": "en",
+    "categories": ["paraphrase"],
+    "query": "Which commit is live now?",
+    "targetRecordIds": ["eval-release-current"],
+    "currentRecordIds": ["eval-release-current"],
+    "forbiddenRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-02",
+    "language": "ro",
+    "categories": ["paraphrase", "ro_en_wording"],
+    "query": "Unde se află magazia SQLite?",
+    "targetRecordIds": ["eval-db-path"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-03",
+    "language": "en",
+    "categories": ["paraphrase"],
+    "query": "What is the location of the database store?",
+    "targetRecordIds": ["eval-db-path"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-04",
+    "language": "ro",
+    "categories": ["paraphrase", "ro_en_wording"],
+    "query": "Ce revizie rulează acum?",
+    "targetRecordIds": ["eval-release-current"],
+    "currentRecordIds": ["eval-release-current"],
+    "forbiddenRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-05",
+    "language": "en",
+    "categories": ["paraphrase", "dependency"],
+    "query": "Which service has to be healthy before deployment?",
+    "targetRecordIds": ["eval-dep-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-PARA-06",
+    "language": "ro",
+    "categories": ["paraphrase", "dependency", "ro_en_wording"],
+    "query": "Care este pasul următor pentru verificare?",
+    "targetRecordIds": ["eval-next-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-01",
+    "language": "ro",
+    "categories": ["ro_en_wording", "evidence"],
+    "query": "backupul verificat NAS",
+    "targetRecordIds": ["eval-backup-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-02",
+    "language": "en",
+    "categories": ["ro_en_wording", "evidence"],
+    "query": "verified backup NAS SQLite",
+    "targetRecordIds": ["eval-backup-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-03",
+    "language": "ro",
+    "categories": ["ro_en_wording", "evidence"],
+    "query": "pornirea agentului contextul de lucru",
+    "targetRecordIds": ["eval-mcp-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-04",
+    "language": "en",
+    "categories": ["ro_en_wording", "evidence"],
+    "query": "agent startup project resolution bounded context",
+    "targetRecordIds": ["eval-mcp-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-05",
+    "language": "ro",
+    "categories": ["ro_en_wording", "blocker_next_action", "evidence"],
+    "query": "verificarea release blocată proprietarul confirmă SHA runtime",
+    "targetRecordIds": ["eval-blocker-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-LANG-06",
+    "language": "en",
+    "categories": ["ro_en_wording", "blocker_next_action", "evidence"],
+    "query": "next action compare runtime SHA tested candidate",
+    "targetRecordIds": ["eval-next-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-01",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "current production release SHA",
+    "targetRecordIds": ["eval-release-current"],
+    "currentRecordIds": ["eval-release-current"],
+    "forbiddenRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-02",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "previous production release SHA",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-03",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "current authentication gateway port",
+    "targetRecordIds": ["eval-gateway-current"],
+    "currentRecordIds": ["eval-gateway-current"],
+    "forbiddenRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-04",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "old authentication gateway port 3081",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-05",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "project lifecycle active",
+    "targetRecordIds": ["eval-lifecycle-current"],
+    "currentRecordIds": ["eval-lifecycle-current"],
+    "forbiddenRecordIds": ["eval-lifecycle-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-CURRENT-06",
+    "language": "en",
+    "categories": ["current_vs_old", "superseded", "evidence"],
+    "query": "old lifecycle paused maintenance",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-lifecycle-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-WORK-01",
+    "language": "en",
+    "categories": ["working_memory", "blocker_next_action"],
+    "query": "working memory next action runtime SHA",
+    "targetRecordIds": ["eval-working-next"]
+  },
+  {
+    "id": "A5.1-WORK-02",
+    "language": "en",
+    "categories": ["working_memory", "blocker_next_action"],
+    "query": "working memory blocker runtime verification owner",
+    "targetRecordIds": ["eval-working-blocker"]
+  },
+  {
+    "id": "A5.1-WORK-03",
+    "language": "en",
+    "categories": ["working_memory"],
+    "query": "working memory candidate release runtime check",
+    "targetRecordIds": ["eval-working-release"]
+  },
+  {
+    "id": "A5.1-WORK-04",
+    "language": "en",
+    "categories": ["working_memory", "blocker_next_action"],
+    "query": "working handoff blocker unconfirmed synthetic-host runtime state",
+    "targetRecordIds": ["eval-working-handoff"]
+  },
+  {
+    "id": "A5.1-WORK-05",
+    "language": "en",
+    "categories": ["working_memory", "dependency"],
+    "query": "unreviewed working note release check depends Tailscale gateway",
+    "targetRecordIds": ["eval-working-dependency"]
+  },
+  {
+    "id": "A5.1-SUPERSEDED-01",
+    "language": "en",
+    "categories": ["superseded", "exact_identifier"],
+    "query": "old deployment SHA",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-SUPERSEDED-02",
+    "language": "en",
+    "categories": ["superseded"],
+    "query": "historical gateway port 3081",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-SUPERSEDED-03",
+    "language": "en",
+    "categories": ["superseded", "current_vs_old", "evidence"],
+    "query": "current port instead of old port",
+    "targetRecordIds": ["eval-gateway-current"],
+    "currentRecordIds": ["eval-gateway-current"],
+    "forbiddenRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-SUPERSEDED-04",
+    "language": "en",
+    "categories": ["superseded"],
+    "query": "previous release before 2026-09-19",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-SUPERSEDED-05",
+    "language": "ro",
+    "categories": ["superseded", "ro_en_wording"],
+    "query": "portul vechi 3081 gateway",
+    "includeHistorical": true,
+    "targetRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-ABSTAIN-01",
+    "language": "en",
+    "categories": ["missing_info_abstention"],
+    "query": "zaffre checksum",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "A5.1-ABSTAIN-02",
+    "language": "en",
+    "categories": ["missing_info_abstention"],
+    "query": "quasar owner mobile number",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "A5.1-ABSTAIN-03",
+    "language": "ro",
+    "categories": ["missing_info_abstention", "ro_en_wording"],
+    "query": "valoarea tokenului aurora nebuloasă",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "A5.1-ABSTAIN-04",
+    "language": "en",
+    "categories": ["missing_info_abstention", "evidence"],
+    "query": "zaffre checksum",
+    "targetRecordIds": ["eval-unbacked"],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown",
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-ABSTAIN-05",
+    "language": "ro",
+    "categories": ["missing_info_abstention", "ro_en_wording"],
+    "query": "data pensionării proiectului aurora",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  },
+  {
+    "id": "A5.1-BLOCK-01",
+    "language": "en",
+    "categories": ["blocker_next_action", "evidence"],
+    "query": "release verification blocked owner confirms runtime SHA",
+    "targetRecordIds": ["eval-blocker-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-BLOCK-02",
+    "language": "ro",
+    "categories": ["blocker_next_action", "ro_en_wording", "evidence"],
+    "query": "verificarea release blocată până confirmă proprietarul",
+    "targetRecordIds": ["eval-blocker-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-BLOCK-03",
+    "language": "en",
+    "categories": ["blocker_next_action", "evidence"],
+    "query": "next action compare runtime SHA tested candidate",
+    "targetRecordIds": ["eval-next-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-BLOCK-04",
+    "language": "ro",
+    "categories": ["blocker_next_action", "ro_en_wording", "evidence"],
+    "query": "următoarea acțiune comparăm SHA runtime artefactul testat",
+    "targetRecordIds": ["eval-next-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-BLOCK-05",
+    "language": "en",
+    "categories": ["blocker_next_action"],
+    "query": "deployment blocker runtime verification",
+    "targetRecordIds": ["eval-blocker-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-DEP-01",
+    "language": "en",
+    "categories": ["dependency", "evidence"],
+    "query": "deployment depends contextkeep service healthy SQLite schema migration",
+    "targetRecordIds": ["eval-dep-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-DEP-02",
+    "language": "ro",
+    "categories": ["dependency", "ro_en_wording", "evidence"],
+    "query": "deploy depinde serviciul contextkeep service sănătos migrarea schemei SQLite",
+    "targetRecordIds": ["eval-dep-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-DEP-03",
+    "language": "en",
+    "categories": ["dependency", "evidence"],
+    "query": "MCP flow depends project resolver bounded context endpoint",
+    "targetRecordIds": ["eval-schema-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-DEP-04",
+    "language": "ro",
+    "categories": ["dependency", "ro_en_wording", "evidence"],
+    "query": "fluxul MCP depinde rezolvarea proiectului endpoint context limitat",
+    "targetRecordIds": ["eval-schema-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EVID-01",
+    "language": "en",
+    "categories": ["evidence", "current_vs_old"],
+    "query": "production release evidence tested candidate",
+    "targetRecordIds": ["eval-release-current"],
+    "currentRecordIds": ["eval-release-current"],
+    "forbiddenRecordIds": ["eval-release-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-EVID-02",
+    "language": "en",
+    "categories": ["evidence"],
+    "query": "backup passed SQLite integrity evidence",
+    "targetRecordIds": ["eval-backup-en"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-EXACT-01",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "evidence"],
+    "query": "calea deploy curentă /srv/ck-eval/contextkeep synthetic-host",
+    "targetRecordIds": ["eval-deploy-path-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-EXACT-02",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "evidence"],
+    "query": "backupul verificat NAS restaurat",
+    "targetRecordIds": ["eval-backup-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-EXACT-03",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "evidence"],
+    "query": "fluxul pornire agentului rezolvă proiectul",
+    "targetRecordIds": ["eval-mcp-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-EXACT-04",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "blocker_next_action", "evidence"],
+    "query": "verificarea release blocată SHA runtime",
+    "targetRecordIds": ["eval-blocker-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-EXACT-05",
+    "language": "ro",
+    "categories": ["exact_identifier", "ro_en_wording", "blocker_next_action", "evidence"],
+    "query": "următoarea acțiune SHA runtime artefactul testat",
+    "targetRecordIds": ["eval-next-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-DEP-01",
+    "language": "ro",
+    "categories": ["dependency", "ro_en_wording", "evidence"],
+    "query": "deploy depinde migrarea schemei SQLite",
+    "targetRecordIds": ["eval-dep-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-DEP-02",
+    "language": "ro",
+    "categories": ["dependency", "ro_en_wording", "evidence"],
+    "query": "fluxul MCP depinde rezolvarea proiectului endpoint context",
+    "targetRecordIds": ["eval-schema-ro"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-PARA-01",
+    "language": "ro",
+    "categories": ["paraphrase", "ro_en_wording"],
+    "query": "Care este calea pentru baza de date SQLite?",
+    "targetRecordIds": ["eval-db-path"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-PARA-02",
+    "language": "ro",
+    "categories": ["paraphrase", "ro_en_wording", "current_vs_old"],
+    "query": "Ce port folosește gateway-ul acum?",
+    "targetRecordIds": ["eval-gateway-current"],
+    "currentRecordIds": ["eval-gateway-current"],
+    "forbiddenRecordIds": ["eval-gateway-old"],
+    "requiresEvidence": true
+  },
+  {
+    "id": "A5.1-RO-WORK-01",
+    "language": "ro",
+    "categories": ["working_memory", "blocker_next_action", "ro_en_wording"],
+    "query": "memoria de lucru are blocaj la verificarea runtime",
+    "targetRecordIds": ["eval-working-blocker"]
+  },
+  {
+    "id": "A5.1-RO-ABSTAIN-01",
+    "language": "ro",
+    "categories": ["missing_info_abstention", "ro_en_wording"],
+    "query": "care este parola proiectului orion",
+    "targetRecordIds": [],
+    "shouldAbstain": true,
+    "abstentionCheck": "synthesis_unknown"
+  }
+]

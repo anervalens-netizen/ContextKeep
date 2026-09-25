@@ -1,0 +1,100 @@
+name: ci
+
+# Triggers: every push to main and every PR targeting main. No nightly
+# schedules, no tag pushes — CI exists to prove that future commits
+# keep typecheck / functional tests / build green on independent
+# GitHub-hosted hardware. It is NOT a §10 perf gate (shared-runner
+# noise makes p95 nondeterministic; the local Dell is authoritative for
+# absolute §10 perf — see apps/server/test/perf.test.ts).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# One job. No matrix — the repo pins Node + pnpm exact in package.json
+# (`pnpm@11.22.0`), so a single Node 24 runner is the contract.
+
+jobs:
+  test:
+    name: typecheck + functional + recovery + browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm (exact version from packageManager)
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.22.0
+
+      # 1. INSTALL — frozen lockfile so CI cannot drift from the
+      # committed dependency graph. If the lockfile is stale relative to
+      # package.json, the step fails explicitly rather than silently
+      # adding new entries. Native deps (better-sqlite3, esbuild, sharp)
+      # are auto-built via pnpm-workspace.yaml `onlyBuiltDependencies` /
+      # `allowBuilds` — no explicit approve step required.
+      - name: pnpm install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # 2. TYPECHECK — root script builds @contextkeep/shared first so
+      # the `./dist/index.d.ts` types are present; then runs strict TS
+      # across shared / server / web.
+      - name: pnpm typecheck
+        run: pnpm typecheck
+
+      - name: Scoped static quality gates
+        run: |
+          pnpm check:context-value
+          pnpm check:audit
+
+      - name: Setup Python for operational recovery tests
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Operational backup and restore regressions
+        run: pnpm test:ops
+
+      # 3. FUNCTIONAL TESTS — `pnpm test:functional` runs shared + server
+      # (functional, excludes perf.test.ts) + web sequentially. Perf is
+      # intentionally excluded from GitHub CI: §10 perf is a local-Dell
+      # contract; running it on GitHub-hosted shared runners would be
+      # nondeterministic. Dell/local `pnpm test` chains `test:functional`
+      # + the dedicated perf gate.
+      - name: pnpm test (functional)
+        run: pnpm test:functional
+
+      # 4. BUILD — server (tsc) + web (tsc + vite + PWA service worker).
+      - name: pnpm build
+        env:
+          NODE_ENV: production
+        run: pnpm build
+
+      - name: Install isolated browser
+        run: pnpm --filter @contextkeep/web exec playwright install --with-deps chromium
+
+      - name: Authenticated desktop and mobile navigation
+        env:
+          CK_NAV_SHOT_DIR: ${{ github.workspace }}/.audit-reports/navigation
+        run: pnpm verify:nav
+
+      - name: Dependency advisories
+        run: pnpm audit --audit-level moderate
+
+      - name: Retain browser verification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: navigation-${{ github.sha }}
+          path: .audit-reports/navigation
+          if-no-files-found: ignore
+          retention-days: 7

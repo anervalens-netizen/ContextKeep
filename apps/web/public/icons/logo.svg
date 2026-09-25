@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!-- ContextKeep CK monogram — production mark, dark variant for light backgrounds.
+       Source of truth: brand/contextkeep-logo-kit/01_Vector/contextkeep-ck-black.svg
+       Regenerate the PWA/favicon set with the web package "icons" script. -->
+  <g fill="#0F1119">
+    <path d="M500 220H345C190 220 90 335 90 500S190 780 345 780H500L410 650H345C260 650 215 590 215 500S260 350 345 350H410Z"/>
+    <path d="M440 500L690 220H850L610 500L850 780H690Z"/>
+  </g>
+</svg>

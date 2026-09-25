@@ -1,0 +1,36 @@
+{
+  "name": "contextkeep",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "build": "pnpm check:privacy && pnpm -r build",
+    "test": "pnpm test:functional && pnpm --filter @contextkeep/server test:perf",
+    "test:functional": "pnpm --workspace-concurrency=1 -r test",
+    "typecheck": "pnpm --filter @contextkeep/shared build && pnpm -r typecheck",
+    "verify:context-value": "node scripts/context-value-gates.mjs",
+    "dev": "pnpm --filter @contextkeep/shared build && pnpm --parallel --filter @contextkeep/server --filter @contextkeep/web dev",
+    "start": "pnpm --filter @contextkeep/server start",
+    "db:migrate": "pnpm --filter @contextkeep/server db:migrate",
+    "db:seed": "pnpm --filter @contextkeep/server db:seed",
+    "backup": "pnpm --filter @contextkeep/server backup",
+    "restore": "pnpm --filter @contextkeep/server restore",
+    "icons": "pnpm --filter @contextkeep/web icons",
+    "lint:context-value": "eslint --config eslint.context-value.config.mjs apps/server/src/services/context-selection.ts apps/server/src/services/context-packing.ts packages/shared/src/resume.ts apps/server/src/evals/context-value-resume.ts apps/server/src/services/context-budget.ts apps/server/src/services/sync-policy.ts apps/web/src/lib/offline/queue-policy.ts apps/web/src/lib/provenance-query.ts apps/web/src/components/useShellData.ts",
+    "format:context-value": "prettier --check apps/server/src/services/context-selection.ts apps/server/src/services/context-packing.ts packages/shared/src/resume.ts apps/server/src/evals/context-value-resume.ts apps/server/src/services/context-budget.ts apps/server/src/services/sync-policy.ts apps/web/src/lib/offline/queue-policy.ts apps/web/src/lib/provenance-query.ts apps/web/src/components/useShellData.ts",
+    "check:context-value": "node scripts/context-value-gates.mjs && pnpm lint:context-value && pnpm format:context-value",
+    "check:audit": "node scripts/audit-quality-gates.mjs",
+    "test:ops": "python3 -m unittest discover -s ops -p \"test_recovery.py\" -v",
+    "verify:nav": "pnpm --filter @contextkeep/web verify:nav",
+    "verify:load": "node --import ./apps/server/node_modules/tsx/dist/esm/index.mjs apps/server/scripts/audit-large-project.ts",
+    "check:privacy": "node .github/test-public-data.mjs && node .github/check-public-data.mjs",
+    "prepare": "node .github/install-hooks.mjs"
+  },
+  "devDependencies": {
+    "eslint": "10.11.0",
+    "prettier": "3.9.9",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.70.1"
+  }
+}
