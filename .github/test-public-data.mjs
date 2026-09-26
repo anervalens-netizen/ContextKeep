@@ -28,3 +28,15 @@ const messageDetectors=inspectCommitMessage('0123456789abcdef',[
 for(const detector of ['access-token','password-verifier','private-key','non-example-email','personal-home-directory'])assert.ok(messageDetectors.includes(detector),detector);
 assert.deepEqual(inspectCommitMessage('0123456789abcdef','ordinary multiline release notes\n\noperator@example.invalid'),[]);
 console.log('PASS: public-data guard positive and negative cases.');
+
+for(const file of ['pnpm-lock.yaml','package-lock.json','LICENSE','LICENSE.txt','NOTICE','licenses/NOTICE-third-party']){
+ assert.equal(inspectPublicFile(file,syntheticEmail).length,0,'maintainer email remains allowed in '+file);
+ const cases=[['access-token',syntheticToken],['password-verifier',syntheticVerifier],['private-key',syntheticPrivateKey],['personal-home-directory',syntheticHome]];
+ for(const [kind,value] of cases){
+  const issues=inspectPublicFile(file,syntheticEmail+'\n'+value);
+  assert.ok(issues.some(issue=>issue.kind===kind),file+': '+kind);
+  assert.ok(!issues.some(issue=>issue.kind==='non-example-email'),file+': only email exemption applies');
+  assert.ok(!JSON.stringify(issues).includes(value),'detector output must not disclose matching content');
+ }
+}
+console.log('PASS: dependency and license email exemptions retain every sensitive-content detector.');

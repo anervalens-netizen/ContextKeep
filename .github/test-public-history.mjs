@@ -214,3 +214,41 @@ function capturedCheck(args, directory) {
 console.log(
   "PASS: binary path rules and every historical blob alias remain enforced.",
 );
+
+for (const filename of ["package-lock.json", "LICENSE", "NOTICE.txt"]) {
+  const { directory, command } = fixtureRepository();
+  const email = ["maintainer", "vendor.testdomain.org"].join("@");
+  writeFileSync(path.join(directory, filename), email + "\n");
+  command(["add", "."]);
+  command(["commit", "-qm", "Synthetic third-party metadata"]);
+  assert.equal(capturedCheck(["--history", "HEAD"], directory).code, 0);
+  const secret = ["gh", "p_", "z".repeat(30)].join("");
+  writeFileSync(path.join(directory, filename), email + "\n" + secret);
+  command(["add", "."]);
+  for (const args of [[], ["--staged"]]) {
+    const checked = capturedCheck(args, directory);
+    assert.equal(checked.code, 1);
+    assert.ok(
+      checked.result.issues.some(
+        (issue) => issue.path === filename && issue.kind === "access-token",
+      ),
+    );
+    assert.ok(!JSON.stringify(checked.result).includes(secret));
+  }
+  command(["commit", "-qm", "Synthetic forbidden content inside metadata"]);
+  writeFileSync(path.join(directory, filename), email + "\n");
+  command(["add", "."]);
+  command(["commit", "-qm", "Remove synthetic forbidden content"]);
+  assert.equal(capturedCheck([], directory).code, 0);
+  const history = capturedCheck(["--history", "HEAD"], directory);
+  assert.equal(history.code, 1);
+  assert.ok(
+    history.result.issues.some(
+      (issue) => issue.path === filename && issue.kind === "access-token",
+    ),
+  );
+  assert.ok(!JSON.stringify(history.result).includes(secret));
+}
+console.log(
+  "PASS: metadata exceptions retain secret detection in staged, working and historical content.",
+);

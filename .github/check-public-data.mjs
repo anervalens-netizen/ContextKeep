@@ -34,7 +34,13 @@ export function inspectPublicFile(path,text=''){
  const add=(kind,index=0)=>issues.push({path,kind,line:text.slice(0,index).split('\n').length});
  if((privatePath.test(path)&&!path.endsWith('.env.example'))||privateDirs.test(path))add('private-file-path');
  if(/(?:^|\/)(?:screenshots|design-screenshots)(?:\/|$)/.test(path)||path.startsWith('public/products/'))add('private-or-generated-asset');
- if(!/(?:^|\/)(?:pnpm-lock\.yaml|package-lock\.json|LICENSE[^/]*|NOTICE[^/]*)$/.test(path))for(const detection of textDetections(text))add(detection.kind,detection.index);
+ // Third-party license/lock metadata may contain legitimate maintainer emails.
+ // That narrow exception never disables credentials, keys, verifiers or paths.
+ const allowMaintainerEmail=/(?:^|\/)(?:pnpm-lock\.yaml|package-lock\.json|LICENSE[^/]*|NOTICE[^/]*)$/.test(path);
+ for(const detection of textDetections(text)){
+  if(allowMaintainerEmail&&detection.kind==='non-example-email')continue;
+  add(detection.kind,detection.index);
+ }
  return issues;
 }
 export function inspectCommitMessage(commit,text=''){
