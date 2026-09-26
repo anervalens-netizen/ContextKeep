@@ -18,7 +18,7 @@ Scope: preserve the existing architecture and data model; strengthen failure han
 - [x] Local UI continuity: validated URL tab, neutral source provenance, readable key status labels without redesign (R12).
 - [x] Durable event identity: old completed results may compact, but their keys cannot silently become new writes; unresolved outcomes retain their barrier (R13).
 - [x] Evaluate context packing against existing deterministic evidence/provenance checks. Change ordering only if the same budget retains more relevant material without degrading canonical constraints.
-- [ ] Full regression/type/build/privacy/operational/browser checks and independent final review on the integrated revision.
+- [x] Full regression/type/build/privacy/operational/browser checks and independent final review on the integrated revision.
 
 ## Delivery order
 
@@ -30,3 +30,5 @@ Scope: preserve the existing architecture and data model; strengthen failure han
 ## Integrated verification
 
 Implementation items have focused regression coverage, including valid connector receipts, failed privacy-marker removal, transaction-compatible read batches and actual recovery entrypoint identity. The final integrated release gate remains the completion criterion. Context packing retains deterministic evidence/authority rules rather than introducing an unproven ranking change.
+
+Verification on integrated source revision `c169ead`: all ten release checks passed, including 871 functional tests, 68 operational tests, five responsive browser widths, real browser offline replay with the same event key, and five denied-storage routes. Independent review findings have corresponding regression coverage. Dependency audit reported no known vulnerabilities at verification time. This plan is completed source history, not a statement of any private deployment state.
