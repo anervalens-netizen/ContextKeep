@@ -40,6 +40,7 @@ const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   if (descriptor) Object.defineProperty(window, "localStorage", descriptor);
   setLocalDataAccessPaused(false);
   vi.clearAllMocks();
@@ -84,4 +85,25 @@ describe("denied-storage startup", () => {
     await expect(offlineDb()).rejects.toThrow("paused");
     client.clear();
   });
+  it("offers online-only recovery when reads work but privacy marker removal fails", async () => {
+    setLocalDataAccessPaused(true);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("synthetic removal refusal", "SecurityError");
+    });
+    fetchMock.mockResolvedValue({ authenticated: true, needsSetup: false });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><Layout /></QueryClientProvider>);
+    expect(screen.getByText("Local ContextKeep data cleared")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue using ContextKeep" }));
+    expect(await screen.findByText("Browser storage unavailable")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("ck:local-data-paused")).toBe("1");
+    expect(isLocalDataAccessPaused()).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Continue online without local storage" }));
+    expect(await screen.findByText("Authenticated server shell")).toBeTruthy();
+    expect(isLocalDataAccessPaused()).toBe(true);
+    await expect(offlineDb()).rejects.toThrow(/paused/i);
+    client.clear();
+  });
+
 });

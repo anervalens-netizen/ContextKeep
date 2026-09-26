@@ -34,17 +34,27 @@ function announce(paused: boolean): void {
   }
 }
 
-export function setLocalDataAccessPaused(paused: boolean): void {
-  memoryPaused = paused;
+export function setLocalDataAccessPaused(paused: boolean): boolean {
+  // Pause immediately, but never announce a resume before the durable marker
+  // is removed. A read-capable browser can still deny removeItem.
+  if (paused) memoryPaused = true;
+  let persisted = true;
   if (typeof window !== "undefined") {
     try {
       if (paused) window.localStorage.setItem(LOCAL_DATA_PAUSED_KEY, "1");
       else window.localStorage.removeItem(LOCAL_DATA_PAUSED_KEY);
     } catch {
-      // The in-memory pause still applies when browser storage is denied.
+      persisted = false;
     }
   }
+  if (!paused && !persisted) {
+    memoryPaused = true;
+    announce(true);
+    return false;
+  }
+  memoryPaused = paused;
   announce(paused);
+  return persisted;
 }
 
 export function subscribeLocalDataAccess(handler: (paused: boolean) => void): () => void {

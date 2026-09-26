@@ -645,6 +645,37 @@ class RuntimeDataIdentityTests(unittest.TestCase):
         self.assertTrue(result['database_inode_verified'])
         self.assertNotIn('not-for-output',json.dumps(result))
 
+    def test_backup_process_observer_rejects_wrong_entrypoint(self):
+        other=self.root/'other/server.js';put(other,'synthetic different application')
+        (self.proc/'cmdline').write_bytes(('node\0'+str(other)+'\0').encode())
+        with self.assertRaisesRegex(RuntimeError,'entry point differs'):
+            backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+
+    def test_backup_process_observer_rejects_preloads(self):
+        original=(self.proc/'environ').read_bytes()
+        for option in ('--require ./synthetic.cjs', '--import ./synthetic.mjs'):
+            with self.subTest(option=option):
+                (self.proc/'environ').write_bytes(original+('NODE_OPTIONS='+option+'\0').encode())
+                with self.assertRaisesRegex(RuntimeError,'NODE_OPTIONS'):
+                    backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+
+    def test_backup_process_observer_rejects_loader_launch(self):
+        (self.proc/'cmdline').write_bytes(b'node\0--import\0./synthetic.mjs\0dist/server.js\0')
+        with self.assertRaisesRegex(RuntimeError,'direct Node server.js'):
+            backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+
+    def test_backup_process_observer_accepts_relative_entrypoint_and_empty_node_options(self):
+        (self.proc/'cmdline').write_bytes(b'node\0dist/server.js\0')
+        env=self.proc/'environ';env.write_bytes(env.read_bytes()+b'NODE_OPTIONS=\0')
+        result=backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+        self.assertEqual(result['entry_point'],str(self.entry))
+
+    def test_backup_process_observer_rejects_escaped_entrypoint(self):
+        outside=self.root/'outside.js';put(outside,'synthetic outside code')
+        self.entry.unlink();self.entry.symlink_to(outside)
+        with self.assertRaisesRegex(RuntimeError,'entry point escapes'):
+            backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+
     def test_backup_process_observer_rejects_unsupported_proc_root(self):
         with self.assertRaisesRegex(RuntimeError,'unsupported'):
             backup.verify_running_process(lambda _: '123',proc_root=self.root/'missing-proc')

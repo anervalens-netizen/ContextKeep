@@ -335,6 +335,12 @@ describe("M3.3 ExampleAssistant connector", () => {
     expect(source.original_text).not.toContain("memory-secret-value");
     expect(source.original_text).not.toContain("MUST NEVER BE CATALOGUED");
 
+    const journalPath = "journal\\2026-09-11.md";
+    const journal = await t.post("/api/connectors/dsh/memory/import", { relativePath: journalPath, adapterId: "manual" });
+    expectStatus(journal, 200);
+    expect(journal.json<DshImportResultDto>().externalId).toBe("memory:journal/2026-09-11.md");
+    expect(validateMutationAcknowledgement("/api/connectors/dsh/memory/import", "POST", { relativePath: journalPath }, journal.json()).valid).toBe(true);
+
     const forbidden = await t.post("/api/connectors/dsh/memory/import", {
       relativePath: "PRIVATE-NOTES.md",
       adapterId: "manual",

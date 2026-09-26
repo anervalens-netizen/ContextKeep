@@ -66,7 +66,7 @@ export function Layout(): ReactNode {
     isLocalDataAccessPaused,
   );
   const [localPurgeErrors, setLocalPurgeErrors] = useState<string[]>([]);
-  const [storageUnavailable] = useState(isLocalDataStorageUnavailable);
+  const [storageUnavailable, setStorageUnavailable] = useState(isLocalDataStorageUnavailable);
 
   const auth = useQuery({
     queryKey: ["auth-status"],
@@ -231,7 +231,11 @@ export function Layout(): ReactNode {
       setNotice({ kind: "info", text: "Online-only session: local browser storage is unavailable. Offline changes cannot be saved or replayed." });
       return;
     }
-    setLocalDataAccessPaused(false);
+    if (!setLocalDataAccessPaused(false)) {
+      setStorageUnavailable(true);
+      setLocalPurgeErrors(["The browser refused to remove the local privacy pause. Local persistence remains disabled."]);
+      return;
+    }
     window.location.reload();
   };
 

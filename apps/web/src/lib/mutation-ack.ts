@@ -226,7 +226,7 @@ export function validateMutationAcknowledgement(
       const checked = DshImportResultDto.safeParse(value);
       if (!checked.success) return invalid("DSH import response is malformed");
       const input = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : null;
-      const expected = url.endsWith("/sessions/import") ? input?.sessionId : typeof input?.relativePath === "string" ? `memory:${input.relativePath}` : undefined;
+      const expected = url.endsWith("/sessions/import") ? input?.sessionId : typeof input?.relativePath === "string" ? `memory:${input.relativePath.replaceAll("\\", "/")}` : undefined;
       return typeof expected === "string" && checked.data.externalId !== expected
         ? invalid("DSH import response identity does not match the request")
         : { valid: true, value: checked.data };

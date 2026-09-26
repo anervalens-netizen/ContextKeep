@@ -100,16 +100,28 @@ def verify_running_process(run, *, proc_root=P('/proc')):
     for entry in (proc/'environ').read_bytes().split(b'\0'):
         if b'=' not in entry:continue
         key,value=entry.split(b'=',1)
-        if key in {b'CK_DATA_DIR',b'CK_BUILD_SHA'}:
+        if key in {b'CK_DATA_DIR',b'CK_BUILD_SHA',b'NODE_OPTIONS'}:
             name=key.decode()
             if name in selected:raise RuntimeError('Duplicate selected runtime environment key')
             selected[name]=os.fsdecode(value)
+    if selected.get('NODE_OPTIONS','').strip():
+        raise RuntimeError('NODE_OPTIONS must be empty for the supported direct Node launch proof')
     configured=selected.get('CK_DATA_DIR')
     if not configured or not selected.get('CK_BUILD_SHA'):
         raise RuntimeError('Running service has no explicit CK_DATA_DIR/CK_BUILD_SHA identity')
     data=(P(configured) if P(configured).is_absolute() else cwd/P(configured)).resolve(strict=True)
     if selected['CK_BUILD_SHA']!=release.name:
         raise RuntimeError('Running CK_BUILD_SHA differs from the release path')
+    entry=(release/'apps/server/dist/server.js').resolve(strict=True)
+    if not entry.is_relative_to(release):
+        raise RuntimeError('Pinned server entry point escapes the release')
+    argv=(proc/'cmdline').read_bytes().rstrip(b'\0').split(b'\0')
+    if len(argv)!=2 or not argv[1] or argv[1].startswith(b'-'):
+        raise RuntimeError('Runtime proof requires the supported direct Node server.js launch')
+    invoked=P(os.fsdecode(argv[1]))
+    invoked=(invoked if invoked.is_absolute() else cwd/invoked).resolve(strict=True)
+    if invoked!=entry:
+        raise RuntimeError('Executed server entry point differs from the pinned release')
     executable=(proc/'exe').resolve(strict=True)
     if not executable.is_file():raise RuntimeError('Running service interpreter is not a regular file')
     database=data/'store.sqlite';database_stat=database.lstat()
@@ -128,7 +140,11 @@ def verify_running_process(run, *, proc_root=P('/proc')):
     if not descriptor_matches:
         raise RuntimeError('Running process does not hold the expected SQLite inode')
     if _process_starttime(proc)!=start:raise RuntimeError('Service process identity changed during verification')
-    return {'pid':pid,'data_dir':str(data),'release_dir':str(release),'node':str(executable),'database_inode_verified':True}
+    final_stat=database.lstat()
+    if (not stat.S_ISREG(final_stat.st_mode) or final_stat.st_nlink!=1 or
+            (final_stat.st_dev,final_stat.st_ino)!=(database_stat.st_dev,database_stat.st_ino)):
+        raise RuntimeError('Expected database changed during verification')
+    return {'pid':pid,'data_dir':str(data),'release_dir':str(release),'node':str(executable),'database_inode_verified':True,'entry_point':str(entry)}
 
 
 def validate_runtime_identity(profile, observed_host, data_dir=None, release_dir=None, require_data=True, require_observed=True):
