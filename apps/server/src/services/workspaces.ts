@@ -2,7 +2,11 @@ import {
   discoverGitWorkspaces,
   type WorkspaceScanConfig,
 } from "./workspace-discovery.js";
-import { laterIso, timestampMs } from "./workspace-policy.js";
+import {
+  laterIso,
+  nextWorkspaceUpdatedAt,
+  timestampMs,
+} from "./workspace-policy.js";
 export { discoverGitWorkspaces } from "./workspace-discovery.js";
 export { normalizeGitRemote } from "./workspace-policy.js";
 export type { WorkspaceScanConfig } from "./workspace-discovery.js";
@@ -162,7 +166,7 @@ async function performWorkspaceScan(
               item.lastGitActivity,
             ),
             lastSeenAt: now,
-            updatedAt: now,
+            updatedAt: nextWorkspaceUpdatedAt(existing.updatedAt, now),
           })
           .where(eq(workspaceBindings.id, existing.id))
           .run();
@@ -238,10 +242,14 @@ export function applyWorkspaceAction(
       );
     }
 
+    // The check and token advance share the transaction. Wall-clock equality
+    // or rollback must never make an old binding decision current again.
+    const nextUpdatedAt = nextWorkspaceUpdatedAt(before.updatedAt, now);
+
     if (input.action === "link") {
       const project = requireProject(tx, input.projectId);
       tx.update(workspaceBindings)
-        .set({ projectId: project.id, ignored: 0, updatedAt: now })
+        .set({ projectId: project.id, ignored: 0, updatedAt: nextUpdatedAt })
         .where(eq(workspaceBindings.id, workspaceId))
         .run();
       writeAudit(tx, {
@@ -258,7 +266,7 @@ export function applyWorkspaceAction(
 
     if (input.action === "unlink") {
       tx.update(workspaceBindings)
-        .set({ projectId: null, updatedAt: now })
+        .set({ projectId: null, updatedAt: nextUpdatedAt })
         .where(eq(workspaceBindings.id, workspaceId))
         .run();
       writeAudit(tx, {
@@ -275,7 +283,7 @@ export function applyWorkspaceAction(
 
     if (input.action === "ignore") {
       tx.update(workspaceBindings)
-        .set({ projectId: null, ignored: 1, updatedAt: now })
+        .set({ projectId: null, ignored: 1, updatedAt: nextUpdatedAt })
         .where(eq(workspaceBindings.id, workspaceId))
         .run();
       writeAudit(tx, {
@@ -292,7 +300,7 @@ export function applyWorkspaceAction(
 
     if (input.action === "unignore") {
       tx.update(workspaceBindings)
-        .set({ ignored: 0, updatedAt: now })
+        .set({ ignored: 0, updatedAt: nextUpdatedAt })
         .where(eq(workspaceBindings.id, workspaceId))
         .run();
       writeAudit(tx, {
@@ -337,7 +345,7 @@ export function applyWorkspaceAction(
       })
       .run();
     tx.update(workspaceBindings)
-      .set({ projectId, ignored: 0, updatedAt: now })
+      .set({ projectId, ignored: 0, updatedAt: nextUpdatedAt })
       .where(eq(workspaceBindings.id, workspaceId))
       .run();
     writeAudit(tx, {

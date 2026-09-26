@@ -65,6 +65,16 @@ export function timestampMs(value: string | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Keep the existing timestamp-shaped concurrency token strictly increasing. */
+export function nextWorkspaceUpdatedAt(
+  previous: string,
+  observed: string,
+): string {
+  return new Date(
+    Math.max(timestampMs(observed), timestampMs(previous) + 1),
+  ).toISOString();
+}
+
 export function laterIso(a: string | null, b: string | null): string | null {
   if (!a) return b;
   if (!b) return a;

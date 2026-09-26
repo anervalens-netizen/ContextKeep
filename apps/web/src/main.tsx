@@ -16,6 +16,10 @@ import "./codex-theme.css";
 async function replayAvailableLocalData(): Promise<void> {
   const { listConflicts, listMutations, replayQueue } = offlineQueue;
   const result = await replayQueue();
+  // A successful prefix already changed server state, even if a later
+  // operation stops or local queue inspection fails. Refresh independently
+  // of the notice selected below; unconfirmed operations stay queued.
+  if (result.replayed > 0) void queryClient.invalidateQueries();
   const ui = useUiStore.getState();
   const remaining = await listMutations();
   ui.setQueuedCount(remaining.length);
@@ -94,7 +98,6 @@ async function replayAvailableLocalData(): Promise<void> {
     });
   } else if (result.replayed > 0) {
     ui.setNotice({ kind: "success", text: `Replayed ${result.replayed} offline change(s).` });
-    void queryClient.invalidateQueries();
   }
 }
 
