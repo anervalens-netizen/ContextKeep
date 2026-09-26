@@ -13,6 +13,25 @@ import {
 
 export const MCP_RESULT_BYTE_BUDGET = 750_000;
 
+function boundedResult(result: CallToolResult): CallToolResult {
+  if (Buffer.byteLength(JSON.stringify(result), "utf8") > MCP_RESULT_BYTE_BUDGET) {
+    throw new ApiError(413, "result_too_large", "Use smaller pages or a smaller context budget.");
+  }
+  return result;
+}
+
+function replayStoredResult(body: string, secrets: string[]): CallToolResult {
+  try {
+    const result = safeValue(JSON.parse(body), secrets) as CallToolResult;
+    if (!result || typeof result !== "object" || !Array.isArray(result.content)) throw new Error("Invalid stored result");
+    return boundedResult(result);
+  } catch {
+    // Old receipts can predate the complete-result budget. Retain their event
+    // identity and never invoke the mutation again merely to rebuild a reply.
+    throw new ApiError(409, "idempotency_result_unavailable", "The earlier request completed, but its stored reply cannot be returned safely. Reconcile existing state; do not replace the event key.");
+  }
+}
+
 /** Redact both known credentials and credential-shaped project text at the boundary. */
 export function safeValue(value: unknown, secrets: string[]): unknown {
   return JSON.parse(JSON.stringify(value, (_key, item: unknown) => {
@@ -38,10 +57,7 @@ export function toolResult(value: unknown, secrets: string[]): CallToolResult {
   // This is the complete MCP result object, including both protocol content
   // and structuredContent. JSON-RPC envelope bytes are transport overhead and
   // are not part of this result budget.
-  if (Buffer.byteLength(JSON.stringify(result), "utf8") > MCP_RESULT_BYTE_BUDGET) {
-    throw new ApiError(413, "result_too_large", "Use smaller pages or a smaller context budget.");
-  }
-  return result;
+  return boundedResult(result);
 }
 
 export function toolError(error: unknown, secrets: string[]): CallToolResult {
@@ -73,7 +89,7 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         error.code === "idempotency_in_progress" ||
         transientStatus;
       const nextAction =
-        error.code === "idempotency_outcome_unknown" ? "reconcile_state_before_retry"
+        ["idempotency_outcome_unknown", "idempotency_result_expired", "idempotency_result_unavailable"].includes(error.code) ? "reconcile_state_before_retry"
         : error.code === "idempotency_in_progress" ? "retry_same_event_later"
         : error.code === "stale_revision" ? "read_current_revision"
         : error.code === "context_delta_page_expired" ? "restart_from_committed_cursors"
@@ -97,8 +113,15 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
       nextAction: "report_internal_error",
     };
   })();
+  // Diagnostics are bounded too: error handling must not throw a second
+  // size error while reporting an oversized or malformed result.
+  detail.code = detail.code.slice(0, 128);
+  detail.message = detail.message.slice(0, 2000);
+  if ("issues" in detail && Array.isArray(detail.issues)) {
+    detail.issues = detail.issues.map((issue) => ({ path: issue.path.slice(0, 256), message: issue.message.slice(0, 512) }));
+  }
   const validated = McpToolErrorResult.parse({ error: detail });
-  return { ...toolResult(validated, secrets), isError: true };
+  return boundedResult({ ...toolResult(validated, secrets), isError: true });
 }
 
 /** Reuse F07 storage/recovery; never create a second idempotency database. */
@@ -114,7 +137,7 @@ export async function durableWrite(
       throw new ApiError(409, "idempotency_key_reused", "Use a new idempotencyKey for a different operation.");
     }
     if (outcome.claim.state === "completed" && outcome.claim.responseBody !== null) {
-      return JSON.parse(outcome.claim.responseBody) as CallToolResult;
+      return replayStoredResult(outcome.claim.responseBody, secrets);
     }
     if (outcome.claim.state === "completed") {
       throw new ApiError(409, "idempotency_result_expired", IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
@@ -124,10 +147,13 @@ export async function durableWrite(
   }
   let result: CallToolResult;
   let state: "completed" | "indeterminate" = "completed";
+  let operationReturned = false;
   try {
-    result = toolResult(await operation(), secrets);
+    const value = await operation();
+    operationReturned = true;
+    result = toolResult(value, secrets);
   } catch (error) {
-    const outcomeUnknown = !(error instanceof ApiError) || error.status >= 500;
+    const outcomeUnknown = operationReturned || !(error instanceof ApiError) || error.status >= 500;
     state = outcomeUnknown ? "indeterminate" : "completed";
     result = outcomeUnknown
       ? toolError(
@@ -155,7 +181,7 @@ export function atomicWrite(deps: ServiceDeps, name: string, input: {idempotency
     const claim = tryClaim(deps.sqlite, {key,method:"MCP",url:name,requestHash:hash});
     if (!claim.fresh) {
       if (claim.claim.requestHash !== hash) throw new ApiError(409,"idempotency_key_reused","Use a new idempotencyKey for a different operation.");
-      if (claim.claim.state === "completed" && claim.claim.responseBody !== null) return JSON.parse(claim.claim.responseBody) as CallToolResult;
+      if (claim.claim.state === "completed" && claim.claim.responseBody !== null) return replayStoredResult(claim.claim.responseBody, secrets);
       if (claim.claim.state === "completed") throw new ApiError(409,"idempotency_result_expired",IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
       throw new ApiError(409,claim.claim.state === "pending" ? "idempotency_in_progress" : "idempotency_outcome_unknown","Inspect the earlier operation before retrying.");
     }

@@ -847,7 +847,7 @@ export class SyncCoordinator {
             } catch {
               // The deadline remains the deterministic shutdown signal even if
               // persistence is unavailable; never escape from the timer.
-              this.lastError = message;
+              this.lastError = message + " Could not persist the deadline marker.";
             }
           }
           resolve("deadline");
@@ -960,8 +960,8 @@ export class SyncCoordinator {
     ctx: ActorCtx,
     signal: AbortSignal,
   ): Promise<SyncRunResultDto> {
-    this.running = true;
     const runId = newId();
+    this.running = true;
     try {
       if (!input.dryRun) {
         const started = nowIso();
