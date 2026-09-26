@@ -118,3 +118,25 @@ it("shows the total and omission notice for bounded freshness references without
   expect(screen.getAllByRole("link", { name: /Inspect supporting record/ })).toHaveLength(20);
   expect(screen.getByRole("link", { name: "Review record" }).getAttribute("href")).toContain("recordId=");
 });
+
+it.each([
+  { count: 20, total: 150, strong: 0, review: true },
+  { count: 1, total: 1, strong: 0, review: true },
+  { count: 1, total: 1, strong: 0, review: false },
+  { count: 2, total: 150, strong: 2, review: true },
+])("renders inspectable weak references: $count/$total, strong=$strong, review=$review", ({ count, total, strong, review }) => {
+  const weakIds = Array.from({ length: count }, (_, i) => `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+  const strongIds = Array.from({ length: strong }, (_, i) => `20000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+  render(<RecordCard record={record({ freshness: {
+    authority: "canonical", currentness: "needs_verification", progress: null, provenance: "document",
+    stale: strong > 0, requiresReview: review, reasons: [strong ? "newer_observation" : "possibly_newer_observation"],
+    supportRecordIds: strongIds, possiblyRelatedRecordIds: weakIds,
+    ...(total > count ? { referenceSummary: { supportCount: strong, possiblyRelatedCount: total,
+      supportReferencesTruncated: false, possiblyRelatedReferencesTruncated: true } } : {}),
+  } })} />);
+  const links = screen.getAllByRole("link", { name: /Inspect possibly-related record/ });
+  expect(links).toHaveLength(count);
+  for (const [i, link] of links.entries()) expect(link.getAttribute("href")).toContain(`recordId=${weakIds[i]}`);
+  expect(screen.queryAllByRole("link", { name: /Inspect supporting record/ })).toHaveLength(strong);
+  if (total > count) expect(screen.getByTestId("freshness-reference-truncation").textContent).toContain(`showing ${count} of ${total}`);
+});

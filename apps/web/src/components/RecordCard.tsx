@@ -117,9 +117,10 @@ export function RecordCard({
             {record.sourceEventAt ? ` · event ${record.sourceEventAt.slice(0, 10)}` : ""}
             {record.reviewedAt ? ` · reviewed ${record.reviewedAt.slice(0, 10)}` : ""}
           </p>
-          {record.projectId && (record.freshness?.requiresReview || record.freshness?.supportRecordIds.length) ? <div className="mt-2 flex flex-wrap gap-3 text-xs">
+          {record.projectId && (record.freshness?.requiresReview || record.freshness?.supportRecordIds.length || record.freshness?.possiblyRelatedRecordIds.length) ? <div className="mt-2 flex flex-wrap gap-3 text-xs">
             {record.freshness.requiresReview ? <a className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId)}?recordId=${encodeURIComponent(record.id)}`}>Review record</a> : null}
-            {record.freshness.supportRecordIds.map((id, index) => <a key={id} className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId!)}?recordId=${encodeURIComponent(id)}`}>Inspect supporting record {index + 1}</a>)}
+            {record.freshness.supportRecordIds.map((id, index) => <a key={`support:${id}`} className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId!)}?recordId=${encodeURIComponent(id)}`}>Inspect supporting record {index + 1}</a>)}
+            {record.freshness.possiblyRelatedRecordIds.map((id, index) => <a key={`related:${id}`} className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId!)}?recordId=${encodeURIComponent(id)}`}>Inspect possibly-related record {index + 1}</a>)}
           </div> : null}
           {truncatedReferenceNote ? <p className="mt-1 text-[11px] text-ck-muted" data-testid="freshness-reference-truncation">{truncatedReferenceNote}; additional references are omitted from this page.</p> : null}
           <div className="mt-1.5">
