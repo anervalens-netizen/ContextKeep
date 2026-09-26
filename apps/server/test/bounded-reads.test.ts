@@ -240,6 +240,15 @@ describe("R06 bounded reads", () => {
         await t.post("/api/projects", { name: "Synthetic bounded source" })
       ).json<{ id: string }>();
       const { sourceId } = installSyntheticReadFixture(t, project.id);
+      const legacy = await t.get(`/api/sources/${sourceId}`);
+      expectStatus(legacy, 200, "legacy source read");
+      const legacyBody = legacy.json<any>();
+      expect(legacyBody.source).toMatchObject({
+        normalizedHash: "bounded-normalized-hash",
+        excerptCount: 6,
+      });
+      expect(legacyBody.excerpts).toHaveLength(6);
+      expect(legacyBody.pagination).toBeUndefined();
       const first = await t.get(`/api/sources/${sourceId}?limit=2`);
       expectStatus(first, 200, "bounded source first page");
       const firstBody = first.json<any>();
@@ -284,6 +293,81 @@ describe("R06 bounded reads", () => {
       expect(
         unresolved.json<any[]>().map((conflict) => conflict.id),
       ).not.toContain("bounded-conflict-resolved");
+    });
+  });
+
+  it("rejects a continuation when an excerpt is inserted before its cursor", async () => {
+    await withApp(async (t) => {
+      const project = (
+        await t.post("/api/projects", { name: "Synthetic source insertion" })
+      ).json<{ id: string }>();
+      const { sourceId } = installSyntheticReadFixture(t, project.id);
+      const first = (
+        await t.get(`/api/sources/${sourceId}?limit=2`)
+      ).json<any>();
+      const sqlite = t.app.ck.handle.sqlite;
+      sqlite
+        .prepare(
+          `INSERT INTO source_excerpts (id, source_id, start_offset, end_offset, exact_text, exact_text_hash)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          "bounded-excerpt-000",
+          sourceId,
+          0,
+          99,
+          "inserted before cursor",
+          "hash-inserted",
+        );
+
+      const next = await t.get(
+        `/api/sources/${sourceId}?limit=2&cursor=${encodeURIComponent(first.pagination.nextCursor)}`,
+      );
+      expectStatus(next, 409, "inserted excerpt changes snapshot");
+      expect(next.json<any>().error.code).toBe(
+        "source_excerpt_snapshot_changed",
+      );
+    });
+  });
+
+  it("rejects a continuation when excerpt content changes without changing the count", async () => {
+    await withApp(async (t) => {
+      const project = (
+        await t.post("/api/projects", { name: "Synthetic source mutation" })
+      ).json<{ id: string }>();
+      const { sourceId } = installSyntheticReadFixture(t, project.id);
+      const first = (
+        await t.get(`/api/sources/${sourceId}?limit=2`)
+      ).json<any>();
+      const firstExcerptId = first.excerpts[0].id as string;
+      const beforeCount = (
+        t.app.ck.handle.sqlite
+          .prepare(
+            "SELECT count(*) AS n FROM source_excerpts WHERE source_id=?",
+          )
+          .get(sourceId) as { n: number }
+      ).n;
+      t.app.ck.handle.sqlite
+        .prepare(
+          "UPDATE source_excerpts SET exact_text=?, exact_text_hash=? WHERE id=?",
+        )
+        .run("mutated excerpt content", "hash-mutated", firstExcerptId);
+      const afterCount = (
+        t.app.ck.handle.sqlite
+          .prepare(
+            "SELECT count(*) AS n FROM source_excerpts WHERE source_id=?",
+          )
+          .get(sourceId) as { n: number }
+      ).n;
+      expect(afterCount).toBe(beforeCount);
+
+      const next = await t.get(
+        `/api/sources/${sourceId}?limit=2&cursor=${encodeURIComponent(first.pagination.nextCursor)}`,
+      );
+      expectStatus(next, 409, "mutated excerpt changes snapshot");
+      expect(next.json<any>().error.code).toBe(
+        "source_excerpt_snapshot_changed",
+      );
     });
   });
 });

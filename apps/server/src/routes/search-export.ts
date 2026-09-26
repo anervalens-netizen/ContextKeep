@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { and, asc, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import {
@@ -11,6 +12,7 @@ import {
   sourceExcerpts,
   sources,
 } from "../db/schema.js";
+import type { Db } from "../db/client.js";
 import { parseWith } from "../lib/validate.js";
 import { getHandoff, renderHandoff } from "../services/export.js";
 import { buildPortableJsonDump } from "../services/portable-dump.js";
@@ -37,6 +39,34 @@ const SourceExcerptQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().min(1).max(1024).optional(),
 });
+
+/**
+ * Snapshot only the ordered excerpt material needed to validate a cursor.
+ * exactTextHash represents the excerpt body; the body itself must not be
+ * materialized for this aggregate.
+ */
+function sourceExcerptSetFingerprint(db: Db, sourceId: string): string {
+  const digest = crypto.createHash("sha256");
+  const rows = db
+    .select({
+      id: sourceExcerpts.id,
+      startOffset: sourceExcerpts.startOffset,
+      endOffset: sourceExcerpts.endOffset,
+      exactTextHash: sourceExcerpts.exactTextHash,
+      exactTextLength: sql<number>`length(${sourceExcerpts.exactText})`,
+    })
+    .from(sourceExcerpts)
+    .where(eq(sourceExcerpts.sourceId, sourceId))
+    .orderBy(asc(sourceExcerpts.startOffset), asc(sourceExcerpts.id))
+    .all();
+  for (const row of rows) {
+    digest.update(
+      `${row.id}\u0000${row.startOffset}\u0000${row.endOffset}\u0000${row.exactTextHash}\u0000${row.exactTextLength}\n`,
+      "utf8",
+    );
+  }
+  return digest.digest("hex");
+}
 
 export function registerSearchExportRoutes(app: FastifyInstance): void {
   const { deps } = app.ck;
@@ -149,7 +179,10 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
       query?.cursor === undefined
         ? undefined
         : decodeExcerptCursor(query.cursor, id);
-    if (cursor && cursor.normalizedHash !== row.normalizedHash) {
+    const excerptSetFingerprint = paginated
+      ? sourceExcerptSetFingerprint(deps.db, id)
+      : undefined;
+    if (cursor && cursor.normalizedHash !== excerptSetFingerprint) {
       reply.code(409);
       return {
         error: {
@@ -218,12 +251,13 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
                       version: 1,
                       kind: "source_excerpts",
                       sourceId: id,
-                      normalizedHash: row.normalizedHash,
+                      normalizedHash: excerptSetFingerprint!,
                       startOffset: last.startOffset,
                       excerptId: last.id,
                     } satisfies ExcerptReadCursor)
                   : null,
               snapshotNormalizedHash: row.normalizedHash,
+              snapshotExcerptFingerprint: excerptSetFingerprint,
             },
           }
         : {}),
