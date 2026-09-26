@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { records } from "../src/db/schema.js";
 import { createRecord } from "../src/services/memory-management.js";
@@ -80,7 +80,7 @@ describe("GitHub review read contracts", () => {
         sourceEventAt: "2026-01-02T00:00:00.000Z",
       });
       const unrelatedIds: string[] = [];
-      for (let i = 0; i < 80; i += 1) {
+      for (let i = 0; i < 170; i += 1) {
         const unrelated = create({
           subject: `unrelated-service-${i}`,
           text: `unrelated-service-${i} blue`,
@@ -109,6 +109,7 @@ describe("GitHub review read contracts", () => {
         .from(records)
         .where(eq(records.id, accepted.id))
         .get()!;
+      const batchReads = vi.spyOn(t.app.ck.deps.db, "all");
       const freshnessContext = loadRecordFreshnessContext(
         t.app.ck.deps.db,
         [acceptedRow],
@@ -118,6 +119,22 @@ describe("GitHub review read contracts", () => {
         relevant.id,
       ]);
       expect(freshnessContext.conflicts).toEqual([]);
+      expect(batchReads.mock.results.length).toBeGreaterThanOrEqual(2);
+      for (const result of batchReads.mock.results) {
+        if (result.type === "return")
+          expect(result.value.length).toBeLessThanOrEqual(128);
+      }
+      batchReads.mockRestore();
+      const transactionContext = t.app.ck.deps.db.transaction((tx) =>
+        loadRecordFreshnessContext(
+          tx,
+          [acceptedRow],
+          "2026-01-04T00:00:00.000Z",
+        ),
+      );
+      expect(transactionContext.workingRecords.map((row) => row.id)).toEqual([
+        relevant.id,
+      ]);
 
       const dto = attachProjectNames(
         t.app.ck.deps.db,

@@ -12,7 +12,7 @@ import {
   sourceExcerpts,
   sources,
 } from "../db/schema.js";
-import type { Db } from "../db/client.js";
+import type Database from "better-sqlite3";
 import { parseWith } from "../lib/validate.js";
 import { getHandoff, renderHandoff } from "../services/export.js";
 import { buildPortableJsonDump } from "../services/portable-dump.js";
@@ -45,23 +45,34 @@ const SourceExcerptQuery = z.object({
  * exactTextHash represents the excerpt body; the body itself must not be
  * materialized for this aggregate.
  */
-function sourceExcerptSetFingerprint(db: Db, sourceId: string): string {
+function sourceExcerptSetFingerprint(
+  sqlite: Database.Database,
+  sourceId: string,
+): string {
   const digest = crypto.createHash("sha256");
-  const rows = db
-    .select({
-      id: sourceExcerpts.id,
-      startOffset: sourceExcerpts.startOffset,
-      endOffset: sourceExcerpts.endOffset,
-      exactTextHash: sourceExcerpts.exactTextHash,
-      exactTextLength: sql<number>`length(${sourceExcerpts.exactText})`,
-    })
-    .from(sourceExcerpts)
-    .where(eq(sourceExcerpts.sourceId, sourceId))
-    .orderBy(asc(sourceExcerpts.startOffset), asc(sourceExcerpts.id))
-    .all();
-  for (const row of rows) {
+  const rows = sqlite.prepare<
+    [string],
+    {
+      id: string;
+      startOffset: number;
+      endOffset: number;
+      exactTextHash: string;
+      exactTextLength: number;
+    }
+  >(`
+    SELECT id, start_offset AS startOffset, end_offset AS endOffset,
+           exact_text_hash AS exactTextHash, length(exact_text) AS exactTextLength
+    FROM source_excerpts WHERE source_id = ? ORDER BY start_offset, id
+  `);
+  for (const row of rows.iterate(sourceId)) {
     digest.update(
-      `${row.id}\u0000${row.startOffset}\u0000${row.endOffset}\u0000${row.exactTextHash}\u0000${row.exactTextLength}\n`,
+      JSON.stringify([
+        row.id,
+        row.startOffset,
+        row.endOffset,
+        row.exactTextHash,
+        row.exactTextLength,
+      ]) + "\n",
       "utf8",
     );
   }
@@ -180,7 +191,7 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
         ? undefined
         : decodeExcerptCursor(query.cursor, id);
     const excerptSetFingerprint = paginated
-      ? sourceExcerptSetFingerprint(deps.db, id)
+      ? sourceExcerptSetFingerprint(deps.sqlite, id)
       : undefined;
     if (cursor && cursor.normalizedHash !== excerptSetFingerprint) {
       reply.code(409);

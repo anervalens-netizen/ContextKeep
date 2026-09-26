@@ -1,9 +1,7 @@
-import { and, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   classifyRecordFreshness,
-  foldMemoryText,
   isCurrentStateClaim,
-  memoryTokens,
   reviewOverdue,
   stateRelationship,
   type FreshnessRecord,
@@ -48,7 +46,10 @@ export function parseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
-export function relationObjectValue(predicate: string | null, valueJson: unknown): string | null {
+export function relationObjectValue(
+  predicate: string | null,
+  valueJson: unknown,
+): string | null {
   const kinds = new Set(["depends_on", "blocks", "affects", "runs_on"]);
   if (!predicate || !kinds.has(predicate)) return null;
   let value = valueJson;
@@ -84,12 +85,17 @@ export function toProjectDto(row: ProjectRow): ProjectDto {
 export function toRecordDto(
   row: RecordRow,
   evidence: EvidenceDto[] = [],
-  freshnessContext: RecordFreshnessContext = { nowIso: new Date().toISOString() },
+  freshnessContext: RecordFreshnessContext = {
+    nowIso: new Date().toISOString(),
+  },
 ): RecordDto {
   const volatile = row.volatile === 1;
   // A11 compatibility field; CK-A05 freshness is the richer additive model.
   const isOverdue = reviewOverdue(row, freshnessContext.nowIso);
-  const freshness = classifyRecordFreshness(row as FreshnessRecord, freshnessContext);
+  const freshness = classifyRecordFreshness(
+    row as FreshnessRecord,
+    freshnessContext,
+  );
   return {
     id: row.id,
     projectId: row.projectId,
@@ -137,7 +143,10 @@ export function toSourceDto(row: SourceRow, excerptCount: number): SourceDto {
 }
 
 /** Loads joined evidence DTOs for a set of record ids (one query). */
-export function loadEvidenceFor(db: Db, recordIds: string[]): Map<string, EvidenceDto[]> {
+export function loadEvidenceFor(
+  db: Db,
+  recordIds: string[],
+): Map<string, EvidenceDto[]> {
   const out = new Map<string, EvidenceDto[]>();
   if (recordIds.length === 0) return out;
   const rows = db
@@ -152,7 +161,12 @@ export function loadEvidenceFor(db: Db, recordIds: string[]): Map<string, Eviden
 
 export type EvidenceRefDto = Pick<
   EvidenceDto,
-  "excerptId" | "sourceId" | "sourceTitle" | "relation" | "observedAt" | "artifactRef"
+  | "excerptId"
+  | "sourceId"
+  | "sourceTitle"
+  | "relation"
+  | "observedAt"
+  | "artifactRef"
 >;
 
 /**
@@ -161,7 +175,10 @@ export type EvidenceRefDto = Pick<
  * bounded work-context read cannot materialize large source text only to drop
  * it before serialization.
  */
-export function loadEvidenceRefsFor(db: Db, recordIds: string[]): Map<string, EvidenceRefDto[]> {
+export function loadEvidenceRefsFor(
+  db: Db,
+  recordIds: string[],
+): Map<string, EvidenceRefDto[]> {
   const out = new Map<string, EvidenceRefDto[]>();
   if (recordIds.length === 0) return out;
   const rows = db
@@ -260,7 +277,12 @@ export function loadEvidenceForProject(
     .innerJoin(records, eq(recordEvidence.recordId, records.id))
     .innerJoin(sourceExcerpts, eq(recordEvidence.excerptId, sourceExcerpts.id))
     .innerJoin(sources, eq(sourceExcerpts.sourceId, sources.id))
-    .where(and(eq(records.projectId, projectId), inArray(records.reviewStatus, statuses)))
+    .where(
+      and(
+        eq(records.projectId, projectId),
+        inArray(records.reviewStatus, statuses),
+      ),
+    )
     .all();
   return groupEvidence(new Map(), rows);
 }
@@ -291,112 +313,65 @@ export function loadRecordFreshnessContext(
     targetByProject.set(target.projectId, projectTargets);
   }
 
-  const observationTime = sql<string>`coalesce(${records.sourceEventAt}, ${records.effectiveFrom}, ${records.recordedAt})`;
-  const currentStateWorking = or(
-    eq(records.volatile, 1),
-    ...[
-      "current",
-      "current_state",
-      "operational_state",
-      "status",
-      "version",
-      "release",
-      "deployment",
-    ].map((term) => sql`lower(${records.predicate}) = ${term}`),
-    sql`(
-      json_valid(${records.valueJson}) AND
-      (json_type(json_extract(${records.valueJson}, '$.currentState')) IS NOT NULL OR
-       json_type(json_extract(${records.valueJson}, '$.operationalState')) IS NOT NULL)
-    )`,
-    ...[
-      "current",
-      "curent",
-      "cur",
-      "operational",
-      "oper",
-      "production",
-      "prod",
-      "productie",
-      "deployed",
-      "release",
-      "version",
-      "versiune",
-      "versi",
-      "status",
-      "ready",
-      "active",
-      "activ",
-    ].map(
-      (term) => sql`(
-      lower(${records.subject}) LIKE ${`%${term}%`} OR
-      lower(${records.text}) LIKE ${`%${term}%`}
-    )`,
-    ),
-  );
-
-  const workingWhere = [...targetByProject.entries()].map(
-    ([projectId, targets]) => {
-      const earliestTarget = targets
+  const cutoffs = [...targetByProject.entries()].map(
+    ([projectId, targets]) => ({
+      projectId,
+      after: targets
         .map(
           (target) =>
-            target.sourceEventAt ?? target.effectiveFrom ?? target.recordedAt,
+            target.sourceEventAt || target.effectiveFrom || target.recordedAt,
         )
-        .sort()[0]!;
-      const terms = [
-        ...new Set(
-          targets.flatMap((target) => [
-            ...freshnessSearchTerms(target.subject),
-            ...freshnessSearchTerms(target.text),
-          ]),
-        ),
-      ];
-      // NFKD folding is part of stateRelationship, but SQLite LIKE does not
-      // fold accents. A non-ASCII target therefore keeps the SQL prefilter
-      // conservative and lets the exact JS relationship check decide.
-      const lexicalPotential =
-        terms.length === 0 || terms.some((term) => /[^\x00-\x7f]/u.test(term))
-          ? undefined
-          : sql`EXISTS (
-          SELECT 1
-          FROM json_each(${JSON.stringify(terms)}) AS freshness_term
-          WHERE lower(${records.subject}) LIKE '%' || lower(freshness_term.value) || '%'
-             OR lower(${records.text}) LIKE '%' || lower(freshness_term.value) || '%'
-        )`;
-      return and(
-        eq(records.projectId, projectId),
-        gt(observationTime, earliestTarget),
-        currentStateWorking,
-        lexicalPotential,
-      );
-    },
+        .sort()[0]!,
+    }),
   );
-  const workingCandidates =
-    workingWhere.length === 0
-      ? []
-      : (db
-          .select()
-          .from(records)
-          .where(
-            and(
-              eq(records.reviewStatus, "proposed"),
-              eq(records.evidenceBasis, "agent_report"),
-              eq(records.type, "fact"),
-              or(...workingWhere),
-            ),
+  const workingRecords: FreshnessRecord[] = [];
+  if (cutoffs.length > 0) {
+    // SQL applies exact structural/time restrictions. Stream candidates rather
+    // than materializing a project backlog, then reuse the canonical classifier
+    // semantics. Approximate SQL word/Unicode filters can hide valid evidence.
+    // Keyset batches preserve compatibility with transaction handles.
+    const cutoffJson = JSON.stringify(cutoffs);
+    let afterId = "";
+    while (true) {
+      const page = db.all<FreshnessRecord>(sql`
+      SELECT id, project_id AS projectId, type, subject, predicate,
+             value_json AS valueJson, text, review_status AS reviewStatus,
+             evidence_basis AS evidenceBasis, task_status AS taskStatus,
+             recorded_at AS recordedAt, source_event_at AS sourceEventAt,
+             effective_from AS effectiveFrom, effective_to AS effectiveTo,
+             review_due_at AS reviewDueAt, volatile
+      FROM records
+      WHERE review_status = 'proposed' AND evidence_basis = 'agent_report'
+        AND type = 'fact' AND id > ${afterId}
+        AND EXISTS (
+          SELECT 1 FROM json_each(${cutoffJson}) AS target
+          WHERE project_id = json_extract(target.value, '$.projectId')
+            AND coalesce(nullif(source_event_at, ''), nullif(effective_from, ''), recorded_at)
+                > json_extract(target.value, '$.after')
+        )
+      ORDER BY id LIMIT 128
+    `);
+      for (const working of page) {
+        if (!isCurrentStateClaim(working)) continue;
+        const workingTime =
+          working.sourceEventAt || working.effectiveFrom || working.recordedAt;
+        const targets = targetByProject.get(working.projectId!) ?? [];
+        if (
+          targets.some(
+            (target) =>
+              workingTime >
+                (target.sourceEventAt ||
+                  target.effectiveFrom ||
+                  target.recordedAt) &&
+              stateRelationship(target, working) !== "unrelated",
           )
-          .all() as FreshnessRecord[]);
-  const workingRecords = workingCandidates.filter((working) => {
-    if (!isCurrentStateClaim(working)) return false;
-    const workingTime =
-      working.sourceEventAt ?? working.effectiveFrom ?? working.recordedAt;
-    return freshnessTargets.some(
-      (target) =>
-        target.projectId === working.projectId &&
-        workingTime >
-          (target.sourceEventAt ?? target.effectiveFrom ?? target.recordedAt) &&
-        stateRelationship(target, working) !== "unrelated",
-    );
-  });
+        )
+          workingRecords.push(working);
+      }
+      if (page.length < 128) break;
+      afterId = page[page.length - 1]!.id;
+    }
+  }
 
   const conflictRecordIds = rows
     .filter((row) => row.reviewStatus === "accepted" && row.projectId !== null)
@@ -430,17 +405,16 @@ export function loadRecordFreshnessContext(
   return { nowIso, workingRecords, conflicts: unresolvedConflicts };
 }
 
-function freshnessSearchTerms(value: string): string[] {
-  const rawTerms = value
-    .split(/[^\p{L}\p{N}._:-]+/u)
-    .filter((term) => term.length >= 2);
-  return [
-    ...new Set([...rawTerms, ...memoryTokens(value), foldMemoryText(value)]),
+export function attachProjectNames(
+  db: Db,
+  rows: RecordRow[],
+  evidence: Map<string, EvidenceDto[]>,
+): RecordDto[] {
+  const projectIds = [
+    ...new Set(
+      rows.map((r) => r.projectId).filter((p): p is string => p !== null),
+    ),
   ];
-}
-
-export function attachProjectNames(db: Db, rows: RecordRow[], evidence: Map<string, EvidenceDto[]>): RecordDto[] {
-  const projectIds = [...new Set(rows.map((r) => r.projectId).filter((p): p is string => p !== null))];
   const names = new Map<string, string>();
   if (projectIds.length > 0) {
     for (const p of db
