@@ -4,6 +4,13 @@ import { offlineDb, type ConflictEntry, type QueuedMutation } from "./db.js";
 import { newIdempotencyKey } from "../idempotency-key.js";
 import { resetOfflineRetryBudget, scheduleOfflineRetry } from "./scheduler.js";
 import { createTransportGuard, type TransportAbortKind } from "../transport.js";
+import { validateMutationAcknowledgement } from "../mutation-ack.js";
+import {
+  isDurableReconciliationBarrier,
+  type DurableReconciliationCode,
+} from "./barriers.js";
+
+export { isDurableReconciliationBarrier } from "./barriers.js";
 
 /**
  * A10: offline mutations are queued here and replayed in order on reconnect.
@@ -118,8 +125,9 @@ export async function enqueueMutation(
  *
  * F07 atomic foreground barrier (this remediation): blocker inspection +
  * mutation creation happen inside ONE IndexedDB readwrite transaction
- * spanning both `mutations` and `conflicts` stores. If ANY persisted
- * conflict has `code === "idempotency_outcome_unknown"`, the row is
+ * spanning both `mutations` and `conflicts` stores. If ANY persisted durable
+ * reconciliation conflict has code `idempotency_outcome_unknown` or
+ * `idempotency_result_expired`, the row is
  * persisted as queued (no lease, no owner) — the apiFetch path will see
  * that, will NOT call fetch, will NOT start a heartbeat, and will throw
  * `QueuedOfflineError(seq)` so the caller treats the operation as durably
@@ -129,7 +137,7 @@ export async function enqueueMutation(
  *   - `{ kind: "in_flight", seq, mutation, owner }` — the row is owned and
  *     the caller may proceed with the fetch under the same contract as
  *     before this remediation.
- *   - `{ kind: "blocked_by_unknown_outcome", seq, mutation }` — a barrier
+ *   - `{ kind: "blocked_by_unknown_outcome", code, seq, mutation }` — a barrier
  *     conflict was present; the row is queued behind it, no lease, no
  *     owner, no fetch.
  *
@@ -141,7 +149,7 @@ export async function enqueueMutation(
  */
 export type StageResult =
   | { kind: "in_flight"; seq: number; mutation: QueuedMutation; owner: string }
-  | { kind: "blocked_by_unknown_outcome"; seq: number; mutation: QueuedMutation };
+  | { kind: "blocked_by_unknown_outcome"; code: DurableReconciliationCode; seq: number; mutation: QueuedMutation };
 
 export async function stageOwnedInFlightMutation(
   m: Omit<
@@ -164,8 +172,11 @@ export async function stageOwnedInFlightMutation(
     // present) or the new state (row queued behind the blocker), never a
     // half-applied one.
     const allConflicts = (await cStore.getAll()) as ConflictEntry[];
-    const blocked = allConflicts.some((c) => c.code === "idempotency_outcome_unknown");
-    if (blocked) {
+    const blocker = allConflicts.find((c) => isDurableReconciliationBarrier(c.code));
+    if (blocker) {
+      const code = isDurableReconciliationBarrier(blocker.code)
+        ? blocker.code
+        : "idempotency_outcome_unknown";
       const queued: Omit<QueuedMutation, "seq"> = {
         ...m,
         idempotencyKey: ensuredKey,
@@ -176,7 +187,7 @@ export async function stageOwnedInFlightMutation(
       const seq = (await mStore.add(queued)) as number;
       const stamped: QueuedMutation = { ...queued, seq };
       await tx.done;
-      return { kind: "blocked_by_unknown_outcome", seq, mutation: stamped };
+      return { kind: "blocked_by_unknown_outcome", code, seq, mutation: stamped };
     }
     // No blocker. Persist the row ALREADY marked `in_flight` with the
     // supplied owner + lease. Generation starts at 1 and is incremented on
@@ -698,7 +709,7 @@ export function startReplayLeaseHeartbeat(
  */
 export type ClaimResult =
   | { kind: "empty" }
-  | { kind: "blocked_by_unknown_outcome" }
+  | { kind: "blocked_by_unknown_outcome"; code: DurableReconciliationCode }
   | { kind: "client_in_flight"; row: QueuedMutation; retryAfterMs: number }
   | { kind: "claimed"; row: QueuedMutation; owner: string };
 
@@ -715,9 +726,13 @@ export async function claimNextReplayMutation(
     // Step A — inspect blocker. ANY unresolved idempotency_outcome_unknown
     // conflict blocks the entire replay; nothing is claimed.
     const allConflicts = (await cStore.getAll()) as ConflictEntry[];
-    if (allConflicts.some((c) => c.code === "idempotency_outcome_unknown")) {
+    const blocker = allConflicts.find((c) => isDurableReconciliationBarrier(c.code));
+    if (blocker) {
       await tx.done.catch(() => undefined);
-      return { kind: "blocked_by_unknown_outcome" };
+      const code = isDurableReconciliationBarrier(blocker.code)
+        ? blocker.code
+        : "idempotency_outcome_unknown";
+      return { kind: "blocked_by_unknown_outcome", code };
     }
     // Step B — select the OLDEST mutation by seq order.
     const allMutations = (await mStore.getAll()) as QueuedMutation[];
@@ -817,6 +832,7 @@ export type ReplayStopReason =
   | "server_indeterminate"
   | "idempotency_in_progress"
   | "idempotency_outcome_unknown"
+  | "idempotency_result_expired"
   | "client_in_flight"
   | "response_invalid"
   | "transport_timeout"
@@ -903,7 +919,7 @@ export const DEFAULT_IN_PROGRESS_RETRY_MS = 1000;
  */
 export async function hasUnresolvedUnknownOutcomeConflict(): Promise<boolean> {
   const conflicts = await listConflicts();
-  return conflicts.some((c) => c.code === "idempotency_outcome_unknown");
+  return conflicts.some((c) => isDurableReconciliationBarrier(c.code));
 }
 
 async function replayQueueOnce(opts: ReplayOptions = {}): Promise<ReplayResult> {
@@ -934,7 +950,7 @@ async function replayQueueOnce(opts: ReplayOptions = {}): Promise<ReplayResult> 
     if (claim.kind === "blocked_by_unknown_outcome") {
       const conflicts = await listConflicts();
       result.stoppedOffline = true;
-      result.stoppedReason = "idempotency_outcome_unknown";
+      result.stoppedReason = claim.code;
       result.conflicts = conflicts;
       return result;
     }
@@ -1069,31 +1085,46 @@ async function replayQueueOnce(opts: ReplayOptions = {}): Promise<ReplayResult> 
         return result;
       }
 
+      if (res.redirected || (res.status >= 300 && res.status < 400)) {
+        const released = await releaseMutationToQueue(seq, owner, generation);
+        if (!released) {
+          result.stoppedReason = "client_in_flight";
+          return result;
+        }
+        result.stoppedOffline = true;
+        result.stoppedReason = "response_invalid";
+        return result;
+      }
+
       if (res.ok) {
-        const needsDecodedBody =
-          row.url.includes("/api/inbox/decide") ||
-          row.url === "/api/imports/text" ||
-          row.url === "/api/corrections";
-        let successBody: unknown = null;
-        if (needsDecodedBody) {
-          try {
-            successBody = await res.json();
-          } catch {
-            if (await stopForTransportAbort(transportGuard.abortKind())) return result;
-            // A 2xx is not enough for workflows whose response determines
-            // whether the operation actually finished. Keep the SAME
-            // idempotency key queued so a later replay can recover the
-            // authoritative result instead of silently dropping intent.
-            const released = await releaseMutationToQueue(seq, owner, generation);
-            if (!released) {
-              result.stoppedReason = "client_in_flight";
-              return result;
-            }
-            result.stoppedOffline = true;
-            result.stoppedReason = "response_invalid";
+        let successBody: unknown;
+        try {
+          successBody = await res.json();
+        } catch {
+          if (await stopForTransportAbort(transportGuard.abortKind())) return result;
+          // Every queueable mutation has an operation-specific response
+          // contract. An unreadable body is not an acknowledgement.
+          const released = await releaseMutationToQueue(seq, owner, generation);
+          if (!released) {
+            result.stoppedReason = "client_in_flight";
             return result;
           }
+          result.stoppedOffline = true;
+          result.stoppedReason = "response_invalid";
+          return result;
         }
+        const acknowledgement = validateMutationAcknowledgement(row.url, row.method, row.body, successBody);
+        if (!acknowledgement.valid) {
+          const released = await releaseMutationToQueue(seq, owner, generation);
+          if (!released) {
+            result.stoppedReason = "client_in_flight";
+            return result;
+          }
+          result.stoppedOffline = true;
+          result.stoppedReason = "response_invalid";
+          return result;
+        }
+        successBody = acknowledgement.value;
 
         // Inbox decide replies 200 with per-item blocked entries; when the
         // server state moved while offline, those blocked items ARE the
@@ -1277,6 +1308,34 @@ async function replayQueueOnce(opts: ReplayOptions = {}): Promise<ReplayResult> 
         result.conflicts.push(moved);
         result.stoppedOffline = true;
         result.stoppedReason = "idempotency_outcome_unknown";
+        return result;
+      }
+
+      // The server reports that the earlier request completed, but its cached
+      // result is gone. That receipt does not prove a mutation effect: it may
+      // represent a validation or other error reply. Preserve the same
+      // mutation/key in a visible conflict and stop ordered replay so the
+      // owner can reconcile current state before later writes proceed.
+      if (res.status === 409 && code === "idempotency_result_expired") {
+        const moved = await moveMutationToConflict(
+          seq,
+          {
+            mutation: row,
+            status: res.status,
+            code,
+            message: message + " This earlier request completed, but its saved response expired; reconcile existing state before retrying with the same event key.",
+            detectedAt: new Date().toISOString(),
+          },
+          owner,
+          generation,
+        );
+        if (!moved) {
+          result.stoppedReason = "client_in_flight";
+          return result;
+        }
+        result.conflicts.push(moved);
+        result.stoppedOffline = true;
+        result.stoppedReason = "idempotency_result_expired";
         return result;
       }
 

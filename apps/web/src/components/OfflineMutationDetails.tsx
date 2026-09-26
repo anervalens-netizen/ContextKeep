@@ -38,9 +38,11 @@ export function offlineMutationTarget(mutation: QueuedMutation): string | null {
 export function OfflineMutationDetails({
   mutation,
   unknownOutcome = false,
+  reconciliationCode,
 }: {
   mutation: QueuedMutation;
   unknownOutcome?: boolean;
+  reconciliationCode?: "idempotency_outcome_unknown" | "idempotency_result_expired";
 }) {
   let route = "Unrecognized route";
   let target: string | null = null;
@@ -75,9 +77,9 @@ export function OfflineMutationDetails({
       </dl>
       {unknownOutcome ? (
         <p className="mt-1">
-          The server may already have applied this change. Inspect current state
-          before acknowledging; viewing these details never retries the
-          operation.
+          {reconciliationCode === "idempotency_result_expired"
+            ? "This earlier request completed, but its saved response expired. Reconcile existing state with the same event key; viewing these details never retries the operation."
+            : "The server may already have applied this change. Inspect current state before acknowledging; viewing these details never retries the operation."}
         </p>
       ) : null}
       {target ? (

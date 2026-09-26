@@ -3,15 +3,31 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 const { api, clipboard } = vi.hoisted(() => ({ api: vi.fn().mockImplementation(() => new Promise(() => {})), clipboard: vi.fn().mockResolvedValue(undefined) }));
+const { routerState } = vi.hoisted(() => ({ routerState: { search: {} as Record<string, unknown>, listeners: new Set<() => void>() } }));
 vi.mock("../src/lib/api.js", () => ({apiFetch: api, isNetworkUnavailableError: () => true, ApiError: class extends Error {}}));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({children, params, search, to}: any) => <a href={`${to.replace('$projectId', params?.projectId ?? '')}?${new URLSearchParams(search)}`}>{children}</a>,
-  useParams: () => ({projectId: "p1"}), useSearch: () => ({}), useLocation: () => ({pathname:"/projects/p1"}),
+  useParams: () => ({projectId: "p1"}),
+  useSearch: () => {
+    const ReactModule = React;
+    const [, setVersion] = ReactModule.useState(0);
+    ReactModule.useEffect(() => {
+      const listener = () => setVersion((version) => version + 1);
+      routerState.listeners.add(listener);
+      return () => routerState.listeners.delete(listener);
+    }, []);
+    return routerState.search;
+  },
+  useNavigate: () => async ({ search }: { search: (current: Record<string, unknown>) => Record<string, unknown> }) => {
+    routerState.search = search(routerState.search);
+    for (const listener of routerState.listeners) listener();
+  },
+  useLocation: () => ({pathname:"/projects/p1"}),
 }));
 import { ProjectMemoryDashboard } from "../src/components/ProjectMemoryDashboard.js";
 import ProjectDetail from "../src/pages/ProjectDetail.js";
 const clients: QueryClient[] = [];
-afterEach(() => {cleanup(); for (const client of clients.splice(0)) client.clear(); clipboard.mockClear();});
+afterEach(() => {cleanup(); routerState.search = { other: "preserved" }; routerState.listeners.clear(); for (const client of clients.splice(0)) client.clear(); clipboard.mockClear();});
 function client() {const c = new QueryClient({defaultOptions:{queries:{retry:false, staleTime:Infinity}}}); clients.push(c); return c;}
 function context(id: string) {return {
   project:{id, name:id}, freshness:{canonicalCursor:1,workingCursor:2},
@@ -48,11 +64,13 @@ it("RC01/RC02/RC10 retain visible compact links and atomic provenance through re
 });
 it("RC10 selected tabs identify their panel and support keyboard navigation", () => {
   const c=client();
+  routerState.search = { other: "preserved" };
   render(<QueryClientProvider client={c}><ProjectDetail/></QueryClientProvider>);
   const tabs=screen.getAllByRole('tab');
   expect(tabs[0].getAttribute('aria-selected')).toBe('true');
   fireEvent.keyDown(tabs[0],{key:'ArrowRight'});
   expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+  expect(routerState.search).toMatchObject({ other: "preserved", tab: "timeline" });
   expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tabs[1].id);
   fireEvent.keyDown(tabs[1],{key:'Home'});
   expect(tabs[0].getAttribute('aria-selected')).toBe('true');

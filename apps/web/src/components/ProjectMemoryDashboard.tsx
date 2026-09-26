@@ -178,7 +178,7 @@ export function ProjectMemoryDashboard({ projectId }: { projectId: string }): Re
               <Link
                 to="/projects/$projectId"
                 params={{ projectId }}
-                search={{ recordId: context.latestCheckpoint.recordId }}
+                search={{ recordId: context.latestCheckpoint.recordId, tab: undefined }}
                 className="font-semibold text-ck-teal"
               >
                 Open checkpoint record &amp; evidence
@@ -227,7 +227,7 @@ export function ProjectMemoryDashboard({ projectId }: { projectId: string }): Re
                   <Link
                     to="/projects/$projectId"
                     params={{ projectId }}
-                    search={{ recordId: item.recordId }}
+                    search={{ recordId: item.recordId, tab: undefined }}
                     className="font-medium hover:text-ck-teal"
                   >
                     {item.text || item.subject || `Open record ${item.recordId}`}
@@ -246,7 +246,7 @@ export function ProjectMemoryDashboard({ projectId }: { projectId: string }): Re
                   <Link
                     to="/projects/$projectId"
                     params={{ projectId }}
-                    search={{ recordId: item.recordId }}
+                    search={{ recordId: item.recordId, tab: undefined }}
                     className="font-medium hover:text-ck-teal"
                   >
                     {item.text || item.subject || `Open record ${item.recordId}`}
@@ -263,8 +263,8 @@ export function ProjectMemoryDashboard({ projectId }: { projectId: string }): Re
           <h3 className="text-xs font-semibold text-ck-ink">Needs attention</h3>
           <ul className="mt-1.5 space-y-1 text-[11px] text-ck-muted">
             {attention.map((item) => <li key={item}>• {item}</li>)}
-            {blockerState.active.slice(0, 3).map((item) => <li key={item.blockerId}><Link to="/projects/$projectId" params={{ projectId }} search={{ recordId: typeof item.checkpointRecordId === "string" ? item.checkpointRecordId : context.latestCheckpoint?.recordId }} className="text-ck-teal underline">Blocker: {item.text}</Link></li>)}
-            {[...(context.facts?.items ?? []), ...(context.currentState?.items ?? [])].filter((item, index, all) => item.stale && all.findIndex((other) => other.recordId === item.recordId) === index).slice(0, 5).map((item) => <li key={item.recordId}><Link to="/projects/$projectId" params={{ projectId }} search={{ recordId: item.recordId }} className="text-ck-teal underline">Review stale record: {item.text || item.subject || item.recordId}</Link></li>)}
+            {blockerState.active.slice(0, 3).map((item) => <li key={item.blockerId}><Link to="/projects/$projectId" params={{ projectId }} search={{ recordId: typeof item.checkpointRecordId === "string" ? item.checkpointRecordId : context.latestCheckpoint?.recordId, tab: undefined }} className="text-ck-teal underline">Blocker: {item.text}</Link></li>)}
+            {[...(context.facts?.items ?? []), ...(context.currentState?.items ?? [])].filter((item, index, all) => item.stale && all.findIndex((other) => other.recordId === item.recordId) === index).slice(0, 5).map((item) => <li key={item.recordId}><Link to="/projects/$projectId" params={{ projectId }} search={{ recordId: item.recordId, tab: undefined }} className="text-ck-teal underline">Review stale record: {item.text || item.subject || item.recordId}</Link></li>)}
             <li><Link to="/search" search={{ projectId, q: undefined, scope: "all", includeHistorical: undefined }} className="text-ck-teal underline">Inspect supporting evidence</Link></li>
           </ul>
         </div>
@@ -304,7 +304,7 @@ export function ProjectMemoryDashboard({ projectId }: { projectId: string }): Re
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId }}
-                  search={{ recordId: item.recordId }}
+                  search={{ recordId: item.recordId, tab: undefined }}
                   className="mt-1 block line-clamp-2 text-xs text-ck-ink hover:text-ck-teal"
                 >
                   {item.text || item.subject || `Open record ${item.recordId}`}

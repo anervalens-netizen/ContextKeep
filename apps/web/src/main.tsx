@@ -81,6 +81,11 @@ async function syncAfterReconnect(): Promise<void> {
       kind: "error",
       text: `Offline changes are paused: at least one earlier change has an unconfirmed outcome. Review and dismiss the conflict banner to resume.`,
     });
+  } else if (result.stoppedReason === "idempotency_result_expired") {
+    ui.setNotice({
+      kind: "error",
+      text: `Offline changes are paused: an earlier request completed, but its saved response expired. Reconcile existing state before retrying with the same event key.`,
+    });
   } else if (conflicts.length > 0) {
     ui.setNotice({
       kind: "error",

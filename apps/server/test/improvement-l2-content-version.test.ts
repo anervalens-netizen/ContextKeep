@@ -56,4 +56,52 @@ describe("L2.2 bounded freshness cursor", () => {
     const current = await t.get(`/api/projects/${created.id}/freshness?after=1`);
     expect(current.json()).toMatchObject({ cursor: 1, changed: false, delta: 0, resetRequired: false });
   });
+
+  it("reports metadata revision changes independently from canonical and working cursors", async () => {
+    const t = await makeTestApp({ mcpToken: TOKEN }); tracked.push(t);
+    const created = (await t.post("/api/projects", {
+      name: "Synthetic metadata freshness",
+      aliases: [],
+      description: null,
+      parentId: null,
+    })).json<{ id: string; revision: number; contentVersion: number; workingMemoryVersion: number }>();
+
+    const initial = await t.get(`/api/projects/${created.id}/freshness?after=0&workingAfter=0&projectRevisionAfter=1`);
+    expect(initial.json()).toMatchObject({
+      projectId: created.id,
+      projectRevision: 1,
+      projectRevisionChanged: false,
+      projectRevisionResetRequired: false,
+      cursor: 0,
+      workingCursor: 0,
+    });
+
+    const patched = await t.patch(`/api/projects/${created.id}`, { revision: 1, description: "Synthetic metadata change" });
+    expect(patched.statusCode).toBe(200);
+    const patchedProject = patched.json<{ revision: number; contentVersion: number }>();
+    expect(patchedProject.revision).toBe(2);
+    expect(patchedProject.contentVersion).toBe(0);
+
+    const changed = await t.get(`/api/projects/${created.id}/freshness?after=0&workingAfter=0&projectRevisionAfter=1`);
+    expect(changed.json()).toMatchObject({
+      projectRevision: 2,
+      projectRevisionChanged: true,
+      projectRevisionResetRequired: false,
+      changed: false,
+      workingChanged: false,
+    });
+
+    const reset = await t.get(`/api/projects/${created.id}/freshness?after=0&workingAfter=0&projectRevisionAfter=3`);
+    expect(reset.json()).toMatchObject({
+      projectRevision: 2,
+      projectRevisionChanged: true,
+      projectRevisionResetRequired: true,
+      cursor: 0,
+      workingCursor: 0,
+    });
+
+    const invalid = await t.get(`/api/projects/${created.id}/freshness?projectRevisionAfter=-1`);
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json<{ error: { code: string } }>().error.code).toBe("invalid_project_revision_cursor");
+  });
 });

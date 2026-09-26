@@ -136,7 +136,31 @@ describe("CK-A07 durable timeout reconciliation", () => {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "r1", revision: 2 }),
+        json: async () => ({
+          id: "r1",
+          projectId: null,
+          projectName: null,
+          type: "fact",
+          subject: "synthetic",
+          predicate: null,
+          valueJson: null,
+          text: "once",
+          reviewStatus: "proposed",
+          evidenceBasis: "document",
+          taskStatus: null,
+          recordedAt: new Date().toISOString(),
+          sourceEventAt: null,
+          effectiveFrom: null,
+          effectiveTo: null,
+          reviewedAt: null,
+          reviewDueAt: null,
+          volatile: false,
+          isOverdue: false,
+          revision: 2,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          evidence: [],
+        }),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 

@@ -69,6 +69,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
     const row = deps.db
       .select({
         id: projects.id,
+        revision: projects.revision,
         contentVersion: projects.contentVersion,
         workingMemoryVersion: projects.workingMemoryVersion,
       })
@@ -90,12 +91,22 @@ export function registerProjectRoutes(app: FastifyInstance): void {
         );
       }
     }
+    const rawProjectRevisionAfter = (request.query as { projectRevisionAfter?: string }).projectRevisionAfter;
+    let projectRevisionAfter: number | undefined;
+    if (rawProjectRevisionAfter !== undefined) {
+      projectRevisionAfter = Number(rawProjectRevisionAfter);
+      if (!Number.isSafeInteger(projectRevisionAfter) || projectRevisionAfter < 0) {
+        throw new ApiError(400, "invalid_project_revision_cursor", "Project revision cursor must be a non-negative safe integer.");
+      }
+    }
     const resetRequired = after !== undefined && after > row.contentVersion;
-    const workingResetRequired =
-      workingAfter !== undefined && workingAfter > row.workingMemoryVersion;
+    const workingResetRequired = workingAfter !== undefined && workingAfter > row.workingMemoryVersion;
+    const projectRevisionChanged = projectRevisionAfter !== undefined && projectRevisionAfter !== row.revision;
+    const projectRevisionResetRequired = projectRevisionAfter !== undefined && projectRevisionAfter > row.revision;
     reply.header("cache-control", "no-store");
     return {
       projectId: row.id,
+      projectRevision: row.revision,
       cursor: row.contentVersion,
       contentCursor: row.contentVersion,
       workingCursor: row.workingMemoryVersion,
@@ -111,6 +122,8 @@ export function registerProjectRoutes(app: FastifyInstance): void {
           ? 0
           : row.workingMemoryVersion - workingAfter,
       workingResetRequired,
+      projectRevisionChanged,
+      projectRevisionResetRequired,
     };
   });
 

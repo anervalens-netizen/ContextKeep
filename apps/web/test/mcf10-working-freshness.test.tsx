@@ -17,7 +17,8 @@ vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");
   return {
     useParams: () => ({ projectId: "project-1" }),
-    useSearch: () => ({ recordId: undefined }),
+    useSearch: () => ({ recordId: undefined, tab: undefined }),
+    useNavigate: () => async () => undefined,
     Link: ({ children, to, ...props }: { children: React.ReactNode; to: string }) =>
       ReactModule.createElement("a", { href: to, ...props }, children),
   };
@@ -68,22 +69,22 @@ describe("MCF-10 working freshness", () => {
         indicators: { stale: false, truncated: false, unknown: [] },
       };
       if (url === "/api/projects/project-1/freshness") return {
-        projectId: "project-1", cursor: 0, contentCursor: 0,
+        projectId: "project-1", projectRevision: 1, cursor: 0, contentCursor: 0,
         workingCursor: workingVersion, workingMemoryVersion: workingVersion,
         changed: false, delta: 0, resetRequired: false,
-        workingChanged: false, workingDelta: 0, workingResetRequired: false,
+        workingChanged: false, workingDelta: 0, workingResetRequired: false, projectRevisionChanged: false, projectRevisionResetRequired: false,
       };
       if (url.startsWith("/api/projects/project-1/freshness?")) {
         const parsed = new URL(url, "http://local");
         const after = Number(parsed.searchParams.get("after"));
         const workingAfter = Number(parsed.searchParams.get("workingAfter"));
         return {
-          projectId: "project-1", cursor: 0, contentCursor: 0,
+          projectId: "project-1", projectRevision: 1, cursor: 0, contentCursor: 0,
           workingCursor: workingVersion, workingMemoryVersion: workingVersion,
           changed: after !== 0, delta: 0, resetRequired: after > 0,
           workingChanged: workingAfter !== workingVersion,
           workingDelta: Math.max(0, workingVersion - workingAfter),
-          workingResetRequired: workingAfter > workingVersion,
+          workingResetRequired: workingAfter > workingVersion, projectRevisionChanged: false, projectRevisionResetRequired: false,
         };
       }
       throw new Error(`unexpected API call ${url}`);

@@ -18,7 +18,8 @@ vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");
   return {
     useParams: () => ({ projectId: "project-1" }),
-    useSearch: () => ({ recordId: undefined }),
+    useSearch: () => ({ recordId: undefined, tab: undefined }),
+    useNavigate: () => async () => undefined,
     Link: ({ children, to, search, ...props }: { children: React.ReactNode; to: string; search?: { projectId?: string } }) =>
       ReactModule.createElement("a", { href: search?.projectId ? `${to}?projectId=${encodeURIComponent(search.projectId)}` : to, ...props }, children),
   };
@@ -145,7 +146,7 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("M4 intelligent project overview", () => {
-  it("treats mapped Dell agent sessions as primary work history without promoting them to canonical knowledge", async () => {
+  it("treats mapped agent sessions as primary work history without promoting them to canonical knowledge", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       React.createElement(
@@ -159,7 +160,7 @@ describe("M4 intelligent project overview", () => {
     expect(screen.getByText(/363 mapped agent sessions/)).toBeTruthy();
     expect(screen.getByText(/234 Codex, 129 DSH/)).toBeTruthy();
     expect(screen.getByText(/29 Codex summaries/)).toBeTruthy();
-    expect(screen.getByText("Agent work on Dell")).toBeTruthy();
+    expect(screen.getByText("Observed agent work")).toBeTruthy();
     expect(await screen.findByText("Memory status")).toBeTruthy();
     expect(await screen.findByText("Payroll remediation complete")).toBeTruthy();
     expect(screen.getAllByText(/Await final certification/).length).toBeGreaterThan(0);

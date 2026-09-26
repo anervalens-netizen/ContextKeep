@@ -3,15 +3,15 @@ import * as offlineQueue from "../lib/offline/queue.js";
 import type { ReactNode } from "react";
 import { useUiStore } from "../state/ui.js";
 import { RETRY_OFFLINE_QUEUE_EVENT } from "../lib/idempotency-key.js";
+import { isDurableReconciliationBarrier } from "../lib/offline/barriers.js";
 
 /**
  * Persistent banner of offline replay conflicts. The owner dismisses an
  * entry to acknowledge it; on dismissal we dispatch `ck:retry-offline-queue`
  * so the F07 durable-barrier release path in main.tsx can transparently
  * resume the queue if no other blocking conflict remains and the browser is
- * online. `idempotency_outcome_unknown` entries are the only ones that gate
- * the rest of the queue; other semantic 4xx conflicts are inert once
- * dismissed.
+ * online. Durable reconciliation entries gate the rest of the queue; other
+ * semantic 4xx conflicts are inert once dismissed.
  *
  * The region is assertively announced because an unknown-outcome conflict is
  * an actionable durable queue barrier, not decorative status text.
@@ -26,9 +26,7 @@ export function ConflictOverlay(): ReactNode {
       await q.dismissConflict(seq);
       dismiss(seq);
       const remaining = await q.listConflicts();
-      const stillBlocking = remaining.some(
-        (c) => c.code === "idempotency_outcome_unknown",
-      );
+      const stillBlocking = remaining.some((c) => isDurableReconciliationBarrier(c.code));
       if (stillBlocking) return;
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(RETRY_OFFLINE_QUEUE_EVENT));
@@ -45,7 +43,8 @@ export function ConflictOverlay(): ReactNode {
       </p>
       <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-[11px]">
         {conflicts.map((c) => {
-          const isUnknown = c.code === "idempotency_outcome_unknown";
+          const isBarrier = isDurableReconciliationBarrier(c.code);
+          const isExpired = c.code === "idempotency_result_expired";
           const reviewRoute =
             c.code === "near_duplicate_pending"
               ? "/import"
@@ -70,13 +69,13 @@ export function ConflictOverlay(): ReactNode {
                     onClick={() => {
                       if (c.seq !== undefined) void handle(c.seq);
                     }}
-                    aria-label={isUnknown ? "Acknowledge and continue queue" : reviewRoute ? "Discard pending offline result" : "Dismiss conflict"}
+                    aria-label={isBarrier ? (isExpired ? "Acknowledge and reconcile queue" : "Acknowledge and continue queue") : reviewRoute ? "Discard pending offline result" : "Dismiss conflict"}
                   >
-                    {isUnknown ? "Acknowledge & continue queue" : reviewRoute ? "Discard" : "Dismiss"}
+                    {isBarrier ? (isExpired ? "Acknowledge & reconcile" : "Acknowledge & continue queue") : reviewRoute ? "Discard" : "Dismiss"}
                   </button>
                 </div>
               </div>
-              <OfflineMutationDetails mutation={c.mutation} unknownOutcome={isUnknown} />
+              <OfflineMutationDetails mutation={c.mutation} unknownOutcome={isBarrier} reconciliationCode={isExpired ? "idempotency_result_expired" : "idempotency_outcome_unknown"} />
               {c.message ? (
                 <p className="whitespace-pre-wrap text-ck-ink" data-testid="conflict-message">
                   {c.message}
