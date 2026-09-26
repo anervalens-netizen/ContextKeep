@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ContextKeep: consistent snapshots, recovery kits and verified independent copies."""
-import contextlib, datetime as dt, fcntl, gzip, hashlib, json, os, pathlib, posixpath, shutil, sqlite3, subprocess, tarfile, tempfile
+import argparse, contextlib, datetime as dt, fcntl, gzip, hashlib, json, os, pathlib, posixpath, shlex, shutil, sqlite3, subprocess, tarfile, tempfile
+from contextkeep_ops_config import load_profile, space_report, validate_runtime_identity, verify_running_process
 P=pathlib.Path
 BASE=P('/storage/backups/contextkeep')
 HOME=P('/home/operator')
@@ -88,37 +89,80 @@ def running_node(run,proc_root=P('/proc')):
     if not executable.is_file():raise RuntimeError('Service interpreter is not a regular file')
     return executable
 
-def main(*,base=BASE,home=HOME,repo=REPO,node=None,nas_mount='/mnt/nas',nas_dir=None,runner=None,mounted=None,now=None):
-    base=P(base);home=P(home);repo=P(repo)
+def main(*,base=BASE,home=HOME,repo=REPO,node=None,nas_mount='/mnt/nas',nas_dir=None,runner=None,mounted=None,now=None,config=None,dry_run=False,report_space=False,runtime_observer=None,proc_root=P('/proc')):
+    profile_file=config or os.environ.get('CONTEXTKEEP_OPS_CONFIG')
+    configured=bool(profile_file)
+    profile=load_profile(config)
+    profile_path=P(profile_file).expanduser() if configured else None
+    if profile_path is not None and (profile_path.is_symlink() or not profile_path.is_file()):
+        raise RuntimeError('Configured operations profile must be a regular file')
+    if not configured:
+        # Preserve the installed script's defaults when tests or an existing
+        # unit invokes main with explicit legacy paths.
+        profile.update({'home_dir':str(P(home).resolve()),'repo_dir':str(P(repo).resolve()),
+                        'backup_dir':str(P(base).resolve()),'runtime_kit_dir':str(P(base).resolve()),
+                        'data_dir':str((P(repo)/'apps/server/data').resolve()),
+                        'release_dir':str((P(home)/'releases/contextkeep/current').resolve()),
+                        'nas_mount':str(P(nas_mount).resolve()),
+                        'nas_dir':str(P(nas_dir).resolve() if nas_dir is not None else P(nas_mount).resolve()/'backups/contextkeep')})
+    base=P(profile['backup_dir']);home=P(profile['home_dir']);repo=P(profile['repo_dir'])
+    nas_mount=profile['nas_mount'];nas_dir=P(profile['nas_dir'])
+    runner=runner or run
+    observed=runner(['hostname'])
+    if not isinstance(observed,str):observed=getattr(observed,'stdout','')
+    observed=observed.strip()
+    runtime=None
+    if configured:
+        if observed != profile['primary_host']:
+            raise RuntimeError('Configured primary host does not match this host')
+        runtime=runtime_observer(profile,runner) if runtime_observer is not None else verify_running_process(runner,proc_root=proc_root)
+        identity=validate_runtime_identity(profile,observed,runtime.get('data_dir'),runtime.get('release_dir'))
+        identity.update({'verification':'running_process',**runtime})
+        if node is None:node=runtime['node']
+    else:
+        identity=validate_runtime_identity(profile,observed,profile['data_dir'],profile['release_dir'],require_observed=False)
+        identity['verification']='legacy_configured_paths_only'
+    report=space_report(profile)
+    if report_space or dry_run:
+        result={'dry_run':bool(dry_run),'identity':identity,'space':report,'backup_dir':str(base)}
+        print(json.dumps(result))
+        return result
     old_umask=os.umask(0o077)
     try:
         base.mkdir(parents=True,exist_ok=True)
         with open(base/'backup.lock','a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             return backup(base,home,repo,base/'status.json',node,nas_mount,
-                          P(nas_dir) if nas_dir is not None else P(nas_mount)/'backups/contextkeep',
-                          runner or run,mounted or os.path.ismount,now)
+                          nas_dir,runner,mounted or os.path.ismount,now,
+                          profile=profile if configured else None,runtime=runtime,profile_path=profile_path)
     finally:
         os.umask(old_umask)
 
-def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
-    if run(['hostname'])!='server':raise RuntimeError('Only the active primary may run this job')
+def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now,profile=None,runtime=None,profile_path=None):
+    if profile is not None:
+        runtime=runtime or verify_running_process(run)
+        validate_runtime_identity(profile,run(['hostname']).strip(),runtime.get('data_dir'),runtime.get('release_dir'))
+    elif run(['hostname'])!='server':
+        raise RuntimeError('Only the active primary may run this job')
     run(['systemctl','--user','is-active','contextkeep.service'])
-    node=running_node(run) if node is None else P(node)
+    node=P(runtime['node']) if runtime is not None and node is None else (running_node(run) if node is None else P(node))
     now=now or dt.datetime.now(dt.timezone.utc);stamp=now.strftime('%Y%m%dT%H%M%SZ')
-    release=(HOME/'releases/contextkeep/current').resolve(strict=True)
-    kit=BASE/('runtime-'+release.name+'.tar.gz')
+    release=(P(profile['release_dir']) if profile is not None else HOME/'releases/contextkeep/current').resolve(strict=True)
+    data_dir=P(profile['data_dir']) if profile is not None else REPO/'apps/server/data'
+    kit_dir=P(profile['runtime_kit_dir']) if profile is not None else BASE
+    kit_dir.mkdir(parents=True,exist_ok=True)
+    kit=kit_dir/('runtime-'+release.name+'.tar.gz')
     ensure_runtime_kit(kit,release,HOME,node)
     kit_hash=digest(kit)
     with tempfile.TemporaryDirectory(prefix='ck-snapshot-',dir=BASE) as tmp:
         tmp=P(tmp);db=tmp/'store.sqlite'
-        with contextlib.closing(sqlite3.connect((REPO/'apps/server/data/store.sqlite').resolve().as_uri()+'?mode=ro',uri=True)) as src:
+        with contextlib.closing(sqlite3.connect((data_dir/'store.sqlite').resolve().as_uri()+'?mode=ro',uri=True)) as src:
             with contextlib.closing(sqlite3.connect(db)) as dst:
                 src.backup(dst)
                 if dst.execute('pragma integrity_check').fetchall()!=[('ok',)]:raise ValueError('Snapshot integrity check failed')
                 if dst.execute('pragma foreign_key_check').fetchall():raise ValueError('Snapshot foreign-key check failed')
                 counts={t:dst.execute('select count(*) from '+t).fetchone()[0] for t in ['projects','records','sources']}
-        manifest={'created_at':now.isoformat(),'primary':'server','release':release.name,'db_sha256':digest(db),'runtime_kit':kit.name,'runtime_sha256':kit_hash,'counts':counts,'integrity':'ok'}
+        manifest={'created_at':now.isoformat(),'primary':profile['primary_host'] if profile is not None else 'server','release':release.name,'db_sha256':digest(db),'runtime_kit':kit.name,'runtime_sha256':kit_hash,'counts':counts,'integrity':'ok'}
         write(tmp/'manifest.json',manifest)
         archive=BASE/('snapshot-'+stamp+'.tar.gz')
         part=archive.with_suffix('.partial')
@@ -128,6 +172,8 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
                 t.add(REPO/'apps/server/.env',arcname='config/app.env')
                 for n in ['mcp.env','secrets.env','release.env','tunnel.env','mcp-authorization','mcp-tunnel.yaml','codex-env.sh']:
                     t.add(HOME/'.config/contextkeep'/n,arcname='config/'+n)
+                if profile_path is not None:
+                    t.add(profile_path,arcname='config/contextkeep-ops-profile.json',recursive=False)
                 for n in ['contextkeep.service','contextkeep.service.d','contextkeep-mcp-tunnel.service','contextkeep-backup.service','contextkeep-backup.timer']:
                     p=HOME/'.config/systemd/user'/n
                     if p.exists():t.add(p,arcname='systemd/'+n)
@@ -142,14 +188,17 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
     if STATUS.exists():
         old=json.loads(STATUS.read_text())
         if 'restore_test' in old:status['restore_test']=old['restore_test']
+    remote_target=profile['dell_target'] if profile is not None else 'operator@100.64.0.142'
+    remote_dir=profile['dell_dir'] if profile is not None else '/home/operator/backups/contextkeep'
     for target in ['dell','nas']:
         try:
             if target=='dell':
-                remote='operator@100.64.0.142';dest='/home/operator/backups/contextkeep'
-                run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8',remote,'mkdir -p '+dest+' && chmod 700 '+dest])
-                run(['rsync','-a','--timeout=60',str(kit),str(archive),remote+':'+dest+'/'])
+                remote=remote_target;dest=remote_dir
+                quoted_dest=shlex.quote(dest)
+                run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8',remote,'mkdir -p -- '+quoted_dest+' && chmod 700 -- '+quoted_dest])
+                run(['rsync','-a','--timeout=60',str(kit),str(archive),remote+':'+shlex.quote(dest+'/')])
                 for p,h in [(kit,kit_hash),(archive,ah)]:
-                    actual=run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8',remote,'sha256sum '+dest+'/'+p.name]).split()[0]
+                    actual=run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8',remote,'sha256sum -- '+shlex.quote(dest+'/'+p.name)]).split()[0]
                     if actual!=h:raise ValueError('Dell hash mismatch: '+p.name)
                 path=dest+'/'+archive.name
             else:
@@ -173,8 +222,8 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
     # Retention only affects this job's timestamped snapshots, never live data.
     if status['copies'].get('dell',{}).get('ok'):
         try:
-            code="from pathlib import Path\n"+__import__('inspect').getsource(prune)+"\nprune(Path('/home/operator/backups/contextkeep'))"
-            run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8','operator@100.64.0.142','python3 -'],input=code)
+            code="from pathlib import Path\n"+__import__('inspect').getsource(prune)+f"\nprune(Path({remote_dir!r}))"
+            run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=8',remote_target,'python3 -'],input=code)
         except Exception as e:
             status['copies']['dell'].update(ok=False,error='Retention failed: '+str(e)[:250])
     targets=['dell','nas']
@@ -189,7 +238,7 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
             if not status['publication'][target]['ok']:continue
             try:
                 if target=='dell':
-                    run(['rsync','-a','--timeout=60',str(STATUS),'operator@100.64.0.142:/home/operator/backups/contextkeep/'])
+                    run(['rsync','-a','--timeout=60',str(STATUS),remote_target+':'+shlex.quote(remote_dir+'/')])
                 else:
                     if not mounted(nas_mount):raise RuntimeError('NAS mount missing for status publication')
                     write(NAS/'status.json',status)
@@ -208,4 +257,10 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now):
     print(json.dumps({'snapshot':archive.name,'counts':counts,'copies':{k:v['ok'] for k,v in status['copies'].items()}}))
     if not all(v['ok'] for v in status['copies'].values()):raise SystemExit(1)
     return status
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--config',help='Private JSON operations profile; CONTEXTKEEP_OPS_CONFIG is also supported')
+    parser.add_argument('--dry-run',action='store_true',help='Validate primary/data/runtime identity and report space without mutation')
+    parser.add_argument('--report-space',action='store_true',help='Report runtime-kit capacity without running a backup')
+    args=parser.parse_args()
+    main(config=args.config,dry_run=args.dry_run,report_space=args.report_space)

@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import shlex
 from unittest import mock
 
 P=pathlib.Path
@@ -88,9 +89,9 @@ class BackupWorkflowTests(unittest.TestCase):
             return ''
         if args[0]=='ssh':
             command=args[-1]
-            if command.startswith('mkdir -p '):return ''
-            if command.startswith('sha256sum '):
-                name=P(command.split(' ',1)[1]).name
+            if command.startswith('mkdir -p -- '):return ''
+            if command.startswith('sha256sum -- '):
+                name=P(shlex.split(command)[-1]).name
                 return backup.digest(self.remote/name)+'  '+name
             if command=='python3 -':return ''
         raise AssertionError('Unexpected external command: '+repr(args))
@@ -309,6 +310,109 @@ class BackupWorkflowTests(unittest.TestCase):
             self.assertEqual({entry.name for entry in target.iterdir()},{'store.sqlite','manifest.json'})
         self.assertEqual(actual.read_text(),'private fixture config')
 
+    def profile(self, **changes):
+        values={
+            'primary_host':'server','home_dir':str(self.home),'repo_dir':str(self.repo),
+            'backup_dir':str(self.base),'runtime_kit_dir':str(self.base),
+            'data_dir':str(self.repo/'apps/server/data'),'release_dir':str(self.release),
+            'nas_mount':str(self.root/'mount'),'nas_dir':str(self.nas),
+            'dell_target':'synthetic-standby','dell_dir':str(self.remote),
+            'runtime_release_name':None,
+        }
+        values.update(changes)
+        filename=self.root/'ops-profile.json'
+        filename.write_text(json.dumps(values))
+        return filename
+
+    def observed_runtime(self, profile, _runner):
+        return {'pid':123,'data_dir':profile['data_dir'],'release_dir':profile['release_dir'],
+                'node':str(self.node),'database_inode_verified':True}
+
+    def test_profile_rejects_wrong_primary_and_runtime_before_backup_directory_creation(self):
+        wrong_host=self.profile(primary_host='other-synthetic-host')
+        with self.assertRaisesRegex(RuntimeError,'primary host'):
+            backup.main(config=str(wrong_host),runner=self.runner)
+        self.assertFalse(self.base.exists())
+        self.assertEqual(self.calls,[['hostname']])
+
+        wrong_runtime=self.profile(runtime_release_name='different-release')
+        self.calls.clear()
+        with self.assertRaisesRegex(RuntimeError,'release name'):
+            backup.main(config=str(wrong_runtime),runner=self.runner,runtime_observer=self.observed_runtime)
+        self.assertFalse(self.base.exists())
+        self.assertEqual(self.calls,[['hostname']])
+
+    def test_profile_dry_run_reports_runtime_kit_space_without_mutation(self):
+        with contextlib.redirect_stdout(io.StringIO()):self.invoke()
+        profile=self.profile()
+        before=set(self.base.iterdir())
+        self.calls.clear()
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output):result=backup.main(config=str(profile),runner=self.runner,dry_run=True,runtime_observer=self.observed_runtime)
+        self.assertTrue(result['dry_run'])
+        self.assertEqual(result['space']['runtime_kit_count'],1)
+        self.assertGreater(result['space']['runtime_kit_bytes'],0)
+        self.assertEqual(set(self.base.iterdir()),before)
+        self.assertEqual([call[0] for call in self.calls if call[0] in {'systemctl','rsync'}],[])
+        self.assertEqual(json.loads(output.getvalue()),result)
+
+    def test_profile_rejects_observed_wrong_paths_before_backup_creation(self):
+        profile=self.profile()
+        wrong_data=self.root/'wrong-data'
+        wrong_release=self.root/'wrong-release'
+        make_db(wrong_data/'store.sqlite')
+        put(wrong_release/'package.json','{}')
+        def observed(_profile, _runner):
+            return {'pid':123,'data_dir':str(wrong_data),'release_dir':str(wrong_release),
+                    'node':str(self.node),'database_inode_verified':True}
+        with self.assertRaisesRegex(RuntimeError,'data identity'):
+            backup.main(config=str(profile),runner=self.runner,runtime_observer=observed)
+        self.assertFalse(self.base.exists())
+        self.assertEqual(self.calls,[['hostname']])
+
+    def test_separate_runtime_kit_is_archived_and_restore_uses_matching_release(self):
+        kit_dir=self.root/'runtime kits'
+        profile=self.profile(runtime_kit_dir=str(kit_dir))
+        with contextlib.redirect_stdout(io.StringIO()):
+            status=backup.main(config=str(profile),runner=self.runner,runtime_observer=self.observed_runtime,
+                               mounted=lambda _:self.available,now=self.now)
+        self.assertTrue((kit_dir/status['runtime_kit']).is_file())
+        self.assertFalse((self.base/status['runtime_kit']).exists())
+        with tarfile.open(self.base/status['snapshot'],'r:gz') as archive:
+            member=archive.getmember('config/contextkeep-ops-profile.json')
+            self.assertEqual(archive.extractfile(member).read(),profile.read_bytes())
+            manifest=json.loads(archive.extractfile(archive.getmember('manifest.json')).read())
+        self.assertEqual(manifest['runtime_kit'],status['runtime_kit'])
+
+        target=self.root/'restored-data'
+        def restore_runner(args, **kwargs):
+            target_path=P(kwargs['env']['CK_DATA_DIR'])
+            target_path.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(args[2],target_path/'store.sqlite')
+            return subprocess.CompletedProcess(args,0)
+        result=restore.restore_snapshot(self.base/status['snapshot'],target,self.node,self.release,
+                                        runner=restore_runner,environ={'SYNTHETIC':'yes'})
+        self.assertEqual(result['integrity'],'ok')
+
+    def test_remote_path_quoting_handles_spaces_and_apostrophes(self):
+        remote_dir=self.root/"dell dir/owner's snapshots"
+        profile=self.profile(dell_dir=str(remote_dir))
+        with contextlib.redirect_stdout(io.StringIO()):
+            backup.main(config=str(profile),runner=self.runner,runtime_observer=self.observed_runtime,
+                        mounted=lambda _:self.available,now=self.now)
+        commands=[args[-1] for args in self.calls if args[0]=='ssh']
+        self.assertIn('mkdir -p -- '+shlex.quote(str(remote_dir))+' && chmod 700 -- '+shlex.quote(str(remote_dir)),commands)
+        self.assertTrue(any(command == 'sha256sum -- '+shlex.quote(str(remote_dir)+'/runtime-abcdef123456.tar.gz') for command in commands))
+        rsync_dest=[args[-1] for args in self.calls if args[0]=='rsync' and ':' in args[-1]]
+        self.assertTrue(any(rsync_dest and shlex.quote(str(remote_dir)+'/') in value for value in rsync_dest))
+
+    def test_profile_rejects_malformed_remote_targets_without_restricting_valid_aliases(self):
+        for target in ['-oProxyCommand=bad', 'host\n--bad', 'user@@host', 'host:not-a-port']:
+            with self.subTest(target=target),self.assertRaisesRegex(ValueError,'invalid dell_target'):
+                backup.load_profile(str(self.profile(dell_target=target)))
+        valid=self.profile(dell_target='any-user@[fd00::1]:2222')
+        self.assertEqual(backup.load_profile(str(valid))['dell_target'],'any-user@[fd00::1]:2222')
+
 
 class RestoreWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -353,6 +457,12 @@ class RestoreWorkflowTests(unittest.TestCase):
         self.assertEqual(result,{'restored':str(self.target),'counts':self.manifest['counts'],'integrity':'ok'})
         self.assertEqual(len(self.calls),1)
         self.assertEqual(self.calls[0][1]['env']['TEST'],'yes')
+
+    def test_restore_dry_run_validates_archive_without_invoking_writer(self):
+        result=self.invoke(dry_run=True)
+        self.assertEqual(result,{'dry_run':True,'target':str(self.target),'release':self.manifest['release'],'counts':self.manifest['counts'],'integrity':'ok'})
+        self.assertEqual(self.calls,[])
+        self.assertFalse(self.target.exists())
 
     def test_snapshot_hash_mismatch_never_invokes_cli_or_changes_target(self):
         put(self.target/'owner-file','unchanged')
@@ -485,6 +595,7 @@ class RuntimeDataIdentityTests(unittest.TestCase):
         make_db(self.data/'store.sqlite')
         self.release=self.root/'release-sha'
         (self.release/'apps/server').mkdir(parents=True)
+        put(self.release/'package.json','{}')
         self.entry=self.release/'apps/server/dist/server.js'
         put(self.entry,'server fixture')
         (self.proc/'cmdline').write_bytes(('node\0'+str(self.entry)+'\0').encode())
@@ -499,6 +610,18 @@ class RuntimeDataIdentityTests(unittest.TestCase):
 
     def write_env(self,data):
         (self.proc/'environ').write_bytes(('CK_DATA_DIR='+str(data)+'\0CK_BUILD_SHA=release-sha\0UNRELATED_SECRET=not-for-output\0').encode())
+
+    def test_backup_process_observer_binds_synthetic_service_identity(self):
+        result=backup.verify_running_process(lambda _: '123',proc_root=self.root/'proc')
+        self.assertEqual(result['pid'],123)
+        self.assertEqual(result['data_dir'],str(self.data.resolve()))
+        self.assertEqual(result['release_dir'],str(self.release.resolve()))
+        self.assertTrue(result['database_inode_verified'])
+        self.assertNotIn('not-for-output',json.dumps(result))
+
+    def test_backup_process_observer_rejects_unsupported_proc_root(self):
+        with self.assertRaisesRegex(RuntimeError,'unsupported'):
+            backup.verify_running_process(lambda _: '123',proc_root=self.root/'missing-proc')
 
     def verify(self):
         return self.module.verify_runtime_data(123,self.data,release=self.release,node=self.node,proc_root=self.root/'proc')

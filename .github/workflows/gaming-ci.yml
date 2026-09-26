@@ -1,4 +1,4 @@
-name: Gaming CI
+name: Gaming CI (fast lane)
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   verify:
-    name: typecheck + functional tests + build on Gaming
+    name: fast typecheck + functional tests + build on Gaming
     runs-on: [self-hosted, Linux, X64, gaming-ci, contextkeep-build]
     timeout-minutes: 20
     steps:

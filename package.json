@@ -24,7 +24,10 @@
     "test:ops": "python3 -m unittest discover -s ops -p \"test_recovery.py\" -v",
     "verify:nav": "pnpm --filter @contextkeep/web verify:nav",
     "verify:load": "node --import ./apps/server/node_modules/tsx/dist/esm/index.mjs apps/server/scripts/audit-large-project.ts",
-    "check:privacy": "node .github/test-public-data.mjs && node .github/check-public-data.mjs",
+    "check:privacy": "node .github/test-public-data.mjs && node .github/test-public-history.mjs && node .github/check-public-data.mjs",
+    "check:privacy:history": "node .github/check-public-data.mjs --history HEAD",
+    "test:release-gate-plan": "node scripts/test-release-gate-plan.mjs",
+    "release:gate": "node scripts/release-gate.mjs",
     "prepare": "node .github/install-hooks.mjs"
   },
   "devDependencies": {

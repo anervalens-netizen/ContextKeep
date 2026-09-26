@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Restore a trusted ContextKeep snapshot with its supported offline CLI."""
 import argparse, contextlib, hashlib, json, os, pathlib, shutil, sqlite3, subprocess, tarfile, tempfile
+from contextkeep_ops_config import load_profile, validate_runtime_identity
 
 P=pathlib.Path
 LIVE_DATA=P('/opt/contextkeep/apps/server/data')
@@ -69,7 +70,7 @@ def require_stopped_service(runner):
             or properties.get('ActiveState') not in {'inactive','failed'}):
         raise RuntimeError('ContextKeep service is active or its state is unknown; stop/fence and verify it before restore')
 
-def restore_snapshot(snapshot,data_dir,node,release,*,runner=None,environ=None,live_data=LIVE_DATA):
+def restore_snapshot(snapshot,data_dir,node,release,*,runner=None,environ=None,live_data=LIVE_DATA,dry_run=False):
     runner=runner or subprocess.run
     target=P(data_dir).resolve()
     if target==P(live_data).resolve():require_stopped_service(runner)
@@ -79,6 +80,8 @@ def restore_snapshot(snapshot,data_dir,node,release,*,runner=None,environ=None,l
         release=P(release).resolve(strict=True)
         if release.name!=manifest['release']:raise ValueError('Use exact matching runtime kit')
         verify_database(tmp/'store.sqlite',manifest['counts'])
+        if dry_run:
+            return {'dry_run':True,'target':str(target),'release':manifest['release'],'counts':manifest['counts'],'integrity':'ok'}
         env={**(os.environ if environ is None else environ),'CK_DATA_DIR':str(target)}
         # The updated CLI acquires the directory lock itself. Never synthesize a
         # human acknowledgement; an older CLI requiring that flag fails closed.
@@ -89,12 +92,24 @@ def restore_snapshot(snapshot,data_dir,node,release,*,runner=None,environ=None,l
 def main(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument('snapshot')
-    parser.add_argument('--data-dir',required=True)
+    parser.add_argument('--config',help='Private JSON operations profile; CONTEXTKEEP_OPS_CONFIG is also supported')
+    parser.add_argument('--data-dir')
     preferred=P('/home/operator/.openclaw/tools/node-v24.19.0/bin/node')
-    parser.add_argument('--node',default=str(preferred) if preferred.exists() else '/usr/bin/node')
-    parser.add_argument('--release',default='/home/operator/releases/contextkeep/current')
+    parser.add_argument('--node')
+    parser.add_argument('--release')
+    parser.add_argument('--dry-run',action='store_true',help='Validate identity, archive and runtime without mutating the target')
     args=parser.parse_args(argv)
-    result=restore_snapshot(args.snapshot,args.data_dir,args.node,args.release)
+    configured=bool(args.config or os.environ.get('CONTEXTKEEP_OPS_CONFIG'))
+    profile=load_profile(args.config)
+    observed=subprocess.run(['hostname'],check=True,capture_output=True,text=True,timeout=15).stdout.strip()
+    data_dir=args.data_dir or profile['data_dir']
+    release=args.release or profile['release_dir']
+    if not configured:
+        profile['data_dir']=str(P(data_dir).resolve())
+        profile['release_dir']=str(P(release).resolve())
+    validate_runtime_identity(profile,observed,data_dir,release,require_data=False)
+    node=args.node or (str(preferred) if preferred.exists() else '/usr/bin/node')
+    result=restore_snapshot(args.snapshot,data_dir,node,release,dry_run=args.dry_run)
     print(json.dumps(result))
     return result
 

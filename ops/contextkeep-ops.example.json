@@ -1,0 +1,14 @@
+{
+  "primary_host": "synthetic-primary",
+  "home_dir": "/srv/contextkeep/operator",
+  "repo_dir": "/srv/contextkeep/source",
+  "backup_dir": "/srv/contextkeep/backups",
+  "runtime_kit_dir": "/srv/contextkeep/backups",
+  "data_dir": "/srv/contextkeep/source/apps/server/data",
+  "release_dir": "/srv/contextkeep/operator/releases/contextkeep/current",
+  "nas_mount": "/srv/contextkeep/nas",
+  "nas_dir": "/srv/contextkeep/nas/backups/contextkeep",
+  "dell_target": "synthetic-standby",
+  "dell_dir": "/srv/contextkeep/standby/backups/contextkeep",
+  "runtime_release_name": null
+}

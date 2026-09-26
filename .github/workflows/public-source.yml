@@ -8,9 +8,14 @@ jobs:
   public-source:
     runs-on: ubuntu-latest
     steps:
+      # History mode is a publication detector, so a shallow checkout is not sufficient.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: node .github/test-public-data.mjs
       - run: node .github/check-public-data.mjs
+      - run: node .github/test-public-history.mjs
+      - run: node .github/check-public-data.mjs --history HEAD
