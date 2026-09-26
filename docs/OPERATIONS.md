@@ -32,8 +32,10 @@ extracting that member into a protected location, reviewing it, and passing
 it deliberately to the backup/restore command. It is not a public config or
 a license to overwrite installed operational scripts. A runtime kit may live
 in a separate configured directory; the manifest reference and matching
-release are still required for restore, and neither snapshots nor kits are
-automatically deleted.
+release are still required for restore. Runtime kits are retained without
+automatic deletion. Snapshot retention is unchanged: 96 recent snapshots plus
+30 daily snapshots; older timestamped snapshots outside that existing policy
+are pruned. This release introduces no additional cleanup policy.
 
 Adoption is an operator change: create and review the private profile, run a
 synthetic dry-run, then update the installed service arguments deliberately.

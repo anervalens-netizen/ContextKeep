@@ -35,7 +35,7 @@ async function main(): Promise<void> {
   }
 
   const config = loadConfig({ ...(process.env as Record<string, string | undefined>), NODE_ENV: "production" }, {});
-  const handle = openDatabase(config.dbPath, config.sqliteSynchronous);
+  const handle = openDatabase(config.dbPath, config.sqliteSynchronous, { runtime: !dryRun });
   checkSchemaVersion(handle);
   const registry = createAdapterRegistry(config.adapters ?? ["manual", "faketest"]);
 

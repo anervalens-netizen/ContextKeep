@@ -51,3 +51,17 @@ reconcile state before retrying any indeterminate or expired result. See the
 [MCP safety implementation](../apps/server/src/mcp/safety.ts) and
 [context delta service](../apps/server/src/services/context-delta.ts) for the
 current source behavior.
+
+## Browser storage refusal
+
+Cosmetic settings can use a memory fallback. Unreadable privacy settings are
+not reported as cleared data. The owner may explicitly open an online-only
+view without reloading; local persistence and replay remain disabled. Private
+reads do not resume before that choice. Queued operations never move silently
+to volatile storage or receive replacement event keys.
+
+## Maintenance writers
+
+Migration, seed and non-dry-run portable import share the server runtime lease.
+Stop the application before invoking these writers. Online backup readers and
+portable-import dry-run validation remain supported.

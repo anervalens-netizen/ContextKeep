@@ -22,6 +22,7 @@ import {
 } from "../lib/offline/local-data.js";
 import {
   isLocalDataAccessPaused,
+  isLocalDataStorageUnavailable,
   setLocalDataAccessPaused,
   subscribeLocalDataAccess,
 } from "../lib/offline/local-data-state.js";
@@ -65,12 +66,14 @@ export function Layout(): ReactNode {
     isLocalDataAccessPaused,
   );
   const [localPurgeErrors, setLocalPurgeErrors] = useState<string[]>([]);
+  const [storageUnavailable] = useState(isLocalDataStorageUnavailable);
 
   const auth = useQuery({
     queryKey: ["auth-status"],
     queryFn: ({ signal }) =>
       apiFetch<AuthStatusDto>("/api/auth/status", { noQueue: true, signal }),
     retry: false,
+    enabled: !localDataPaused,
     staleTime: 60_000,
   });
   const authenticated = auth.data?.authenticated === true;
@@ -78,7 +81,9 @@ export function Layout(): ReactNode {
 
   useEffect(() => {
     const release = captureInstallPrompt((event) => setInstallEvent(event));
-    if (!localDataPaused) void syncQueueState();
+    if (!localDataPaused && !storageUnavailable) void syncQueueState().catch(() => {
+      setNotice({ kind: "error", text: "Local browser data could not be read. Offline changes were not replayed." });
+    });
 
     const unauthorized = (): void => {
       clearRememberedAuth();
@@ -218,6 +223,14 @@ export function Layout(): ReactNode {
   };
 
   const continueAfterLocalPurge = (): void => {
+    if (storageUnavailable) {
+      // Explicit owner consent permits an online-only view for this document.
+      // The durable-store pause remains enforced: never stage or replay writes
+      // under an unknown persisted privacy decision, and never reload-loop.
+      setLocalDataPaused(false);
+      setNotice({ kind: "info", text: "Online-only session: local browser storage is unavailable. Offline changes cannot be saved or replayed." });
+      return;
+    }
     setLocalDataAccessPaused(false);
     window.location.reload();
   };
@@ -227,14 +240,18 @@ export function Layout(): ReactNode {
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-ck-bg px-5 text-center text-sm text-ck-muted">
         <CkMark className="h-9 w-9 text-ck-teal" />
         <h1 className="text-base font-semibold text-ck-ink">
-          {localPurgeErrors.length > 0
-            ? "Local cleanup was incomplete"
-            : "Local ContextKeep data cleared"}
+          {storageUnavailable
+            ? "Browser storage unavailable"
+            : localPurgeErrors.length > 0
+              ? "Local cleanup was incomplete"
+              : "Local ContextKeep data cleared"}
         </h1>
         <p className="max-w-md">
-          {localPurgeErrors.length > 0
-            ? "ContextKeep stopped local data access because one or more browser stores could not be fully cleared. Server data was not deleted."
-            : "Browser copies are cleared and paused. Server data was not deleted. Continue only when you want this device to fetch ContextKeep data again."}
+          {storageUnavailable
+            ? "The browser refused access to its local privacy setting. Nothing is claimed to be cleared. Continue only to view live server data; local persistence and offline replay remain disabled."
+            : localPurgeErrors.length > 0
+              ? "ContextKeep stopped local data access because one or more browser stores could not be fully cleared. Server data was not deleted."
+              : "Browser copies are cleared and paused. Server data was not deleted. Continue only when you want this device to fetch ContextKeep data again."}
         </p>
         {localPurgeErrors.length > 0 ? (
           <ul className="max-w-md list-disc space-y-1 pl-5 text-left text-xs text-ck-amber">
@@ -248,7 +265,7 @@ export function Layout(): ReactNode {
           onClick={continueAfterLocalPurge}
           className="rounded-lg border border-ck-line bg-ck-surface px-3 py-2 text-xs font-semibold text-ck-ink"
         >
-          Continue using ContextKeep
+          {storageUnavailable ? "Continue online without local storage" : "Continue using ContextKeep"}
         </button>
       </div>
     );

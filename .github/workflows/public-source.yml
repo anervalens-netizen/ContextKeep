@@ -11,6 +11,9 @@ jobs:
       # History mode is a publication detector, so a shallow checkout is not sufficient.
       - uses: actions/checkout@v4
         with:
+          # Scan the authored source graph, not GitHub's temporary test-merge
+          # identity. Functional CI still tests the merge result separately.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:

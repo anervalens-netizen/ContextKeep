@@ -13,7 +13,7 @@ Scope: preserve the existing architecture and data model; strengthen failure han
 - [ ] MCP result size: bound the complete dual-content result, retain protocol compatibility and keep semantic context budgets distinct (R07).
 - [ ] Public-source guard: inspect history and commit messages without printing matched sensitive values; pre-push prevention remains enabled (R08, R14).
 - [ ] Verification contract: make release certification explicit, distinguish optional fast CI, include new regression checks and extend static checks proportionately (R09).
-- [ ] Portable operations: validate configured primary identity/data/runtime paths; report backup-kit space; preserve retained snapshots and kits without automatic destructive cleanup (R10).
+- [ ] Portable operations: validate configured primary identity/data/runtime paths; report backup-kit space; preserve runtime kits and the existing 96-recent/30-daily snapshot retention, without introducing additional automatic cleanup (R10).
 - [ ] Public documentation: architecture/invariants, synthetic configuration and HTTP/MCP recovery contract (R11).
 - [ ] Local UI continuity: validated URL tab, neutral source provenance, readable key status labels without redesign (R12).
 - [ ] Durable event identity: old completed results may compact, but their keys cannot silently become new writes; unresolved outcomes retain their barrier (R13).

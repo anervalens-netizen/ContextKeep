@@ -8,6 +8,7 @@ import {
 import * as schema from "./schema.js";
 import {
   acquireDirectoryLock,
+  acquireRuntimeLease,
   canonicalDatabasePath,
 } from "./directory-lock.js";
 
@@ -22,18 +23,22 @@ export interface DbHandle {
 export function openDatabase(
   dbPath: string,
   synchronous: "NORMAL" | "FULL" = "NORMAL",
+  options: { runtime?: boolean } = {},
 ): DbHandle {
   if (dbPath !== ":memory:") {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     dbPath = canonicalDatabasePath(dbPath);
   }
   // Handles and online backups share a lease; restore requires exclusive ownership.
-  const lease =
-    dbPath === ":memory:"
-      ? null
-      : acquireDirectoryLock(path.dirname(dbPath), true);
+  let lease: { release(): void } | undefined;
+  let runtimeLease: { release(): void } | undefined;
   let sqlite: Database.Database | undefined;
   try {
+    if (dbPath !== ":memory:") {
+      if (options.runtime)
+        runtimeLease = acquireRuntimeLease(path.dirname(dbPath));
+      lease = acquireDirectoryLock(path.dirname(dbPath), true);
+    }
     sqlite = new Database(dbPath);
     sqlite.pragma("journal_mode = WAL"); // no-op for :memory:
     sqlite.pragma(`synchronous = ${synchronous}`);
@@ -44,7 +49,11 @@ export function openDatabase(
     sqlite.close = () => {
       const result = close();
       // Do not release ownership if closing SQLite throws and leaves it open.
-      lease?.release();
+      try {
+        lease?.release();
+      } finally {
+        runtimeLease?.release();
+      }
       return result;
     };
     return { db, sqlite };
@@ -52,7 +61,13 @@ export function openDatabase(
     try {
       if (sqlite?.open) sqlite.close();
     } finally {
-      if (!sqlite?.open) lease?.release();
+      if (!sqlite?.open) {
+        try {
+          lease?.release();
+        } finally {
+          runtimeLease?.release();
+        }
+      }
     }
     throw error;
   }

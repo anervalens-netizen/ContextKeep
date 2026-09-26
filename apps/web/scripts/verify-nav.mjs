@@ -837,6 +837,67 @@ async function verifyOfflineReplay() {
   }
 }
 
+async function verifyDeniedStorage() {
+  phase = "denied browser storage";
+  const deniedContext = await browser.newContext({
+    storageState: await context.storageState(),
+  });
+  const errors = [];
+  try {
+    await deniedContext.addInitScript(() => {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        get() {
+          throw new DOMException("Synthetic storage refusal", "SecurityError");
+        },
+      });
+    });
+    const deniedPage = await deniedContext.newPage();
+    deniedPage.on("pageerror", (error) => errors.push(error.message));
+    let privateReads = 0;
+    deniedPage.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/projects")
+        privateReads += 1;
+    });
+    await deniedPage.goto(base, { waitUntil: "networkidle" });
+    await deniedPage
+      .getByRole("heading", { name: "Browser storage unavailable" })
+      .waitFor();
+    check(
+      privateReads === 0,
+      "Private project reads preceded explicit online consent",
+    );
+    check(
+      (await deniedPage
+        .getByText("Local ContextKeep data cleared", { exact: true })
+        .count()) === 0,
+      "Denied storage was incorrectly reported as cleared",
+    );
+    await deniedPage
+      .getByRole("button", { name: "Continue online without local storage" })
+      .click();
+    await deniedPage.locator('[data-shell="app"]').waitFor();
+    await deniedPage.waitForLoadState("networkidle");
+    const databases = await deniedPage.evaluate(() => indexedDB.databases());
+    check(
+      !databases.some((entry) => entry.name === "contextkeep-offline"),
+      "Denied local access opened the offline store",
+    );
+    check(
+      errors.length === 0,
+      `Denied-storage startup errors: ${errors.join("; ")}`,
+    );
+    report.deniedStorage = {
+      status: "PASS",
+      explicitOnlineConsent: true,
+      offlineStoreOpened: false,
+      startupErrors: 0,
+    };
+  } finally {
+    await deniedContext.close();
+  }
+}
+
 async function run() {
   phase = "built artifact check";
   await Promise.all([
@@ -879,6 +940,7 @@ async function run() {
   await signIn();
   for (const width of widths) await verifyWidth(width);
   await verifyOfflineReplay();
+  await verifyDeniedStorage();
   await settled();
 }
 
@@ -954,7 +1016,8 @@ report.status =
   report.failures.length === 0 &&
   report.cases.length === widths.length &&
   report.cases.every((entry) => entry.status === "PASS") &&
-  report.offlineReplay?.status === "PASS"
+  report.offlineReplay?.status === "PASS" &&
+  report.deniedStorage?.status === "PASS"
     ? "PASS"
     : "FAIL";
 if (OUT) {

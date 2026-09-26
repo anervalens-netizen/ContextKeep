@@ -37,6 +37,5 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
       - name: Run full release gate
-        env:
-          NODE_ENV: production
+        # Vitest owns its test environment; the build step emits production assets.
         run: pnpm release:gate

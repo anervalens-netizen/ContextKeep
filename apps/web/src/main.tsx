@@ -9,10 +9,11 @@ import { useThemeStore } from "./state/theme.js";
 import { RETRY_OFFLINE_QUEUE_EVENT } from "./lib/idempotency-key.js";
 import { scheduleOfflineRetry, cancelOfflineRetry } from "./lib/offline/scheduler.js";
 import * as offlineQueue from "./lib/offline/queue.js";
+import { isLocalDataAccessPaused } from "./lib/offline/local-data-state.js";
 import "./styles.css";
 import "./codex-theme.css";
 
-async function syncAfterReconnect(): Promise<void> {
+async function replayAvailableLocalData(): Promise<void> {
   const { listConflicts, listMutations, replayQueue } = offlineQueue;
   const result = await replayQueue();
   const ui = useUiStore.getState();
@@ -97,6 +98,15 @@ async function syncAfterReconnect(): Promise<void> {
   }
 }
 
+function localDataUnavailable(): void {
+  useUiStore.getState().setNotice({ kind: "error", text: "Local browser data is unavailable. Offline changes were not read or replayed." });
+}
+
+async function syncAfterReconnect(): Promise<void> {
+  if (isLocalDataAccessPaused()) return;
+  try { await replayAvailableLocalData(); } catch { localDataUnavailable(); }
+}
+
 function boot(): void {
   // Apply persisted theme (or system default) BEFORE the first paint to
   // avoid a light->dark flash — see docs/decisions/0017.
@@ -118,10 +128,11 @@ function boot(): void {
         useUiStore.getState().setNotice({ kind: "info", text: "ContextKeep is ready to work offline." }),
     });
   };
-  void initPwaWhenIdle();
+  if (!isLocalDataAccessPaused()) void initPwaWhenIdle().catch(localDataUnavailable);
 
   // Restore persisted queue/conflict state; replay anything left from a previous offline period.
   void (async () => {
+    if (isLocalDataAccessPaused()) return;
     const { listConflicts, listMutations } = offlineQueue;
     const state = useUiStore.getState();
     const pending = await listMutations();
@@ -130,7 +141,7 @@ function boot(): void {
     if (navigator.onLine && pending.length > 0) {
       await syncAfterReconnect();
     }
-  })();
+  })().catch(localDataUnavailable);
 
   window.addEventListener("online", () => {
     useUiStore.getState().setOffline(false);

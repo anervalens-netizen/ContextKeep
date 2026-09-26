@@ -5,7 +5,7 @@ import { createAdapterRegistry } from "../adapters/registry.js";
 import { seedDemo } from "../seed.js";
 
 const config = loadConfig();
-const handle = openDatabase(config.dbPath, config.sqliteSynchronous);
+const handle = openDatabase(config.dbPath, config.sqliteSynchronous, { runtime: true });
 bootstrapDatabase(handle);
 const deps = { db: handle.db, sqlite: handle.sqlite, registry: createAdapterRegistry(config.adapters), costCeilingUsd: config.costCeilingUsd, volatileReviewIntervalDays: config.volatileReviewIntervalDays };
 const result = seedDemo(deps, { actor: "system:seed" });

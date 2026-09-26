@@ -3,6 +3,15 @@ export const LOCAL_DATA_CHANNEL = "contextkeep-local-data-control";
 
 let memoryPaused = false;
 
+export function isLocalDataStorageUnavailable(): boolean {
+  try {
+    if (typeof window !== "undefined") window.localStorage.getItem(LOCAL_DATA_PAUSED_KEY);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export function isLocalDataAccessPaused(): boolean {
   if (memoryPaused) return true;
   try {
