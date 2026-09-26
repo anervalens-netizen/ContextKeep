@@ -35,10 +35,21 @@ async function syncQueueState(): Promise<void> {
 }
 
 function remembered(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.localStorage.getItem(LAST_AUTHENTICATED_KEY) === "1"
-  );
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(LAST_AUTHENTICATED_KEY) === "1";
+  } catch {
+    // Auth markers are never mirrored to volatile memory. A denied store
+    // must not crash the shell or turn an offline session into an auth claim.
+    return false;
+  }
+}
+
+function clearRememberedAuth(): void {
+  try { window.localStorage.removeItem(LAST_AUTHENTICATED_KEY); } catch { /* best effort */ }
+}
+
+function rememberAuth(): void {
+  try { window.localStorage.setItem(LAST_AUTHENTICATED_KEY, "1"); } catch { /* best effort */ }
 }
 
 export function Layout(): ReactNode {
@@ -70,7 +81,7 @@ export function Layout(): ReactNode {
     if (!localDataPaused) void syncQueueState();
 
     const unauthorized = (): void => {
-      localStorage.removeItem(LAST_AUTHENTICATED_KEY);
+      clearRememberedAuth();
       setLastAuth(false);
       void qc.invalidateQueries({ queryKey: ["auth-status"] });
       void navigate({ to: "/login" });
@@ -102,10 +113,10 @@ export function Layout(): ReactNode {
       // subsequently revalidates that session, release the transition fence
       // before the authenticated shell resumes its private reads.
       setPrivateReadsPausedForAuthTransition(false);
-      localStorage.setItem(LAST_AUTHENTICATED_KEY, "1");
+      rememberAuth();
       setLastAuth(true);
     } else {
-      localStorage.removeItem(LAST_AUTHENTICATED_KEY);
+      clearRememberedAuth();
       setLastAuth(false);
     }
   }, [auth.isSuccess, authenticated]);
@@ -176,7 +187,7 @@ export function Layout(): ReactNode {
       // The local auth marker still needs to be cleared if the server is unreachable.
     }
     await qc.cancelQueries();
-    localStorage.removeItem(LAST_AUTHENTICATED_KEY);
+    clearRememberedAuth();
     setLastAuth(false);
     qc.setQueryData<AuthStatusDto>(["auth-status"], {
       authenticated: false,

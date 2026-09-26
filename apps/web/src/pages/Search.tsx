@@ -162,7 +162,7 @@ export default function Search(): ReactNode {
                     <Link
                       to="/projects/$projectId"
                       params={{ projectId: p.id }}
-                      search={{ recordId: undefined }}
+                      search={{ recordId: undefined, tab: undefined }}
                       className="flex items-center gap-1.5 rounded-full border border-ck-line bg-ck-surface px-2.5 py-1 text-xs"
                     >
                       {p.name} <LifecycleBadge state={p.lifecycle} />

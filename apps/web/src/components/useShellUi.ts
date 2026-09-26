@@ -5,6 +5,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { readCosmeticPreference, removeCosmeticPreference, writeCosmeticPreference } from "../lib/cosmetic-preferences.js";
 
 const LEFT_MIN = 220;
 const LEFT_MAX = 360;
@@ -23,7 +24,7 @@ function clampLeft(value: number): number {
 
 function storedNumber(key: string, fallback: number): number {
   if (typeof window === "undefined") return fallback;
-  const value = window.localStorage.getItem(key);
+  const value = readCosmeticPreference(key);
   if (value === null) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -31,7 +32,7 @@ function storedNumber(key: string, fallback: number): number {
 
 function storedBoolean(key: string, fallback: boolean): boolean {
   if (typeof window === "undefined") return fallback;
-  const value = window.localStorage.getItem(key);
+  const value = readCosmeticPreference(key);
   return value === null ? fallback : value === "1";
 }
 
@@ -67,7 +68,7 @@ export function useShellUi(pathname: string) {
   }, [pathname]);
 
   useEffect(() => {
-    for (const key of RETIRED_CHAT_KEYS) window.localStorage.removeItem(key);
+    for (const key of RETIRED_CHAT_KEYS) removeCosmeticPreference(key);
   }, []);
 
   useEffect(() => {
@@ -126,13 +127,13 @@ export function useShellUi(pathname: string) {
   const collapseLeft = (): void => {
     const next = !leftCollapsed;
     setLeftCollapsed(next);
-    window.localStorage.setItem("ck:shell:left-collapsed", next ? "1" : "0");
+    writeCosmeticPreference("ck:shell:left-collapsed", next ? "1" : "0");
   };
 
   const persistLeftWidth = (value: number): void => {
     const next = clampLeft(value);
     setLeftWidth(next);
-    window.localStorage.setItem("ck:shell:left-width", String(next));
+    writeCosmeticPreference("ck:shell:left-width", String(next));
   };
 
   const resizeLeft = (event: ReactPointerEvent<HTMLButtonElement>): void => {
@@ -146,7 +147,7 @@ export function useShellUi(pathname: string) {
     };
     const up = (): void => {
       window.removeEventListener("pointermove", move);
-      window.localStorage.setItem("ck:shell:left-width", String(last));
+      writeCosmeticPreference("ck:shell:left-width", String(last));
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });

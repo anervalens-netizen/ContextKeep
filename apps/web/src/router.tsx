@@ -1,6 +1,13 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { Layout } from "./components/Layout.js";
+
+export function validateProjectSearch(search: Record<string, unknown>): { recordId?: string; tab?: "timeline" | "export" } {
+    return {
+        recordId: typeof search.recordId === "string" && search.recordId.length > 0 ? search.recordId : undefined,
+        tab: search.tab === "timeline" ? "timeline" : search.tab === "export" ? "export" : undefined,
+    };
+}
 function lazyPage(loader: () => Promise<{
     default: () => ReactNode;
 }>): () => ReactNode {
@@ -15,9 +22,7 @@ const projectsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", 
 const projectDetailRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/projects/$projectId",
-    validateSearch: (search: Record<string, unknown>) => ({
-        recordId: typeof search.recordId === "string" && search.recordId.length > 0 ? search.recordId : undefined,
-    }),
+    validateSearch: validateProjectSearch,
     component: lazyPage(() => import("./pages/ProjectDetail.js")),
 });
 const inboxRoute = createRoute({

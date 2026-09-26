@@ -5,7 +5,14 @@ let memoryPaused = false;
 
 export function isLocalDataAccessPaused(): boolean {
   if (memoryPaused) return true;
-  return typeof window !== "undefined" && window.localStorage.getItem(LOCAL_DATA_PAUSED_KEY) === "1";
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(LOCAL_DATA_PAUSED_KEY) === "1";
+  } catch {
+    // A denied read cannot distinguish "not paused" from an existing privacy
+    // pause that is no longer observable. Fail closed so callers never turn
+    // an unknown persisted pause into a durable-save success.
+    return true;
+  }
 }
 
 function announce(paused: boolean): void {
@@ -21,8 +28,12 @@ function announce(paused: boolean): void {
 export function setLocalDataAccessPaused(paused: boolean): void {
   memoryPaused = paused;
   if (typeof window !== "undefined") {
-    if (paused) window.localStorage.setItem(LOCAL_DATA_PAUSED_KEY, "1");
-    else window.localStorage.removeItem(LOCAL_DATA_PAUSED_KEY);
+    try {
+      if (paused) window.localStorage.setItem(LOCAL_DATA_PAUSED_KEY, "1");
+      else window.localStorage.removeItem(LOCAL_DATA_PAUSED_KEY);
+    } catch {
+      // The in-memory pause still applies when browser storage is denied.
+    }
   }
   announce(paused);
 }

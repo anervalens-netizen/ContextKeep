@@ -10,7 +10,7 @@ vi.mock("../src/lib/offline/mirror.js", () => ({ briefKey: (id: string) => `brie
 vi.mock("../src/lib/hooks.js", () => ({ notifyError: vi.fn() }));
 vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");
-  return { useParams: () => ({ projectId: "project-1" }), useSearch: () => ({ recordId: undefined }), Link: ({ children, to, ...props }: { children: React.ReactNode; to: string }) => ReactModule.createElement("a", { href: to, ...props }, children) };
+  return { useParams: () => ({ projectId: "project-1" }), useSearch: () => ({ recordId: undefined, tab: undefined }), useNavigate: () => async () => undefined, Link: ({ children, to, ...props }: { children: React.ReactNode; to: string }) => ReactModule.createElement("a", { href: to, ...props }, children) };
 });
 
 const ProjectDetail = (await import("../src/pages/ProjectDetail.js")).default;
@@ -30,6 +30,7 @@ describe("L0.1 external freshness regression", () => {
     vi.useFakeTimers();
     let liveBrief = baseBrief;
     let contentVersion = 0;
+    let projectRevision = 1;
     apiFetchMock.mockImplementation(async (url: string) => {
       if (url === "/api/projects/project-1/brief") return liveBrief;
       if (url === "/api/projects/project-1/work-context") return {
@@ -44,9 +45,9 @@ describe("L0.1 external freshness regression", () => {
       if (url === "/api/workspaces/reconciliation") return reconciliation;
       if (url === "/api/projects/project-1/freshness") {
         return {
-          projectId: "project-1", cursor: contentVersion, contentCursor: contentVersion,
+          projectId: "project-1", projectRevision, cursor: contentVersion, contentCursor: contentVersion,
           workingCursor: 0, workingMemoryVersion: 0, changed: false, delta: 0,
-          resetRequired: false, workingChanged: false, workingDelta: 0, workingResetRequired: false,
+          resetRequired: false, workingChanged: false, workingDelta: 0, workingResetRequired: false, projectRevisionChanged: false, projectRevisionResetRequired: false,
         };
       }
       if (url.startsWith("/api/projects/project-1/freshness?after=")) {
@@ -55,10 +56,12 @@ describe("L0.1 external freshness regression", () => {
         const workingAfter = Number(parsed.searchParams.get("workingAfter"));
         expect(workingAfter).toBe(0);
         return {
-          projectId: "project-1", cursor: contentVersion, contentCursor: contentVersion,
+          projectId: "project-1", projectRevision, cursor: contentVersion, contentCursor: contentVersion,
           workingCursor: 0, workingMemoryVersion: 0,
           changed: after !== contentVersion, delta: Math.max(0, contentVersion - after),
           resetRequired: after > contentVersion, workingChanged: false, workingDelta: 0, workingResetRequired: false,
+          projectRevisionChanged: Number(parsed.searchParams.get("projectRevisionAfter")) !== projectRevision,
+          projectRevisionResetRequired: Number(parsed.searchParams.get("projectRevisionAfter")) > projectRevision,
         };
       }
       throw new Error(`unexpected API call ${url}`);
@@ -72,6 +75,16 @@ describe("L0.1 external freshness regression", () => {
     liveBrief = { ...baseBrief, contentVersion: 1, generatedAt: "2026-09-17T09:00:01.000Z", facts: [{ record: fact("MCP_UPDATE_AFTER_PAGE_LOAD"), evidence: [] }] };
     await act(async () => { await vi.advanceTimersByTimeAsync(16_500); });
     expect(screen.getByText("MCP_UPDATE_AFTER_PAGE_LOAD")).toBeTruthy();
+
+    projectRevision = 2;
+    liveBrief = {
+      ...liveBrief,
+      project: { ...liveBrief.project, revision: projectRevision, description: "SYNTHETIC_METADATA_PATCH" },
+      description: "SYNTHETIC_METADATA_PATCH",
+      revision: projectRevision,
+    };
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(screen.getByText("SYNTHETIC_METADATA_PATCH")).toBeTruthy();
     client.clear();
   });
 });

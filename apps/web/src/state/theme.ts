@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { readCosmeticPreference, writeCosmeticPreference } from "../lib/cosmetic-preferences.js";
 
 /**
  * Theme management — applies [data-theme="light|dark|auto"] on <html> and
@@ -15,7 +16,7 @@ const ATTR = "data-theme";
 
 function readPersisted(): ThemeChoice {
   if (typeof window === "undefined") return "auto";
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = readCosmeticPreference(STORAGE_KEY);
   if (raw === "light" || raw === "dark" || raw === "auto") return raw;
   return "auto";
 }
@@ -54,9 +55,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   choice: "auto",
   resolved: "light",
   setChoice: (next) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    }
+    writeCosmeticPreference(STORAGE_KEY, next);
     const resolved = apply(next);
     set({ choice: next, resolved });
   },

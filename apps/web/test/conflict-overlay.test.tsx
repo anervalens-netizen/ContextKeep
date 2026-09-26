@@ -44,6 +44,31 @@ afterEach(() => {
 });
 
 describe("ConflictOverlay (F07): unknown-outcome visibility", () => {
+  it("uses reconciliation wording and action for an expired saved response", async () => {
+    const expiredEntry: ConflictEntry = {
+      seq: 150,
+      mutation: {
+        seq: 15,
+        method: "POST",
+        url: "/api/projects",
+        body: { name: "synthetic" },
+        enqueuedAt: new Date().toISOString(),
+        label: "create project",
+        idempotencyKey: "ui-expired-aaaaaaaaaaa",
+      },
+      status: 409,
+      code: "idempotency_result_expired",
+      message: "Earlier request completed; saved response expired.",
+      detectedAt: new Date().toISOString(),
+    };
+    useUiStore.setState({ conflicts: [expiredEntry] });
+
+    mount();
+    expect(await screen.findByRole("button", { name: /acknowledge.+reconcile queue/i })).toBeTruthy();
+    expect(screen.getByTestId("conflict-message").textContent).toMatch(/saved response expired/i);
+    expect(screen.getByText(/same event key/i)).toBeTruthy();
+  });
+
   it("renders the conflict's message directly, including the may-already-have-applied wording", async () => {
     const unknownEntry: ConflictEntry = {
       seq: 100,

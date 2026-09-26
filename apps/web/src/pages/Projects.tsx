@@ -9,6 +9,7 @@ import { WorkspaceRegistry } from "../components/WorkspaceRegistry.js";
 import { Icon } from "../components/Icon.js";
 import { isQueued, notifyError, reportQueued } from "../lib/hooks.js";
 import { partitionProjectVisibility } from "../lib/project-visibility.js";
+import { readCosmeticPreference, writeCosmeticPreference } from "../lib/cosmetic-preferences.js";
 
 export const LAST_PROJECT_KEY = "ck:last-project";
 
@@ -93,12 +94,12 @@ export default function Projects(): ReactNode {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === "pwa") {
-      const last = localStorage.getItem(LAST_PROJECT_KEY);
-      if (last) void navigate({ to: "/projects/$projectId", params: { projectId: last }, search: { recordId: undefined }, replace: true });
+      const last = readCosmeticPreference(LAST_PROJECT_KEY);
+      if (last) void navigate({ to: "/projects/$projectId", params: { projectId: last }, search: { recordId: undefined, tab: undefined }, replace: true });
     }
   }, [navigate]);
 
-  const openProject = (id: string): void => localStorage.setItem(LAST_PROJECT_KEY, id);
+  const openProject = (id: string): void => writeCosmeticPreference(LAST_PROJECT_KEY, id);
 
   const create = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
@@ -192,7 +193,7 @@ export default function Projects(): ReactNode {
         <Link
           to="/projects/$projectId"
           params={{ projectId: p.id }}
-          search={{ recordId: undefined }}
+          search={{ recordId: undefined, tab: undefined }}
           onClick={() => openProject(p.id)}
           className="group block rounded-3xl border border-ck-line bg-ck-surface p-4 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-ck-teal/30 hover:shadow-md active:translate-y-0 active:bg-ck-teal-soft/30"
         >
@@ -208,7 +209,7 @@ export default function Projects(): ReactNode {
               {p.aliases.length > 0 ? <p className="mt-1 truncate text-[11px] text-ck-muted">Aliases: {p.aliases.join(", ")}</p> : null}
               {p.description ? <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ck-muted">{p.description}</p> : null}
               {!p.description && hasAgentHistory ? (
-                <p className="mt-1 text-xs text-ck-muted">Work history detected from your Dell agent history.</p>
+                <p className="mt-1 text-xs text-ck-muted">Work history detected from mapped agent history.</p>
               ) : null}
             </div>
             <Icon name="chevron-right" className="mt-2 h-4 w-4 shrink-0 text-ck-muted transition-transform group-hover:translate-x-0.5" />

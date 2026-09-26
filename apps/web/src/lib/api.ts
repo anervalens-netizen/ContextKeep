@@ -1,6 +1,7 @@
 import { newIdempotencyKey, RETRY_OFFLINE_QUEUE_EVENT } from "./idempotency-key.js";
 import * as offlineQueue from "./offline/queue.js";
 import * as offlineScheduler from "./offline/scheduler.js";
+import { validateMutationAcknowledgement } from "./mutation-ack.js";
 import {
   CallerAbortedError,
   createTransportGuard,
@@ -167,8 +168,9 @@ async function stageMutation(
  *
  * F07 atomic foreground barrier (this remediation): blocker inspection +
  * mutation creation happen inside ONE readwrite transaction spanning both
- * `mutations` and `conflicts` stores. If an `idempotency_outcome_unknown`
- * blocker is present, the row is persisted as queued (no lease, no owner)
+ * `mutations` and `conflicts` stores. If an unresolved durable reconciliation
+ * blocker (`idempotency_outcome_unknown` or `idempotency_result_expired`)
+ * is present, the row is persisted as queued (no lease, no owner)
  * and the apiFetch path will see the `blocked_by_unknown_outcome` result,
  * throw `QueuedOfflineError(seq)`, and NOT call fetch.
  *
@@ -291,9 +293,9 @@ export async function apiFetch<T>(url: string, opts: FetchOptions = {}): Promise
     // spanning `mutations` and `conflicts`. The result is a discriminated
     // union:
     //   - `in_flight`: no blocker; row is born under our ownership.
-    //   - `blocked_by_unknown_outcome`: a durable `idempotency_outcome_
-    //     unknown` conflict exists; the row is queued behind it (no lease,
-    //     no owner). We MUST NOT call fetch and MUST NOT start a heartbeat.
+    //   - `blocked_by_unknown_outcome`: a durable reconciliation conflict
+    //     exists; the row is queued behind it (no lease, no owner). We MUST
+    //     NOT call fetch and MUST NOT start a heartbeat.
     const { renewMutationLease, newOwnerToken, IN_FLIGHT_HEARTBEAT_MS } = offlineQueue;
     ownerToken = newOwnerToken();
     const stamped = await stageOwnedOnline(
@@ -305,8 +307,8 @@ export async function apiFetch<T>(url: string, opts: FetchOptions = {}): Promise
       ownerToken,
     );
     if (stamped.kind === "blocked_by_unknown_outcome") {
-      // F07 foreground barrier (this remediation): the durable unknown-
-      // outcome barrier blocks this mutation from sending. The row is
+      // F07 foreground barrier (this remediation): the durable reconciliation
+      // barrier blocks this mutation from sending. The row is
       // durably queued (same seq, same key, no owner, no lease). Surfacing
       // QueuedOfflineError lets existing page handlers treat the
       // operation as queued rather than as a normal failure — and means
@@ -477,6 +479,15 @@ export async function apiFetch<T>(url: string, opts: FetchOptions = {}): Promise
     // replay it with the SAME key.
     await finalizeStage("release");
     throw new ApiError(401, "unauthorized", "Session expired — please sign in again.");
+  }
+
+  // A queueable mutation must never treat a redirected HTML login/app shell
+  // as a successful acknowledgement. Keep the original durable row and key
+  // so reconciliation can retry the same logical request.
+  if (isQueueable && (res.redirected || (res.status >= 300 && res.status < 400))) {
+    await finalizeStage("release");
+    dispatchOfflineQueueRetry();
+    throw new QueuedOfflineError(stagedSeq!);
   }
 
   if (res.status === 429) {
@@ -664,15 +675,31 @@ export async function apiFetch<T>(url: string, opts: FetchOptions = {}): Promise
   // survive so a later replay uses the same key against the (now committed)
   // server state.
   try {
-    const dto = (await res.json()) as T;
+    const decoded: unknown = await res.json();
+    if (isQueueable) {
+      const acknowledgement = validateMutationAcknowledgement(url, method, opts.body, decoded);
+      if (!acknowledgement.valid) {
+        await finalizeStage("release");
+        dispatchOfflineQueueRetry();
+        throw new QueuedOfflineError(stagedSeq!);
+      }
+      if (stagedSeq !== undefined) {
+        await finalizeStage("complete");
+        await resetStagedRetryBudget();
+      } else {
+        stopHeartbeat();
+      }
+      return acknowledgement.value as T;
+    }
     if (stagedSeq !== undefined) {
       await finalizeStage("complete");
       await resetStagedRetryBudget();
     } else {
       stopHeartbeat();
     }
-    return dto;
+    return decoded as T;
   } catch (parseError) {
+    if (parseError instanceof QueuedOfflineError) throw parseError;
     await rethrowTransportAbortIfNeeded(parseError);
     if (stagedSeq !== undefined) {
       // Body consumption failed AFTER the server committed the mutation.

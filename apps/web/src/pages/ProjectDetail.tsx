@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   BriefDto,
@@ -25,6 +25,7 @@ type Tab = "overview" | "timeline" | "export";
 
 type ProjectFreshness = {
   projectId: string;
+  projectRevision: number;
   cursor: number;
   contentCursor: number;
   workingCursor: number;
@@ -35,6 +36,8 @@ type ProjectFreshness = {
   workingChanged: boolean;
   workingDelta: number;
   workingResetRequired: boolean;
+  projectRevisionChanged: boolean;
+  projectRevisionResetRequired: boolean;
 };
 
 const PROJECT_FRESHNESS_INTERVAL_MS = 5_000;
@@ -66,9 +69,10 @@ export default function ProjectDetail(): ReactNode {
   const projectId = params.projectId ?? "";
   const search = useSearch({ from: "/projects/$projectId" });
   const recordId = search.recordId;
-  const [tab, setTab] = useState<Tab>("overview");
+  const tab: Tab = search.tab === "timeline" || search.tab === "export" ? search.tab : "overview";
+  const navigate = useNavigate({ from: "/projects/$projectId" });
   const queryClient = useQueryClient();
-  const freshnessCursor = useRef<{ projectId: string; contentCursor: number; workingCursor: number } | null>(null);
+  const freshnessCursor = useRef<{ projectId: string; projectRevision: number; contentCursor: number; workingCursor: number } | null>(null);
   const freshnessQuery = useQuery({
     queryKey: ["project-freshness", projectId],
     queryFn: () => {
@@ -77,6 +81,7 @@ export default function ProjectDetail(): ReactNode {
       if (previous?.projectId === projectId) {
         params.set("after", String(previous.contentCursor));
         params.set("workingAfter", String(previous.workingCursor));
+        params.set("projectRevisionAfter", String(previous.projectRevision));
       }
       const suffix = params.size > 0 ? `?${params.toString()}` : "";
       return apiFetch<ProjectFreshness>(`/api/projects/${projectId}/freshness${suffix}`);
@@ -94,14 +99,17 @@ export default function ProjectDetail(): ReactNode {
     const hadCursor = previous?.projectId === projectId;
     freshnessCursor.current = {
       projectId,
+      projectRevision: freshness.projectRevision,
       contentCursor: freshness.contentCursor,
       workingCursor: freshness.workingCursor,
     };
     if (!hadCursor) return;
-    if (freshness.changed || freshness.resetRequired) {
+    if (freshness.changed || freshness.resetRequired || freshness.projectRevisionChanged || freshness.projectRevisionResetRequired) {
       void queryClient.invalidateQueries({ queryKey: ["brief", projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["timeline", projectId] });
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    }
+    if (freshness.changed || freshness.resetRequired) {
+      void queryClient.invalidateQueries({ queryKey: ["timeline", projectId] });
     }
     if (freshness.changed || freshness.resetRequired || freshness.workingChanged || freshness.workingResetRequired) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.workContext(projectId) });
@@ -138,11 +146,13 @@ export default function ProjectDetail(): ReactNode {
               event.preventDefault();
               const index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (tabs.findIndex((entry) => entry.id === tab) + direction + tabs.length) % tabs.length;
               const next = tabs[index]!;
-              setTab(next.id);
+              void navigate({ search: (current) => ({ ...current, tab: next.id === "overview" ? undefined : next.id }) });
               document.getElementById(`project-tab-${next.id}`)?.focus();
             }}
             type="button"
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              void navigate({ search: (current) => ({ ...current, tab: item.id === "overview" ? undefined : item.id }) });
+            }}
             className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition ${
               tab === item.id ? "bg-ck-teal text-on-brand shadow-sm" : "text-ck-muted hover:bg-ck-bg hover:text-ck-ink"
             }`}
@@ -186,7 +196,7 @@ export function RecordDeepLink({ projectId, recordId }: { projectId: string; rec
         <Link
           to="/projects/$projectId"
           params={{ projectId }}
-          search={{ recordId: undefined }}
+          search={{ recordId: undefined, tab: undefined }}
           className="rounded-lg border border-ck-line px-2 py-1 text-[11px] font-semibold text-ck-muted"
         >
           Close
@@ -323,7 +333,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
           </h2>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ck-muted">
             {sessionCount > 0
-              ? `ContextKeep sees ${sessionCount} mapped agent sessions from work done on Dell (${codexSessions} Codex, ${dshSessions} DSH)${codexSummaries > 0 ? ` plus ${codexSummaries} Codex summaries` : ""}. Those sessions are the primary work history for this project. They still need an explicit import/review step before anything becomes canonical project knowledge.`
+              ? `ContextKeep sees ${sessionCount} mapped agent sessions from observed work (${codexSessions} Codex, ${dshSessions} DSH)${codexSummaries > 0 ? ` plus ${codexSummaries} Codex summaries` : ""}. Those sessions are the primary work history for this project. They still need an explicit import/review step before anything becomes canonical project knowledge.`
               : "This project has no accepted facts, decisions, constraints, questions or actions yet. Add context manually, or link it to an observed workspace with agent history."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -409,7 +419,7 @@ function WorkspaceContext({
   const primary = items[0]!;
   return (
     <aside className="rounded-3xl border border-ck-line bg-ck-surface p-4 shadow-xs">
-      <div className="flex items-center gap-2"><Icon name="activity" className="h-4 w-4 text-ck-teal" /><h2 className="text-sm font-semibold">Agent work on Dell</h2></div>
+      <div className="flex items-center gap-2"><Icon name="activity" className="h-4 w-4 text-ck-teal" /><h2 className="text-sm font-semibold">Observed agent work</h2></div>
       <p className="mt-1 text-xs leading-relaxed text-ck-muted">Codex and DSH sessions are treated as the primary work-history signal. Repo/server state is shown separately as infrastructure context.</p>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-ck-bg p-3"><p className="text-lg font-semibold">{codexSessions}</p><p className="text-[10px] uppercase tracking-wide text-ck-muted">Codex sessions</p></div>

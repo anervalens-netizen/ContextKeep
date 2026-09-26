@@ -33,6 +33,34 @@ function mockFetch(handlers: Handler[]): { calls: { url: string; init?: RequestI
 }
 
 const okJson = (body: unknown): MockResponseLike => ({ ok: true, status: 200, json: async () => body });
+const syntheticStamp = "2026-01-01T00:00:00.000Z";
+function projectResponse(name = "Synthetic project", id = "project-1"): Record<string, unknown> {
+  return {
+    id, name, aliases: [], parentId: null, description: null, lifecycle: "unknown",
+    lifecycleRecordId: null, revision: 1, contentVersion: 0, workingMemoryVersion: 0,
+    createdAt: syntheticStamp, updatedAt: syntheticStamp,
+  };
+}
+function recordResponse(id = "r2"): Record<string, unknown> {
+  return {
+    id, projectId: null, projectName: null, type: "fact", subject: "synthetic",
+    predicate: null, valueJson: null, text: "Synthetic record", reviewStatus: "proposed",
+    evidenceBasis: "document", taskStatus: null, recordedAt: syntheticStamp,
+    sourceEventAt: null, effectiveFrom: null, effectiveTo: null, reviewedAt: null,
+    reviewDueAt: null, volatile: false, isOverdue: false, revision: 2,
+    createdAt: syntheticStamp, updatedAt: syntheticStamp, evidence: [],
+  };
+}
+function importResponse(status: "created" | "duplicate_skipped" | "near_duplicate_pending" = "created"): Record<string, unknown> {
+  return {
+    jobId: "job-synthetic", status, source: null, duplicateOf: null, nearDuplicates: [],
+    excerptCount: 1, candidateCount: 0, warnings: [], providerUsage: null,
+    actualUsage: null, costCeilingUsd: 0,
+  };
+}
+function correctionConfirmResponse(jobId = "job-1"): Record<string, unknown> {
+  return { jobId, acceptedRecordIds: [], supersededRecordIds: [], confirmedSupersessionIds: [] };
+}
 const errJson = (status: number, code: string, message: string): MockResponseLike => ({
   ok: false,
   status,
@@ -56,7 +84,7 @@ describe("A10: offline mutation queue", () => {
 
     const { calls } = mockFetch([
       () => okJson({ accepted: ["r1"], rejected: [], edited: [], blocked: [] }),
-      () => okJson({ id: "r2", revision: 2 }),
+      () => okJson(recordResponse("r2")),
       () => {
         throw new TypeError("network down");
       },
@@ -203,7 +231,7 @@ describe("A10: offline mutation queue", () => {
   it("attaches the CSRF token from the cookie on replay", async () => {
     document.cookie = "ck_csrf=csrf-abc-123";
     await enqueueMutation({ method: "POST", url: "/api/corrections/job-1/confirm", body: {}, enqueuedAt: new Date().toISOString() });
-    const { calls } = mockFetch([() => okJson({ ok: true })]);
+    const { calls } = mockFetch([() => okJson(correctionConfirmResponse())]);
     await replayQueue();
     const headers = calls[0]!.init!.headers as Record<string, string>;
     expect(headers["x-csrf-token"]).toBe("csrf-abc-123");
@@ -270,7 +298,7 @@ describe("A10: offline mutation queue", () => {
   });
 
   it("serializes overlapping replay calls in one browser context", async () => {
-    await enqueueMutation({ method: "POST", url: "/api/x", body: { once: true }, enqueuedAt: new Date().toISOString() });
+    await enqueueMutation({ method: "POST", url: "/api/projects", body: { name: "Synthetic project" }, enqueuedAt: new Date().toISOString() });
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -278,7 +306,7 @@ describe("A10: offline mutation queue", () => {
     const { calls } = mockFetch([
       async () => {
         await gate;
-        return okJson({ ok: true });
+      return okJson(projectResponse("Synthetic project"));
       },
     ]);
 
@@ -349,7 +377,7 @@ describe("apiFetch offline behavior", () => {
     globalThis.fetch = (async (_url, init) => {
       const h = (init?.headers ?? {}) as Record<string, string>;
       seenHeaders.push({ key: h["idempotency-key"] });
-      return { ok: true, status: 200, json: async () => ({ ok: true }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("Synthetic project") } as unknown as Response;
     }) as unknown as typeof fetch;
     await apiFetch("/api/auth/login", { method: "POST", body: { password: "x" }, noQueue: true });
     expect(seenHeaders).toHaveLength(1);
@@ -362,7 +390,7 @@ describe("F07: queueable mutations carry a durable idempotency key", () => {
     const seenHeaders: Record<string, string>[] = [];
     globalThis.fetch = (async (_url, init) => {
       seenHeaders.push(((init?.headers ?? {}) as Record<string, string>));
-      return { ok: true, status: 200, json: async () => ({ id: "p1" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 Header Project", "p1") } as unknown as Response;
     }) as unknown as typeof fetch;
     await apiFetch("/api/projects", { method: "POST", body: { name: "F07 Header Project" } });
     expect(seenHeaders).toHaveLength(1);
@@ -429,7 +457,7 @@ describe("F07: queueable mutations carry a durable idempotency key", () => {
     // Now reconnect; replay runs against the live API.
     globalThis.fetch = (async (_url, init) => {
       seenHeaders.push(((init?.headers ?? {}) as Record<string, string>));
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => importResponse() } as unknown as Response;
     }) as unknown as typeof fetch;
     const result = await replayQueue();
     expect(result.replayed).toBe(1);
@@ -455,7 +483,7 @@ describe("F07: queueable mutations carry a durable idempotency key", () => {
     const seenKeys: string[] = [];
     globalThis.fetch = (async (_url, init) => {
       seenKeys.push(((init?.headers ?? {}) as Record<string, string>)["idempotency-key"] ?? "");
-      return { ok: true, status: 200, json: async () => ({ id: "x" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("legacy row", "x") } as unknown as Response;
     }) as unknown as typeof fetch;
     await replayQueue();
 
@@ -532,8 +560,8 @@ describe("F07: queueable mutations carry a durable idempotency key", () => {
     });
     await db.add("mutations", {
       method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      url: "/api/projects",
+      body: { name: "barrier B" },
       enqueuedAt: new Date().toISOString(),
       label: "B",
       idempotencyKey: "uk-stop-bbbbbbbbbbbbbb",
@@ -557,7 +585,7 @@ describe("F07: queueable mutations carry a durable idempotency key", () => {
 
     // A removed from queue, recorded exactly once in conflicts.
     const remaining = await listMutations();
-    expect(remaining.map((m) => m.url)).toEqual(["/api/B"]);
+    expect(remaining.map((m) => m.url)).toEqual(["/api/projects"]);
     const stored = await listConflicts();
     expect(stored).toHaveLength(1);
     expect(stored[0]!.mutation.url).toBe("/api/A");
@@ -588,7 +616,7 @@ describe("F07 final: pre-send durable staging", () => {
       expect(rows[0]!.idempotencyKey).toBeDefined();
       const headers = (init?.headers ?? {}) as Record<string, string>;
       expect(headers["idempotency-key"]).toBe(rows[0]!.idempotencyKey);
-      return { ok: true, status: 200, json: async () => ({ id: "x" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 Pre-Send Staging", "x") } as unknown as Response;
     }) as unknown as typeof fetch;
     await apiFetch("/api/projects", { method: "POST", body: { name: "F07 Pre-Send Staging" } });
     expect(fetchSeen).toBe(true);
@@ -628,7 +656,7 @@ describe("F07 final: pre-send durable staging", () => {
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       secondKeySeen = headers["idempotency-key"];
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 Body Fail", "ok") } as unknown as Response;
     }) as unknown as typeof fetch;
     const result = await replayQueue();
     expect(result.replayed).toBe(1);
@@ -676,7 +704,7 @@ describe("F07 final: pre-send durable staging", () => {
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       replayKey = headers["idempotency-key"];
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => importResponse() } as unknown as Response;
     }) as unknown as typeof fetch;
     const result = await replayQueue();
     expect(result.replayed).toBe(1);
@@ -751,7 +779,7 @@ describe("F07 final: atomic legacy-key assignment across tabs", () => {
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       calls.push(headers["idempotency-key"] ?? "");
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 429", "ok") } as unknown as Response;
     }) as unknown as typeof fetch;
     await replayQueue();
     expect(calls).toEqual([a!.idempotencyKey]);
@@ -772,8 +800,8 @@ describe("F07 final: durable unknown-outcome barrier across replay invocations",
     });
     await db.add("mutations", {
       method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      url: "/api/projects",
+      body: { name: "barrier B" },
       enqueuedAt: new Date().toISOString(),
       label: "B",
       idempotencyKey: "barrier-bbbbbbbbbbbbbb",
@@ -792,7 +820,7 @@ describe("F07 final: durable unknown-outcome barrier across replay invocations",
     expect(calls).toEqual(["/api/A"]);
     expect(first.conflicts).toHaveLength(1);
     expect(first.stoppedReason).toBe("idempotency_outcome_unknown");
-    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/B"]);
+    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/projects"]);
 
     // Second replay: zero new fetches; B still queued; conflict still persisted.
     const second = await replayQueue();
@@ -800,7 +828,7 @@ describe("F07 final: durable unknown-outcome barrier across replay invocations",
     expect(second.replayed).toBe(0);
     expect(second.conflicts).toHaveLength(1);
     expect(second.stoppedReason).toBe("idempotency_outcome_unknown");
-    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/B"]);
+    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/projects"]);
   });
 
   it("after dismissing the blocking conflict, the next online replay sends the queued B", async () => {
@@ -815,8 +843,8 @@ describe("F07 final: durable unknown-outcome barrier across replay invocations",
     });
     await db.add("mutations", {
       method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      url: "/api/projects",
+      body: { name: "barrier B" },
       enqueuedAt: new Date().toISOString(),
       label: "B",
       idempotencyKey: "barrier-release-bbbbbb",
@@ -829,13 +857,13 @@ describe("F07 final: durable unknown-outcome barrier across replay invocations",
           json: async () => ({ error: { code: "idempotency_outcome_unknown", message: "may have applied", details: null } }),
         } as unknown as Response;
       }
-      return { ok: true, status: 200, json: async () => ({ id: "b-ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("barrier B", "b-ok") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     await replayQueue();
     const conflicts = await listConflicts();
     expect(conflicts).toHaveLength(1);
-    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/B"]);
+    expect((await listMutations()).map((m) => m.url)).toEqual(["/api/projects"]);
 
     // Owner dismisses the conflict.
     await dismissConflict(conflicts[0]!.seq!);
@@ -918,8 +946,8 @@ describe("F07 final: idempotency_in_progress honors Retry-After", () => {
     const db = await offlineDb();
     await db.add("mutations", {
       method: "POST",
-      url: "/api/A",
-      body: {},
+      url: "/api/projects",
+      body: { name: "timer storm" },
       enqueuedAt: new Date().toISOString(),
       label: "A",
       idempotencyKey: "progress-aaaaaaaaaaaaaa",
@@ -953,8 +981,8 @@ describe("F07 final: idempotency_in_progress honors Retry-After", () => {
     const db = await offlineDb();
     await db.add("mutations", {
       method: "POST",
-      url: "/api/A",
-      body: {},
+      url: "/api/projects",
+      body: { name: "timer storm" },
       enqueuedAt: new Date().toISOString(),
       label: "A",
       idempotencyKey: "timer-storm-aaaaaaaaaaaa",
@@ -986,7 +1014,7 @@ describe("F07 final: idempotency_in_progress honors Retry-After", () => {
     globalThis.fetch = (async () => ({
       ok: true,
       status: 200,
-      json: async () => ({ id: "ok" }),
+      json: async () => projectResponse("timer storm", "ok"),
     })) as unknown as typeof fetch;
     const final = await replayQueue();
     expect(final.replayed).toBe(1);
@@ -1179,7 +1207,7 @@ describe("F07 final: 401-preserved mutation resumes after successful owner login
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       seenKeys.push(headers["idempotency-key"] ?? "");
-      return { ok: true, status: 200, json: async () => ({ id: "ok-after-login" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("after 401", "ok-after-login") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     const result = await replayQueue();
@@ -1235,7 +1263,7 @@ describe("F07 in-flight: live initial send MUST NOT be replayed concurrently", (
     const calls: string[] = [];
     globalThis.fetch = (async (url) => {
       calls.push(String(url));
-      return { ok: true, status: 200, json: async () => ({ id: "x" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("recovered", "x") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     const result = await replayQueue();
@@ -1279,7 +1307,7 @@ describe("F07 in-flight: live initial send MUST NOT be replayed concurrently", (
     const calls: string[] = [];
     globalThis.fetch = (async (url) => {
       calls.push(String(url));
-      return { ok: true, status: 200, json: async () => ({ id: "x" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("recovered", "x") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     const result = await replayQueue();
@@ -1367,7 +1395,7 @@ describe("F07 in-flight: stale lease recovery via same-key replay", () => {
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       seenKeys.push(headers["idempotency-key"] ?? "");
-      return { ok: true, status: 200, json: async () => ({ id: "x" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("recovered", "x") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     const result = await replayQueue();
@@ -1787,9 +1815,9 @@ describe("F07 in-flight: end-to-end apiFetch race regression", () => {
       inFlightUntil: new Date(Date.now() + 30_000).toISOString(),
     })) as number;
     await db.add("mutations", {
-      method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      method: "PUT",
+      url: "/api/records/B",
+      body: { revision: 1, text: "step B" },
       enqueuedAt: new Date().toISOString(),
       label: "B race",
       idempotencyKey: "race-key-bbbbbbbbbbbbbb",
@@ -1810,7 +1838,7 @@ describe("F07 in-flight: end-to-end apiFetch race regression", () => {
 
     // A still in_flight with the SAME key. B still queued behind.
     const rows = await listMutations();
-    expect(rows.map((m) => m.url)).toEqual(["/api/A", "/api/B"]);
+    expect(rows.map((m) => m.url)).toEqual(["/api/A", "/api/records/B"]);
     expect(rows[0]!.deliveryState).toBe("in_flight");
     expect(rows[0]!.idempotencyKey).toBe("race-key-aaaaaaaaaaaaaa");
     expect((rows[1]!.deliveryState)).toBeUndefined();
@@ -1825,11 +1853,11 @@ describe("F07 in-flight: end-to-end apiFetch race regression", () => {
     const calls2: string[] = [];
     globalThis.fetch = (async (url) => {
       calls2.push(String(url));
-      return { ok: true, status: 200, json: async () => ({ id: "y" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => recordResponse("B") } as unknown as Response;
     }) as unknown as typeof fetch;
     const after = await replayQueue();
     expect(after.replayed).toBe(1); // B replays
-    expect(calls2).toEqual(["/api/B"]);
+    expect(calls2).toEqual(["/api/records/B"]);
     expect((await listMutations())).toHaveLength(0);
   });
 });
@@ -1897,7 +1925,7 @@ describe("F07: 429 on a queueable online apiFetch transitions the row to queued 
           headers: new Headers({ "retry-after": "1" }),
         } as unknown as Response;
       }
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => importResponse() } as unknown as Response;
     }) as unknown as typeof fetch;
 
     let caught: unknown = null;
@@ -2166,7 +2194,7 @@ describe("F07 terminal-race: 403 csrf_mismatch on initial apiFetch ends the stag
     globalThis.fetch = (async (_url, init) => {
       const headers = (init?.headers ?? {}) as Record<string, string>;
       seenKeys.push(headers["idempotency-key"] ?? "");
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("post-csrf-retry", "ok") } as unknown as Response;
     }) as unknown as typeof fetch;
     await apiFetch("/api/projects", { method: "POST", body: { name: "post-csrf-retry" } });
     expect(seenKeys[1]!).not.toBe(seenKeys[0]!);
@@ -2311,7 +2339,7 @@ describe("F07 terminal-race: body-read failure while online dispatches same-key 
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "recovered", note: "cached" }),
+        json: async () => projectResponse("F07 Body Read Fail", "recovered"),
       } as unknown as Response;
     }) as unknown as typeof fetch;
     const replayResult = await replayQueue();
@@ -2345,7 +2373,7 @@ describe("F07 terminal-race: body-read failure while online dispatches same-key 
           },
         } as unknown as Response;
       }
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 atomic stage", "ok") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     // First call: body fails.
@@ -2378,10 +2406,10 @@ describe("F07 terminal-race: body-read failure while online dispatches same-key 
       const headers = (init?.headers ?? {}) as Record<string, string>;
       const key = headers["idempotency-key"];
       if (key === "first-body-fail-aaaaaaaaa") {
-        return { ok: true, status: 200, json: async () => ({ id: "first-recovered" }) } as unknown as Response;
+        return { ok: true, status: 200, json: async () => projectResponse("first", "first-recovered") } as unknown as Response;
       }
       if (key === "second-aaaaaaaaaaaaaaa") {
-        return { ok: true, status: 200, json: async () => ({ id: "second-ok" }) } as unknown as Response;
+        return { ok: true, status: 200, json: async () => recordResponse("r2") } as unknown as Response;
       }
       return { ok: false, status: 500, json: async () => ({}) } as unknown as Response;
     }) as unknown as typeof fetch;
@@ -2560,7 +2588,7 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
       observedAtFetch = rows[0]!;
       const headers = (init?.headers ?? {}) as Record<string, string>;
       expect(headers["idempotency-key"]).toBe(observedAtFetch!.idempotencyKey);
-      return { ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => projectResponse("F07 atomic stage", "ok") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     await apiFetch("/api/projects", { method: "POST", body: { name: "F07 atomic stage" } });
@@ -2615,12 +2643,12 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
       // Hang A's fetch until we explicitly resolve it.
       return new Promise((resolve) => {
         releaseA = () =>
-          resolve({ ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response);
+          resolve({ ok: true, status: 200, json: async () => projectResponse("step A", "ok") } as unknown as Response);
       });
     }) as unknown as typeof fetch;
 
     // Start apiFetch for A — it stages in_flight atomically, then awaits fetch.
-    const aPromise = apiFetch("/api/A", { method: "POST", body: { step: "A" } });
+    const aPromise = apiFetch("/api/projects", { method: "POST", body: { name: "step A" } });
     // Yield so apiFetch reaches the awaiting fetch() call.
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
@@ -2636,8 +2664,8 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
     // Add B directly behind A.
     await enqueueMutation({
       method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      url: "/api/records/B",
+      body: { revision: 1, text: "step B" },
       enqueuedAt: new Date().toISOString(),
       idempotencyKey: "B-key-aaaaaaaaaaaaaaaa",
     });
@@ -2646,7 +2674,7 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
     let replayCalls = 0;
     globalThis.fetch = (async () => {
       replayCalls++;
-      return { ok: true, status: 200, json: async () => ({}) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => recordResponse("B") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     const result = await replayQueue();
@@ -2657,7 +2685,7 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
 
     // A still in_flight under the same owner; B still queued behind.
     const after = await listMutations();
-    expect(after.map((m) => m.url)).toEqual(["/api/A", "/api/B"]);
+    expect(after.map((m) => m.url)).toEqual(["/api/projects", "/api/records/B"]);
     expect(after[0]!.seq).toBe(aSeq);
     expect(after[0]!.deliveryState).toBe("in_flight");
     expect(after[0]!.inFlightOwner).toBe(aOwner);
@@ -2670,7 +2698,7 @@ describe("F07 atomic-delivery: initial online stage is born in_flight (no commit
     // After cleanup, A should be gone (success → completeOwnedMutation), B remains queued.
     const finalRows = await listMutations();
     expect(finalRows).toHaveLength(1);
-    expect(finalRows[0]!.url).toBe("/api/B");
+    expect(finalRows[0]!.url).toBe("/api/records/B");
   });
 
   it("offline path: staged row remains queued (no fake in_flight lease when no fetch will happen)", async () => {
@@ -3366,8 +3394,8 @@ describe("F07 replay-finalization: replay lease heartbeat renewal during long-ru
     const sharedKey = "rf-hb-renew-aaaaaaaaaaaa";
     await db.add("mutations", {
       method: "POST",
-      url: "/api/long",
-      body: { step: "long" },
+      url: "/api/projects",
+      body: { name: "long" },
       enqueuedAt: new Date().toISOString(),
       label: "long",
       idempotencyKey: sharedKey,
@@ -3377,7 +3405,7 @@ describe("F07 replay-finalization: replay lease heartbeat renewal during long-ru
     globalThis.fetch = (async () => {
       return new Promise<Response>((resolve) => {
         release = () =>
-          resolve({ ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response);
+          resolve({ ok: true, status: 200, json: async () => projectResponse("long", "ok") } as unknown as Response);
       });
     }) as unknown as typeof fetch;
 
@@ -3448,8 +3476,8 @@ describe("F07 replay-finalization: replay lease heartbeat renewal during long-ru
     const sharedKey = "rf-hb-loss-aaaaaaaaaaaa";
     await db.add("mutations", {
       method: "POST",
-      url: "/api/loss",
-      body: {},
+      url: "/api/projects",
+      body: { name: "loss" },
       enqueuedAt: new Date().toISOString(),
       label: "loss",
       idempotencyKey: sharedKey,
@@ -3459,7 +3487,7 @@ describe("F07 replay-finalization: replay lease heartbeat renewal during long-ru
     globalThis.fetch = (async () => {
       return new Promise<Response>((resolve) => {
         release = () =>
-          resolve({ ok: true, status: 200, json: async () => ({ id: "ok" }) } as unknown as Response);
+          resolve({ ok: true, status: 200, json: async () => projectResponse("loss", "ok") } as unknown as Response);
       });
     }) as unknown as typeof fetch;
 
@@ -3516,7 +3544,7 @@ describe("F07 replay-finalization: heartbeat cleanup (no orphan interval)", () =
   const scenarios: Scenario[] = [
     {
       name: "2xx success",
-      fetch: () => ({ ok: true, status: 200, json: async () => ({ id: "ok" }) } as MockResponseLike),
+      fetch: () => ({ ok: true, status: 200, json: async () => projectResponse("cleanup", "ok") } as MockResponseLike),
       expectReason: null,
       cancelSchedulerAfter: false,
     },
@@ -3560,8 +3588,8 @@ describe("F07 replay-finalization: heartbeat cleanup (no orphan interval)", () =
       const db = await offlineDb();
       await db.add("mutations", {
         method: "POST",
-        url: "/api/cleanup",
-        body: {},
+        url: "/api/projects",
+        body: { name: "cleanup" },
         enqueuedAt: new Date().toISOString(),
         label: "cleanup",
         idempotencyKey: `cleanup-${scenario.name.replace(/\W+/g, "-").toLowerCase()}-aaaa`,
@@ -3686,7 +3714,7 @@ describe("F07 foreground in-progress: 409 idempotency_in_progress MUST release +
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "ok" }),
+        json: async () => projectResponse("F07 fg 409 then 200", "ok"),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 
@@ -3749,16 +3777,14 @@ describe("F07 foreground in-progress: 409 idempotency_in_progress MUST release +
         } as unknown as Response;
       }
       // Subsequent attempts: normal 2xx.
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ id: "ok" }),
-      } as unknown as Response;
+      return attempts === 2
+        ? { ok: true, status: 200, json: async () => projectResponse("step A", "a-ok") } as unknown as Response
+        : { ok: true, status: 200, json: async () => recordResponse("B") } as unknown as Response;
     }) as unknown as typeof fetch;
 
     let caught: unknown = null;
     try {
-      await apiFetch("/api/A", { method: "POST", body: { step: "A" } });
+      await apiFetch("/api/projects", { method: "POST", body: { name: "step A" } });
     } catch (e) {
       caught = e;
     }
@@ -3766,9 +3792,9 @@ describe("F07 foreground in-progress: 409 idempotency_in_progress MUST release +
 
     // Now enqueue B behind A.
     await db.add("mutations", {
-      method: "POST",
-      url: "/api/B",
-      body: { step: "B" },
+      method: "PUT",
+      url: "/api/records/B",
+      body: { revision: 1, text: "step B" },
       enqueuedAt: new Date().toISOString(),
       label: "B",
       idempotencyKey: "fg-ordering-B-keybbbbbbb",
@@ -3777,15 +3803,15 @@ describe("F07 foreground in-progress: 409 idempotency_in_progress MUST release +
     // After the foreground 409 in_progress:
     //   A is queued (released), B is queued (added afterwards).
     //   B was NEVER sent during the foreground apiFetch call.
-    expect(seenUrls).toEqual(["/api/A"]);
+    expect(seenUrls).toEqual(["/api/projects"]);
     const queuedAfter = await listMutations();
-    expect(queuedAfter.map((m) => m.url)).toEqual(["/api/A", "/api/B"]);
+    expect(queuedAfter.map((m) => m.url)).toEqual(["/api/projects", "/api/records/B"]);
 
     // Trigger replay manually (cancel the scheduler timer first).
     cancelOfflineRetry();
     const result = await replayQueue();
     // Replay sends A first, then B — order is preserved.
-    expect(seenUrls).toEqual(["/api/A", "/api/A", "/api/B"]);
+    expect(seenUrls).toEqual(["/api/projects", "/api/projects", "/api/records/B"]);
     // Both attempts of /api/A carry the SAME idempotency key (first from
     // the foreground apiFetch, second from the replay); B carries its own.
     expect(seenKeys[0]).toBe(seenKeys[1]);
@@ -4029,7 +4055,7 @@ describe("F07 foreground barrier: existing idempotency_outcome_unknown conflict 
     // end up queued behind the barrier.
     let caught: unknown = null;
     try {
-      await apiFetch("/api/post-ack", { method: "POST", body: { name: "x" } });
+      await apiFetch("/api/projects", { method: "POST", body: { name: "x" } });
     } catch (e) {
       caught = e;
     }
@@ -4055,7 +4081,7 @@ describe("F07 foreground barrier: existing idempotency_outcome_unknown conflict 
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "ok" }),
+        json: async () => projectResponse("x", "ok"),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 
@@ -4081,15 +4107,15 @@ describe("F07 foreground barrier: existing idempotency_outcome_unknown conflict 
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "ok" }),
+        json: async () => projectResponse("no blocker", "ok"),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 
-    const result = await apiFetch("/api/no-blocker", {
+    const result = await apiFetch("/api/projects", {
       method: "POST",
       body: { name: "no blocker" },
     });
-    expect(result).toEqual({ id: "ok" });
+    expect(result).toEqual(projectResponse("no blocker", "ok"));
     expect(seenKeys).toHaveLength(1);
     const sentKey = seenKeys[0]!;
 
@@ -4132,17 +4158,17 @@ describe("F07 foreground barrier: existing idempotency_outcome_unknown conflict 
       return {
         ok: true,
         status: 200,
-        json: async () => ({ id: "ok" }),
+        json: async () => projectResponse("orthogonal", "ok"),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 
     // The new foreground mutation MUST still send — stale_revision does
     // not impose a global ordering barrier.
-    const result = await apiFetch("/api/independent", {
+    const result = await apiFetch("/api/projects", {
       method: "POST",
       body: { name: "orthogonal" },
     });
-    expect(result).toEqual({ id: "ok" });
+    expect(result).toEqual(projectResponse("orthogonal", "ok"));
     expect(seenKeys).toHaveLength(1);
     expect(seenKeys[0]).toBeDefined();
     expect(seenKeys[0]!.length).toBeGreaterThan(8);
@@ -4163,16 +4189,7 @@ describe("2026-09-19 A03/A10 durable replay regressions", () => {
       enqueuedAt: new Date().toISOString(),
       label: "queued import",
     });
-    mockFetch([() => okJson({
-      status: "near_duplicate_pending",
-      sourceId: null,
-      excerptCount: 0,
-      candidateCount: 0,
-      candidates: [],
-      warnings: [],
-      nearDuplicates: [{ sourceId: "source-existing", title: "Existing", similarity: 0.94, importedAt: new Date().toISOString() }],
-      duplicateOf: null,
-    })]);
+    mockFetch([() => okJson(importResponse("near_duplicate_pending"))]);
 
     const result = await replayQueue();
     expect(result.replayed).toBe(0);

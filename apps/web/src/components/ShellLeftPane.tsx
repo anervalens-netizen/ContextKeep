@@ -6,6 +6,7 @@ import { ShellUtilities } from "./ShellUtilities.js";
 import { CkMark } from "./CkMark.js";
 import { NAV_ITEMS, initials, isActiveNav, relativeTime, type ProjectSignal } from "./ShellPrimitives.js";
 import { partitionProjectVisibility } from "../lib/project-visibility.js";
+import { writeCosmeticPreference } from "../lib/cosmetic-preferences.js";
 
 export type PaneSurface = "desktop" | "drawer";
 
@@ -42,7 +43,7 @@ function ProjectLink({
     <Link
       to="/projects/$projectId"
       params={{ projectId: project.id }}
-      search={{ recordId: undefined }}
+      search={{ recordId: undefined, tab: undefined }}
       onClick={() => remember(project.id)}
       aria-current={active ? "page" : undefined}
       className={`mb-0.5 flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
@@ -71,7 +72,7 @@ export function ShellLeftPane(p: Props): ReactNode {
   const { active: activeProjects, inactive: inactiveProjects } = partitionProjectVisibility(p.projects);
   const inactiveSelected = inactiveProjects.some((project) => project.id === p.activeProjectId);
   const headerAction = (): void => (drawer ? p.onCloseDrawer() : p.onCollapse());
-  const remember = (id: string): void => window.localStorage.setItem(LAST_PROJECT_KEY, id);
+  const remember = (id: string): void => writeCosmeticPreference(LAST_PROJECT_KEY, id);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-ck-surface">
@@ -175,7 +176,7 @@ export function ShellLeftPane(p: Props): ReactNode {
               key={project.id}
               to="/projects/$projectId"
               params={{ projectId: project.id }}
-              search={{ recordId: undefined }}
+              search={{ recordId: undefined, tab: undefined }}
               onClick={() => remember(project.id)}
               title={project.name}
               aria-current={project.id === p.activeProjectId ? "page" : undefined}
