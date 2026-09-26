@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { ProjectDto, SearchResultDto } from "@contextkeep/shared";
 import { apiFetch, isNetworkUnavailableError } from "../lib/api.js";
-import { legacyCanonicalSearchKey, readCache, saveToCache, searchKey, SEARCH_LAST_KEY } from "../lib/offline/mirror.js";
+import { legacyCanonicalSearchKey, readCache, saveToCacheBestEffort, searchKey, SEARCH_LAST_KEY } from "../lib/offline/mirror.js";
 import { RecordCard } from "../components/RecordCard.js";
 import { VirtualList } from "../components/VirtualList.js";
 import { LifecycleBadge } from "../components/Badge.js";
@@ -60,7 +60,7 @@ export default function Search(): ReactNode {
         const data = await apiFetch<SearchResultDto>(`/api/search?${params.toString()}`, {
           onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
         });
-        void saveToCache(key, data, { fetchedAt, scope: cacheScope, cursor: null });
+        void saveToCacheBestEffort(key, data, { fetchedAt, scope: cacheScope, cursor: null });
         return { data, provenance: { source: "network", fetchedAt: fetchedAt ?? null } };
       } catch (e) {
         if (!isNetworkUnavailableError(e)) throw e;

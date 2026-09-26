@@ -136,3 +136,15 @@ export async function readCache<T>(
     },
   };
 }
+
+/** Optional read caching must not turn a successful network read into an unhandled error. */
+export async function saveToCacheBestEffort(...args: Parameters<typeof saveToCache>): Promise<boolean> {
+  try {
+    await saveToCache(...args);
+    return true;
+  } catch {
+    // No volatile replacement and no offline-save claim. Durable mutations
+    // continue to use the strict database and queue APIs, not this wrapper.
+    return false;
+  }
+}

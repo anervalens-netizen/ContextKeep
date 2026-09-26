@@ -24,7 +24,7 @@ vi.mock("../src/lib/offline/mirror.js", () => ({
   legacyCanonicalSearchKey: (input: any) => `legacy:${JSON.stringify(input)}`,
   searchKey: (input: any) => `search:${JSON.stringify(input)}`,
   readCache: readCacheMock,
-  saveToCache: saveToCacheMock,
+  saveToCacheBestEffort: saveToCacheMock,
 }));
 vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");

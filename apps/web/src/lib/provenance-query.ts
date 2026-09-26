@@ -4,7 +4,7 @@ import {
   META_DASHBOARD_KEY,
   PROJECTS_KEY,
   readCache,
-  saveToCache,
+  saveToCacheBestEffort,
   workContextKey,
 } from "./offline/mirror.js";
 import { cacheScopes } from "./query-contracts.js";
@@ -45,7 +45,7 @@ async function read<T>(
         fetchedAt = meta.fetchedAt;
       },
     });
-    void saveToCache(key, data, {
+    void saveToCacheBestEffort(key, data, {
       fetchedAt,
       scope,
       cursor: cursor?.(data) ?? null,

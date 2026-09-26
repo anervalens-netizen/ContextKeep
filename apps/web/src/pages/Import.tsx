@@ -7,6 +7,7 @@ import { readMeta } from "../lib/provenance-query.js";
 import { queryKeys } from "../lib/query-contracts.js";
 import type { ConflictEntry } from "../lib/offline/db.js";
 import * as offlineQueue from "../lib/offline/queue.js";
+import { isLocalDataAccessPaused } from "../lib/offline/local-data-state.js";
 import { isQueued, reportQueued } from "../lib/hooks.js";
 import { useUiStore } from "../state/ui.js";
 import { debounce } from "../lib/debounce.js";
@@ -36,6 +37,7 @@ export default function Import(): ReactNode {
   const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch<ProjectDto[]>("/api/projects") });
 
   useEffect(() => {
+    if (isLocalDataAccessPaused()) return;
     let cancelled = false;
     void (async () => {
       const { listConflicts } = offlineQueue;
@@ -43,7 +45,9 @@ export default function Import(): ReactNode {
       if (cancelled || !pending) return;
       setReplayedConflict(pending);
       setResult(pending.response as ImportPreviewDto);
-    })();
+    })().catch(() => {
+      if (!cancelled) useUiStore.getState().setNotice({ kind: "error", text: "Saved offline import previews could not be read. No queued operation was changed." });
+    });
     return () => { cancelled = true; };
   }, []);
 

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
 vi.mock("../src/lib/api.js", () => ({ apiFetch: apiFetchMock, ApiError: class ApiError extends Error {} }));
-vi.mock("../src/lib/offline/mirror.js", () => ({ briefKey: (id: string) => `brief:${id}`, readCache: vi.fn().mockResolvedValue(null), saveToCache: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../src/lib/offline/mirror.js", () => ({ briefKey: (id: string) => `brief:${id}`, readCache: vi.fn().mockResolvedValue(null), saveToCacheBestEffort: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../src/lib/hooks.js", () => ({ notifyError: vi.fn() }));
 vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");

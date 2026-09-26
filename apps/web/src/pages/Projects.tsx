@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ProjectDto, WorkspaceReconciliationDto, WorkspaceReconciliationItemDto } from "@contextkeep/shared";
 import { apiFetch, ApiError, isNetworkUnavailableError } from "../lib/api.js";
-import { PROJECTS_KEY, readCache, saveToCache } from "../lib/offline/mirror.js";
+import { PROJECTS_KEY, readCache, saveToCacheBestEffort } from "../lib/offline/mirror.js";
 import { LifecycleBadge } from "../components/Badge.js";
 import { WorkspaceRegistry } from "../components/WorkspaceRegistry.js";
 import { Icon } from "../components/Icon.js";
@@ -70,7 +70,7 @@ export default function Projects(): ReactNode {
         const data = await apiFetch<ProjectDto[]>("/api/projects", {
           onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
         });
-        void saveToCache(PROJECTS_KEY, data, { fetchedAt, scope: "projects:list", cursor: null });
+        void saveToCacheBestEffort(PROJECTS_KEY, data, { fetchedAt, scope: "projects:list", cursor: null });
         setFromCache(false);
         return data;
       } catch (e) {

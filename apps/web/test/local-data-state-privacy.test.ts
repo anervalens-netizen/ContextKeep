@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { offlineDb } from "../src/lib/offline/db.js";
+import { saveToCache, saveToCacheBestEffort } from "../src/lib/offline/mirror.js";
 import {
   isLocalDataAccessPaused,
   setLocalDataAccessPaused,
@@ -25,6 +26,8 @@ describe("local-data privacy pause", () => {
 
     expect(isLocalDataAccessPaused()).toBe(true);
     await expect(offlineDb()).rejects.toThrow(/paused/i);
+    await expect(saveToCache("synthetic-denied", {})).rejects.toThrow(/paused/i);
+    await expect(saveToCacheBestEffort("synthetic-denied", {})).resolves.toBe(false);
   });
 
   it("preserves an in-memory pause and resumes only after storage is restored", () => {

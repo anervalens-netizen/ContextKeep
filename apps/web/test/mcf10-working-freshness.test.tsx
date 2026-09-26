@@ -10,7 +10,7 @@ vi.mock("../src/lib/offline/mirror.js", () => ({
   META_DASHBOARD_KEY: "meta:dashboard",
   workContextKey: (id: string) => `work-context:${id}`,
   readCache: vi.fn().mockResolvedValue(null),
-  saveToCache: vi.fn().mockResolvedValue(undefined),
+  saveToCacheBestEffort: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../src/lib/hooks.js", () => ({ notifyError: vi.fn() }));
 vi.mock("@tanstack/react-router", async () => {

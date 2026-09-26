@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InboxPageDto, ProjectDto, ReviewResultDto } from "@contextkeep/shared";
 import { ApiError, apiFetch, isNetworkUnavailableError } from "../lib/api.js";
-import { inboxKey, readCache, saveToCache } from "../lib/offline/mirror.js";
+import { inboxKey, readCache, saveToCacheBestEffort } from "../lib/offline/mirror.js";
 import { cacheScopes, queryKeys, queryRoots } from "../lib/query-contracts.js";
 import { RecordCard } from "../components/RecordCard.js";
 import { VirtualList } from "../components/VirtualList.js";
@@ -42,7 +42,7 @@ export default function Inbox(): ReactNode {
         const data = await apiFetch<InboxPageDto>(inboxUrl(projectId, page), {
           onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
         });
-        void saveToCache(mirrorKey, data, { fetchedAt, scope, cursor: null });
+        void saveToCacheBestEffort(mirrorKey, data, { fetchedAt, scope, cursor: null });
         return { data, cachedAt: null as string | null, cached: false };
       } catch (e) {
         if (!isNetworkUnavailableError(e)) throw e;

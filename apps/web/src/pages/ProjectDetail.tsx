@@ -9,7 +9,7 @@ import type {
   RecordDto,
 } from "@contextkeep/shared";
 import { apiFetch, ApiError, isNetworkUnavailableError } from "../lib/api.js";
-import { briefKey, readCache, saveToCache } from "../lib/offline/mirror.js";
+import { briefKey, readCache, saveToCacheBestEffort } from "../lib/offline/mirror.js";
 import { LifecycleBadge, StatusBadge } from "../components/Badge.js";
 import { Icon, type IconName } from "../components/Icon.js";
 import { ProjectHistoryBackfill } from "../components/ProjectHistoryBackfill.js";
@@ -227,7 +227,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
         const data = await apiFetch<BriefDto>(`/api/projects/${projectId}/brief`, {
           onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
         });
-        void saveToCache(briefKey(projectId), data, {
+        void saveToCacheBestEffort(briefKey(projectId), data, {
           fetchedAt,
           scope: `project:${projectId}:brief`,
           cursor: data.contentVersion,

@@ -13,7 +13,7 @@ vi.mock("../src/lib/api.js", () => ({
 vi.mock("../src/lib/offline/mirror.js", () => ({
   PROJECTS_KEY: "projects:last",
   readCache: vi.fn(async () => null),
-  saveToCache: vi.fn(async () => undefined),
+  saveToCacheBestEffort: vi.fn(async () => undefined),
 }));
 vi.mock("../src/components/WorkspaceRegistry.js", () => ({
   WorkspaceRegistry: () => React.createElement("div", { "data-testid": "workspace-registry" }),

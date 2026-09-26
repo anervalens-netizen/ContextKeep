@@ -7,6 +7,7 @@ import { debounce } from "../lib/debounce.js";
 import { isQueued, notifyError, reportQueued } from "../lib/hooks.js";
 import type { ConflictEntry } from "../lib/offline/db.js";
 import * as offlineQueue from "../lib/offline/queue.js";
+import { isLocalDataAccessPaused } from "../lib/offline/local-data-state.js";
 import { useUiStore } from "../state/ui.js";
 
 interface ConfirmResult {
@@ -42,6 +43,7 @@ export default function Corrections(): ReactNode {
   const projects = projectsQuery.data ?? [];
 
   useEffect(() => {
+    if (isLocalDataAccessPaused()) return;
     let cancelled = false;
     void (async () => {
       const { listConflicts } = offlineQueue;
@@ -49,7 +51,9 @@ export default function Corrections(): ReactNode {
       if (cancelled || !pending) return;
       setReplayedConflict(pending);
       setPreview(pending.response as CorrectionPreviewDto);
-    })();
+    })().catch(() => {
+      if (!cancelled) useUiStore.getState().setNotice({ kind: "error", text: "Saved offline correction previews could not be read. No queued operation was changed." });
+    });
     return () => { cancelled = true; };
   }, []);
 

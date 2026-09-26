@@ -18,7 +18,7 @@ vi.mock("../src/lib/offline/mirror.js", () => ({
   META_DASHBOARD_KEY: "meta:dashboard",
   workContextKey: (id: string) => `work-context:${id}`,
   readCache: readCacheMock,
-  saveToCache: saveToCacheMock,
+  saveToCacheBestEffort: saveToCacheMock,
 }));
 vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");

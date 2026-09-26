@@ -43,7 +43,7 @@ vi.mock("../src/lib/hooks.js", () => ({
 vi.mock("../src/lib/offline/mirror.js", () => ({
   inboxKey: ({ projectId, page, limit }: any) => `inbox:${projectId ?? "*"}:${page}:${limit}`,
   readCache: vi.fn(async () => null),
-  saveToCache: vi.fn(async () => undefined),
+  saveToCacheBestEffort: vi.fn(async () => undefined),
 }));
 vi.mock("../src/components/VirtualList.js", () => ({
   VirtualList: ({ items, renderRow, emptyText }: any) =>

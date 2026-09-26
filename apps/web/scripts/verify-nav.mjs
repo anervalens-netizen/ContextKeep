@@ -878,6 +878,14 @@ async function verifyDeniedStorage() {
       .click();
     await deniedPage.locator('[data-shell="app"]').waitFor();
     await deniedPage.waitForLoadState("networkidle");
+    for (const route of ["/inbox", "/import", "/corrections", "/search"]) {
+      await deniedPage.goto(`${base}${route}`, { waitUntil: "networkidle" });
+      await deniedPage
+        .getByRole("button", { name: "Continue online without local storage" })
+        .click();
+      await deniedPage.locator('[data-shell="app"]').waitFor();
+      await deniedPage.waitForLoadState("networkidle");
+    }
     const databases = await deniedPage.evaluate(() => indexedDB.databases());
     check(
       !databases.some((entry) => entry.name === "contextkeep-offline"),
@@ -891,6 +899,7 @@ async function verifyDeniedStorage() {
       status: "PASS",
       explicitOnlineConsent: true,
       offlineStoreOpened: false,
+      routesChecked: 5,
       startupErrors: 0,
     };
   } finally {
