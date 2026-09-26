@@ -5,14 +5,16 @@ import { ApiError } from "../lib/errors.js";
 
 // This inode is permanent. Moving/unlinking it could create two independent locks.
 export const DIRECTORY_LOCK_FILE = ".contextkeep-lock.sqlite";
+/** Separate from the shared DB/backup lease: one live application per data directory. */
+export const RUNTIME_LOCK_FILE = ".contextkeep-runtime.sqlite";
 
 export function isDirectoryLockFile(name: string): boolean {
-  return [
-    DIRECTORY_LOCK_FILE,
-    `${DIRECTORY_LOCK_FILE}-journal`,
-    `${DIRECTORY_LOCK_FILE}-wal`,
-    `${DIRECTORY_LOCK_FILE}-shm`,
-  ].includes(name);
+  return [DIRECTORY_LOCK_FILE, RUNTIME_LOCK_FILE].some((prefix) => [
+    prefix,
+    `${prefix}-journal`,
+    `${prefix}-wal`,
+    `${prefix}-shm`,
+  ].includes(name));
 }
 
 export function canonicalDatabasePath(file: string): string {
@@ -46,27 +48,31 @@ interface Owner {
 
 const owners = new Map<string, Owner>();
 
-function occupied(directory: string): ApiError {
+function occupied(directory: string, runtime: boolean): ApiError {
   return new ApiError(
     409,
-    "directory_in_use",
-    `Data directory is in use: ${directory}. Close all database handles before restore.`,
+    runtime ? "runtime_in_use" : "directory_in_use",
+    runtime
+      ? `A ContextKeep application already owns this data directory: ${directory}.`
+      : `Data directory is in use: ${directory}. Close all database handles before restore.`,
   );
 }
 
-/** Active handles share an OS-backed read lease; restore requires an exclusive lease. */
-export function acquireDirectoryLock(
+function acquireSqliteLease(
   directory: string,
-  shared = false,
+  fileName: string,
+  shared: boolean,
 ): { release(): void } {
   fs.mkdirSync(directory, { recursive: true });
   directory = fs.realpathSync(directory);
-  let owner = owners.get(directory);
+  const ownerKey = `${fileName}\0${directory}`;
+  const runtime = fileName === RUNTIME_LOCK_FILE;
+  let owner = owners.get(ownerKey);
   if (owner) {
-    if (!shared || !owner.shared) throw occupied(directory);
+    if (!shared || !owner.shared) throw occupied(directory, runtime);
     owner.references++;
   } else {
-    const file = path.join(directory, DIRECTORY_LOCK_FILE);
+    const file = path.join(directory, fileName);
     const stat = fs.lstatSync(file, { throwIfNoEntry: false });
     if (stat && (!stat.isFile() || stat.nlink !== 1)) {
       throw new Error(
@@ -92,12 +98,12 @@ export function acquireDirectoryLock(
           : "BEGIN EXCLUSIVE;",
       );
       owner = { sqlite, references: 1, shared };
-      owners.set(directory, owner);
+      owners.set(ownerKey, owner);
     } catch (error) {
       if (sqlite?.open) sqlite.close();
       const code = (error as { code?: string }).code;
       if (code?.startsWith("SQLITE_BUSY") || code?.startsWith("SQLITE_LOCKED"))
-        throw occupied(directory);
+        throw occupied(directory, runtime);
       throw error;
     }
   }
@@ -108,13 +114,26 @@ export function acquireDirectoryLock(
       if (released) return;
       if (held.references === 1) {
         held.sqlite.close(); // Releases the pinned transaction; OS also releases it on process death.
-        owners.delete(directory);
+        owners.delete(ownerKey);
       } else {
         held.references--;
       }
       released = true;
     },
   };
+}
+
+/** Active handles share an OS-backed read lease; restore requires an exclusive lease. */
+export function acquireDirectoryLock(
+  directory: string,
+  shared = false,
+): { release(): void } {
+  return acquireSqliteLease(directory, DIRECTORY_LOCK_FILE, shared);
+}
+
+/** One live application may mutate/recover a data directory at a time. */
+export function acquireRuntimeLease(directory: string): { release(): void } {
+  return acquireSqliteLease(directory, RUNTIME_LOCK_FILE, false);
 }
 
 /** Additional Linux safeguard for older, non-cooperating handles owned by this user.

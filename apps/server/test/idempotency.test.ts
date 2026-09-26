@@ -168,7 +168,7 @@ describe("F07: durable SQLite claim state machine", () => {
     expect(completed.state).toBe("completed");
   });
 
-  it("prunes only terminal claims older than retention and preserves recent replay plus pending work", async () => {
+  it("compacts old completed receipts while retaining event tombstones and indeterminate barriers", async () => {
     const t = (current = await makeTestApp());
     const sqlite = t.app.ck.deps.sqlite;
     const nowMs = Date.parse("2026-09-20T00:00:00.000Z");
@@ -184,9 +184,16 @@ describe("F07: durable SQLite claim state machine", () => {
     insert.run("recent-completed-aaaaaa", "recent-hash", "completed", 200, '{"recent":1}', recent, recent);
     insert.run("old-pending-aaaaaaaa", "old-pending-hash", "pending", null, null, old, old);
 
-    expect(pruneTerminalIdempotencyClaims(sqlite, 30, nowMs)).toBe(2);
-    expect((sqlite.prepare("SELECT count(*) AS n FROM idempotency_requests").get() as { n: number }).n).toBe(2);
+    expect(pruneTerminalIdempotencyClaims(sqlite, 30, nowMs)).toBe(1);
+    expect((sqlite.prepare("SELECT count(*) AS n FROM idempotency_requests").get() as { n: number }).n).toBe(4);
+    const compacted = sqlite.prepare(
+      "SELECT state,method,url,request_hash,response_body FROM idempotency_requests WHERE key=?",
+    ).get("old-completed-aaaaaaaa") as { state: string; method: string; url: string; request_hash: string; response_body: string | null };
+    expect(compacted).toMatchObject({ state: "completed", method: "POST", url: "/api/x", request_hash: "old-completed-hash", response_body: null });
+    expect((sqlite.prepare("SELECT state FROM idempotency_requests WHERE key=?").get("old-indeterminate-aaaa") as { state: string }).state).toBe("indeterminate");
     expect((sqlite.prepare("SELECT state FROM idempotency_requests WHERE key=?").get("old-pending-aaaaaaaa") as { state: string }).state).toBe("pending");
+
+    expect(pruneTerminalIdempotencyClaims(sqlite, 30, nowMs)).toBe(0);
 
     const replay = tryClaim(sqlite, {
       key: "recent-completed-aaaaaa",
@@ -197,6 +204,15 @@ describe("F07: durable SQLite claim state machine", () => {
     expect(replay.fresh).toBe(false);
     expect(replay.claim.state).toBe("completed");
     expect(replay.claim.responseBody).toBe('{"recent":1}');
+
+    const expired = tryClaim(sqlite, {
+      key: "old-completed-aaaaaaaa",
+      method: "POST",
+      url: "/api/x",
+      requestHash: "old-completed-hash",
+    });
+    expect(expired.fresh).toBe(false);
+    expect(expired.claim.responseBody).toBeNull();
   });
 });
 
@@ -242,6 +258,27 @@ describe("F07: HTTP integration — replay after response loss", () => {
     expect(second.payload).toBe(first.payload);
     expect(second.headers["content-type"]).toBe(first.headers["content-type"]);
   });
+
+  it("compacted HTTP receipts keep the event key reserved and report an expired result", async () => {
+    const t = (current = await makeTestApp());
+    const sqlite = t.app.ck.deps.sqlite;
+    const key = "expired-http-aaaaaaaaaaaa";
+    const first = await injectIdempotent(t, "POST", "/api/projects", { name: "Expired HTTP receipt" }, key);
+    expect(first.statusCode).toBe(200);
+    sqlite.prepare("UPDATE idempotency_requests SET updated_at=? WHERE key=?").run("2026-08-01T00:00:00.000Z", key);
+    expect(pruneTerminalIdempotencyClaims(sqlite, 30, Date.parse("2026-09-20T00:00:00.000Z"))).toBe(1);
+
+    const replay = await injectIdempotent(t, "POST", "/api/projects", { name: "Expired HTTP receipt" }, key);
+    expect(replay.statusCode).toBe(409);
+    expect(replay.json<{ error: { code: string; message: string } }>().error).toMatchObject({ code: "idempotency_result_expired" });
+    expect(replay.payload).toMatch(/completed|expired/i);
+
+    const changed = await injectIdempotent(t, "POST", "/api/projects", { name: "Changed expired HTTP receipt" }, key);
+    expect(changed.statusCode).toBe(409);
+    expect(changed.json<{ error: { code: string } }>().error.code).toBe("idempotency_key_reused");
+    expect((sqlite.prepare("SELECT count(*) AS n FROM projects WHERE name LIKE 'Expired HTTP receipt%'").get() as { n: number }).n).toBe(1);
+  });
+
   it("same-key review retry replays the original decision without duplicate review or cursor mutation", async () => {
     const t = (current = await makeTestApp());
     const sqlite = t.app.ck.deps.sqlite;

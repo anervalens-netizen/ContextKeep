@@ -4,9 +4,10 @@ import { McpToolErrorResult, McpWorkContextResult } from "@contextkeep/shared";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { buildApp } from "../src/app.js";
-import { atomicWrite, durableWrite, safeValue, toolError } from "../src/mcp/safety.js";
+import { atomicWrite, durableWrite, MCP_RESULT_BYTE_BUDGET, safeValue, toolError, toolResult } from "../src/mcp/safety.js";
 import { ApiError } from "../src/lib/errors.js";
 import { applyDump } from "../src/services/dump-import.js";
+import { pruneTerminalIdempotencyClaims } from "../src/services/idempotency.js";
 import { makeTestApp, type TestApp } from "./helpers.js";
 
 const TOKEN = crypto.randomBytes(32).toString("hex");
@@ -35,11 +36,20 @@ async function note(t: TestApp, projectId: string, statement = "Use a verified b
   expect(result.isError).not.toBe(true);
   return result.structuredContent;
 }
-function count(t: TestApp, table: "records" | "handoff_exports" | "sources") {
+function count(t: TestApp, table: "records" | "handoffs" | "sources") {
   return (t.app.ck.handle.sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n;
 }
 
 describe("private ContextKeep MCP", () => {
+  it("budgets the complete dual-content result using UTF-8 serialized bytes", () => {
+    const safe = toolResult({ text: "é".repeat(100_000), escaped: '"\\\n' }, ["synthetic-secret"]);
+    expect(Buffer.byteLength(JSON.stringify(safe), "utf8")).toBeLessThanOrEqual(MCP_RESULT_BYTE_BUDGET);
+    expect(safe.content[0]?.text).toContain("\\\"");
+    expect(() => toolResult({ text: "é".repeat(200_000) }, [])).toThrow(
+      expect.objectContaining({ code: "result_too_large" }),
+    );
+  });
+
   it("is disabled without explicit configuration", async () => {
     const t = await makeTestApp(); tracked.push(t);
     const res = await rpc(t, "tools/list"); expect(res.statusCode).toBe(404);
@@ -196,6 +206,30 @@ describe("private ContextKeep MCP", () => {
     const s1 = await call(t, "add_source", sourceArgs); const sources = count(t, "sources");
     expect(s1.isError).not.toBe(true); expect(await call(t, "add_source", sourceArgs)).toEqual(s1);
     expect(count(t, "sources")).toBe(sources);
+  });
+
+  it("compacted create_handoff receipts expire without creating a second handoff", async () => {
+    const { t, projectId } = await setup();
+    const idempotencyKey = crypto.randomUUID();
+    const args = { projectId, idempotencyKey };
+    const first = await call(t, "create_handoff", args);
+    expect(first.isError).not.toBe(true);
+    expect(count(t, "handoffs")).toBe(1);
+
+    t.app.ck.handle.sqlite.prepare("UPDATE idempotency_requests SET updated_at=? WHERE key=?")
+      .run("2026-08-01T00:00:00.000Z", `mcp:${idempotencyKey}`);
+    expect(pruneTerminalIdempotencyClaims(t.app.ck.deps.sqlite, 30, Date.parse("2026-09-20T00:00:00.000Z"))).toBe(1);
+
+    const expired = await call(t, "create_handoff", args);
+    expect(expired.isError).toBe(true);
+    expect(expired.structuredContent.error.code).toBe("idempotency_result_expired");
+    expect(expired.structuredContent.error.message).toMatch(/completed|expired/i);
+    expect(count(t, "handoffs")).toBe(1);
+
+    const changed = await call(t, "create_handoff", { ...args, objective: "changed payload" });
+    expect(changed.isError).toBe(true);
+    expect(changed.structuredContent.error.code).toBe("idempotency_key_reused");
+    expect(count(t, "handoffs")).toBe(1);
   });
   it("releases atomic MCP claims after rolled-back internal failures but caches deterministic 4xx errors", async () => {
     const { t } = await setup();

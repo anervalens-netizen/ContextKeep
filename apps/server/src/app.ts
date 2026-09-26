@@ -11,6 +11,7 @@ import { ApiError } from "./lib/errors.js";
 import { httpRequestsTotal } from "./lib/telemetry.js";
 import { loadConfig, serverRoot, type AppConfig } from "./config.js";
 import { openDatabase, type DbHandle } from "./db/client.js";
+import { acquireRuntimeLease, canonicalDatabasePath } from "./db/directory-lock.js";
 import { ensureContextCursorBaselines } from "./services/context-journal.js";
 import { APP_VERSION, bootstrapDatabase } from "./db/bootstrap.js";
 import { createAdapterRegistry } from "./adapters/registry.js";
@@ -19,6 +20,7 @@ import { recoverInterruptedExtractions } from "./services/extraction-recovery.js
 import {
   finalizeClaim,
   isValidIdempotencyKey,
+  IDEMPOTENCY_RESULT_EXPIRED_MESSAGE,
   recoverInterruptedIdempotencyClaims,
   pruneTerminalIdempotencyClaims,
   requestHash,
@@ -97,9 +99,17 @@ function isF07UnsupportedRoute(url: string | undefined): boolean {
 
 export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInstance> {
   const config = opts.config ?? loadConfig();
-  const handle = openDatabase(opts.dbPath ?? config.dbPath, config.sqliteSynchronous);
+  const requestedDbPath = opts.dbPath ?? config.dbPath;
+  let openedHandle: DbHandle | undefined;
+  let runtimeLease: { release(): void } | undefined;
   let cleanupApp: FastifyInstance | undefined;
   try {
+  if (requestedDbPath !== ":memory:") {
+    fs.mkdirSync(path.dirname(requestedDbPath), { recursive: true });
+    const dbDirectory = path.dirname(canonicalDatabasePath(requestedDbPath));
+    runtimeLease = acquireRuntimeLease(dbDirectory);
+  }
+  const handle = openedHandle = openDatabase(requestedDbPath, config.sqliteSynchronous);
   if (opts.bootstrap !== false) bootstrapDatabase(handle);
   ensureContextCursorBaselines(handle.db);
   const registry = createAdapterRegistry(config.adapters);
@@ -294,11 +304,13 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       const existing = outcome.claim;
       // Replay path: same key, same request, server has a completed answer.
       if (existing.state === "completed" && existing.requestHash === hash) {
+        if (existing.responseBody === null) {
+          throw new ApiError(409, "idempotency_result_expired", IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
+        }
         reply.header("x-idempotent-replay", "true");
         if (existing.responseContentType) reply.header("content-type", existing.responseContentType);
         const status = existing.responseStatus ?? 200;
-        const bodyText = existing.responseBody ?? "{}";
-        reply.code(status).send(bodyText);
+        reply.code(status).send(existing.responseBody);
         return reply;
       }
       // Same key, different request → the caller is reusing the key with a
@@ -415,7 +427,12 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
 
   app.addHook("onClose", async () => {
     await syncCoordinator.stopAndDrain();
-    handle.sqlite.close();
+    try {
+      handle.sqlite.close();
+    } finally {
+      runtimeLease?.release();
+      runtimeLease = undefined;
+    }
   });
 
   syncCoordinator.start();
@@ -426,7 +443,12 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     try {
       await cleanupApp?.close();
     } finally {
-      if (handle.sqlite.open) handle.sqlite.close();
+      try {
+        if (openedHandle?.sqlite.open) openedHandle.sqlite.close();
+      } finally {
+        runtimeLease?.release();
+        runtimeLease = undefined;
+      }
     }
     throw error;
   }

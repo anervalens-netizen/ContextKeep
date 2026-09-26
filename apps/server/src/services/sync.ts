@@ -834,32 +834,34 @@ export class SyncCoordinator {
     const deadlineMs = Math.max(1, opts.deadlineMs ?? 15_000);
     const drain = async (): Promise<void> => {
       let timer: NodeJS.Timeout | null = null;
-      const deadline = new Promise<void>((resolve) => {
+      const deadline = new Promise<"deadline">((resolve) => {
         timer = setTimeout(() => {
           const jobId = this.activeJobId;
           if (jobId) {
             const stamp = nowIso();
-            this.deps.sqlite.prepare(
-              "UPDATE sync_jobs SET stage='interrupted',current_key=NULL,last_error=?,finished_at=?,updated_at=? WHERE id=? AND stage='running'",
-            ).run(
-              "Sync shutdown drain exceeded " + deadlineMs + "ms; waiting for active continuation before database close.",
-              stamp,
-              stamp,
-              jobId,
-            );
+            const message = "Sync shutdown drain exceeded " + deadlineMs + "ms; waiting for active continuation before database close.";
+            try {
+              this.deps.sqlite.prepare(
+                "UPDATE sync_jobs SET stage='interrupted',current_key=NULL,last_error=?,finished_at=?,updated_at=? WHERE id=? AND stage='running'",
+              ).run(message, stamp, stamp, jobId);
+            } catch {
+              // The deadline remains the deterministic shutdown signal even if
+              // persistence is unavailable; never escape from the timer.
+              this.lastError = message;
+            }
           }
-          resolve();
+          resolve("deadline");
         }, deadlineMs);
         timer.unref?.();
       });
 
-      const settled = active.then(() => true, () => true);
-      const finishedBeforeDeadline = await Promise.race([
+      const settled: Promise<true> = active.then(() => true as const, () => true as const);
+      const outcome = await Promise.race<true | "deadline">([
         settled,
-        deadline.then(() => false),
+        deadline,
       ]);
-      if (finishedBeforeDeadline && timer) clearTimeout(timer);
-      if (!finishedBeforeDeadline) {
+      if (outcome === true && timer) clearTimeout(timer);
+      if (outcome === "deadline") {
         // The job is durably recoverable now, but database ownership remains
         // with this process until the continuation has actually stopped.
         await settled;
@@ -960,13 +962,13 @@ export class SyncCoordinator {
   ): Promise<SyncRunResultDto> {
     this.running = true;
     const runId = newId();
-    if (!input.dryRun) {
-      const started = nowIso();
-      this.deps.sqlite.prepare(`INSERT INTO sync_jobs(id,project_id,connector,mode,input_json,stage,selected,completed,failed,current_key,result_json,last_error,started_at,updated_at,finished_at) VALUES(?,?,?,?,?,'running',0,0,0,NULL,NULL,NULL,?,?,NULL)`)
-        .run(runId, input.projectId ?? null, input.connector, input.mode, JSON.stringify(input), started, started);
-      this.activeJobId = runId;
-    }
     try {
+      if (!input.dryRun) {
+        const started = nowIso();
+        this.deps.sqlite.prepare(`INSERT INTO sync_jobs(id,project_id,connector,mode,input_json,stage,selected,completed,failed,current_key,result_json,last_error,started_at,updated_at,finished_at) VALUES(?,?,?,?,?,'running',0,0,0,NULL,NULL,NULL,?,?,NULL)`)
+          .run(runId, input.projectId ?? null, input.connector, input.mode, JSON.stringify(input), started, started);
+        this.activeJobId = runId;
+      }
       const result = await runSyncOnce(this.deps, this.config, input, ctx, input.dryRun ? { signal } : {
         runId,
         onPlan: (plan) => {
@@ -1019,7 +1021,14 @@ export class SyncCoordinator {
       return result;
     } catch (error) {
       this.lastScanAt = nowIso();
-      const current = input.dryRun ? undefined : syncJobById(this.deps, runId);
+      let current: SyncJobRow | undefined;
+      if (!input.dryRun) {
+        try {
+          current = syncJobById(this.deps, runId);
+        } catch {
+          current = undefined;
+        }
+      }
       const cancelled =
         !input.dryRun &&
         (this.cancelledJobIds.has(runId) || current?.stage === "cancelled");
@@ -1043,14 +1052,22 @@ export class SyncCoordinator {
 
       if (!input.dryRun && interrupted) {
         const finished = nowIso();
-        this.deps.sqlite.prepare(
-          "UPDATE sync_jobs SET stage='interrupted',current_key=NULL,last_error=?,finished_at=COALESCE(finished_at,?),updated_at=? WHERE id=? AND stage='running'",
-        ).run(this.lastError, finished, finished, runId);
+        try {
+          this.deps.sqlite.prepare(
+            "UPDATE sync_jobs SET stage='interrupted',current_key=NULL,last_error=?,finished_at=COALESCE(finished_at,?),updated_at=? WHERE id=? AND stage='running'",
+          ).run(this.lastError, finished, finished, runId);
+        } catch {
+          // Preserve the provider/original error; the database may be closing.
+        }
       } else if (!input.dryRun && !cancelled) {
         const finished = nowIso();
-        this.deps.sqlite.prepare("UPDATE sync_jobs SET stage='failed',current_key=NULL,last_error=?,finished_at=?,updated_at=? WHERE id=? AND stage='running'")
-          .run(this.lastError, finished, finished, runId);
-        this.persistError(input.connector, this.lastError);
+        try {
+          this.deps.sqlite.prepare("UPDATE sync_jobs SET stage='failed',current_key=NULL,last_error=?,finished_at=?,updated_at=? WHERE id=? AND stage='running'")
+            .run(this.lastError, finished, finished, runId);
+          this.persistError(input.connector, this.lastError);
+        } catch {
+          // Failure reporting is secondary and must never replace the cause.
+        }
       }
       throw error;
     } finally {
