@@ -277,6 +277,8 @@ export function recoverInterruptedIdempotencyClaims(sqlite: Database.Database): 
 }
 
 export const IDEMPOTENCY_TERMINAL_RETENTION_DAYS = 30;
+export const IDEMPOTENCY_RESULT_EXPIRED_MESSAGE =
+  "The write completed, but its stored result expired. Reconcile existing state; the event key remains permanently used.";
 
 export function pruneTerminalIdempotencyClaims(
   sqlite: Database.Database,
@@ -287,8 +289,9 @@ export function pruneTerminalIdempotencyClaims(
   const prune = sqlite.transaction(() =>
     sqlite
       .prepare(
-        `DELETE FROM idempotency_requests
-         WHERE state IN ('completed','indeterminate') AND updated_at < ?`,
+        `UPDATE idempotency_requests
+         SET response_body = NULL, response_content_type = NULL
+         WHERE state = 'completed' AND response_body IS NOT NULL AND updated_at < ?`,
       )
       .run(cutoff).changes,
   );

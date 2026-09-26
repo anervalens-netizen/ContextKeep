@@ -4,7 +4,14 @@ import { McpToolErrorResult } from "@contextkeep/shared";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps } from "../services/import.js";
 import { redactCredentialLikeText } from "../services/redaction.js";
-import { finalizeClaim, requestHash, tryClaim } from "../services/idempotency.js";
+import {
+  finalizeClaim,
+  IDEMPOTENCY_RESULT_EXPIRED_MESSAGE,
+  requestHash,
+  tryClaim,
+} from "../services/idempotency.js";
+
+export const MCP_RESULT_BYTE_BUDGET = 750_000;
 
 /** Redact both known credentials and credential-shaped project text at the boundary. */
 export function safeValue(value: unknown, secrets: string[]): unknown {
@@ -26,8 +33,15 @@ export function rejectCredentials(input: unknown, secrets: string[]): void {
 
 export function toolResult(value: unknown, secrets: string[]): CallToolResult {
   const clean = safeValue(value, secrets) as Record<string, unknown>;
-  if (Buffer.byteLength(JSON.stringify(clean)) > 750_000) throw new ApiError(413, "result_too_large", "Use smaller pages or a smaller context budget.");
-  return { content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean };
+  const text = JSON.stringify(clean);
+  const result: CallToolResult = { content: [{ type: "text", text }], structuredContent: clean };
+  // This is the complete MCP result object, including both protocol content
+  // and structuredContent. JSON-RPC envelope bytes are transport overhead and
+  // are not part of this result budget.
+  if (Buffer.byteLength(JSON.stringify(result), "utf8") > MCP_RESULT_BYTE_BUDGET) {
+    throw new ApiError(413, "result_too_large", "Use smaller pages or a smaller context budget.");
+  }
+  return result;
 }
 
 export function toolError(error: unknown, secrets: string[]): CallToolResult {
@@ -99,8 +113,11 @@ export async function durableWrite(
     if (outcome.claim.requestHash !== hash) {
       throw new ApiError(409, "idempotency_key_reused", "Use a new idempotencyKey for a different operation.");
     }
-    if (outcome.claim.state === "completed" && outcome.claim.responseBody) {
+    if (outcome.claim.state === "completed" && outcome.claim.responseBody !== null) {
       return JSON.parse(outcome.claim.responseBody) as CallToolResult;
+    }
+    if (outcome.claim.state === "completed") {
+      throw new ApiError(409, "idempotency_result_expired", IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
     }
     throw new ApiError(409, outcome.claim.state === "pending" ? "idempotency_in_progress" : "idempotency_outcome_unknown",
       "The earlier operation is running or has an unknown outcome. Inspect project state before retrying.");
@@ -138,7 +155,8 @@ export function atomicWrite(deps: ServiceDeps, name: string, input: {idempotency
     const claim = tryClaim(deps.sqlite, {key,method:"MCP",url:name,requestHash:hash});
     if (!claim.fresh) {
       if (claim.claim.requestHash !== hash) throw new ApiError(409,"idempotency_key_reused","Use a new idempotencyKey for a different operation.");
-      if (claim.claim.state === "completed" && claim.claim.responseBody) return JSON.parse(claim.claim.responseBody) as CallToolResult;
+      if (claim.claim.state === "completed" && claim.claim.responseBody !== null) return JSON.parse(claim.claim.responseBody) as CallToolResult;
+      if (claim.claim.state === "completed") throw new ApiError(409,"idempotency_result_expired",IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
       throw new ApiError(409,claim.claim.state === "pending" ? "idempotency_in_progress" : "idempotency_outcome_unknown","Inspect the earlier operation before retrying.");
     }
     let result: CallToolResult;

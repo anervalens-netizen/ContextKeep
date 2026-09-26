@@ -899,6 +899,39 @@ describe("L4.2 retry/cancel/resume", () => {
 
 
 describe("CK-A08 shutdown drain", () => {
+  it("releases the coordinator after initial job persistence fails and preserves the original failure", async () => {
+    const { t, project } = await linkedApp();
+    const coordinator = new SyncCoordinator(t.app.ck.deps, t.app.ck.config);
+    const input = {
+      projectId: project.id,
+      connector: "codex" as const,
+      dryRun: false,
+      mode: "archiveOnly" as const,
+      idleMinutes: 1,
+      maxArtifacts: 5,
+      maxChars: 1_000_000,
+      maxCostUsd: 1,
+    };
+    const sqlite = t.app.ck.deps.sqlite;
+    const originalPrepare = sqlite.prepare.bind(sqlite);
+    let insertFailure = true;
+    const prepare = vi.spyOn(sqlite, "prepare").mockImplementation((sql: string) => {
+      if (insertFailure && sql.startsWith("INSERT INTO sync_jobs")) {
+        insertFailure = false;
+        throw new Error("injected initial sync job failure");
+      }
+      return originalPrepare(sql);
+    });
+    await expect(coordinator.run(input, { actor: "owner:test", requestId: null }))
+      .rejects.toThrow("injected initial sync job failure");
+    expect(coordinator.status().running).toBe(false);
+    prepare.mockRestore();
+
+    const recovered = await coordinator.run(input, { actor: "owner:test", requestId: null });
+    expect(recovered.errors).toEqual([]);
+    expect(coordinator.status().running).toBe(false);
+  });
+
   it("drains immediately and idempotently when no sync run is active", async () => {
     const { t } = await linkedApp();
     const coordinator = new SyncCoordinator(t.app.ck.deps, t.app.ck.config);
@@ -1070,6 +1103,69 @@ describe("CK-A08 shutdown drain", () => {
       const runError = await runPromise;
       expect(runError).toMatchObject({ code: "sync_interrupted" });
       expect(drained).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not escape a deadline persistence fault and still waits for the continuation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { t, repo, codexHome, project } = await linkedApp();
+      writeCodexSession(codexHome, "session-91929292-9192-4919-8919-919292929292", repo, "fact: deadline persistence fault", 60);
+      let startedResolve!: () => void;
+      const started = new Promise<void>((resolve) => { startedResolve = resolve; });
+      let releaseResolve!: () => void;
+      const release = new Promise<void>((resolve) => { releaseResolve = resolve; });
+      const slowAdapter = {
+        id: "shutdown-fault-test",
+        version: "1",
+        label: "shutdown fault test",
+        costCategory: "free",
+        estimateUsage: async () => null,
+        extract: async () => {
+          startedResolve();
+          await release;
+          return { candidates: [], usage: null };
+        },
+      } as any;
+      const original = t.app.ck.deps.registry;
+      const deps = {
+        ...t.app.ck.deps,
+        registry: { ...original, get: (id: string) => id === "shutdown-fault-test" ? slowAdapter : original.get(id) },
+      } as any;
+      const coordinator = new SyncCoordinator(deps, t.app.ck.config);
+      const input = {
+        projectId: project.id,
+        connector: "codex" as const,
+        dryRun: false,
+        mode: "archiveAndExtract" as const,
+        extractionAdapterId: "shutdown-fault-test",
+        idleMinutes: 1,
+        maxArtifacts: 5,
+        maxChars: 1_000_000,
+        maxCostUsd: 1,
+      };
+      const runPromise = coordinator.run(input, { actor: "owner:test", requestId: null }).catch((error) => error);
+      await started;
+
+      const sqlite = deps.sqlite;
+      const originalPrepare = sqlite.prepare.bind(sqlite);
+      const prepare = vi.spyOn(sqlite, "prepare").mockImplementation((sql: string) => {
+        if (sql.startsWith("UPDATE sync_jobs SET stage='interrupted'")) throw new Error("injected deadline persistence failure");
+        return originalPrepare(sql);
+      });
+      let drained = false;
+      const drainPromise = coordinator.stopAndDrain({ deadlineMs: 25 }).then(() => { drained = true; });
+      await vi.advanceTimersByTimeAsync(25);
+      expect(drained).toBe(false);
+      expect(coordinator.status().lastError).toMatch(/shutdown drain exceeded 25ms/i);
+
+      releaseResolve();
+      await expect(drainPromise).resolves.toBeUndefined();
+      await expect(runPromise).resolves.toMatchObject({ code: "sync_interrupted" });
+      expect(drained).toBe(true);
+      prepare.mockRestore();
     } finally {
       vi.useRealTimers();
     }

@@ -37,4 +37,34 @@ describe("A02 startup failure releases all database ownership", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("claims one application runtime lease while allowing an online backup reader", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ck-runtime-lease-"));
+    const dataDir = path.join(root, "data");
+    const config = loadConfig({
+      NODE_ENV: "test",
+      CK_DATA_DIR: dataDir,
+      CK_BACKUP_DIR: path.join(root, "backups"),
+      CK_ADAPTERS: "manual",
+      CK_SYNC_INTERVAL_MINUTES: "0",
+      CK_HOUSEKEEPING_INTERVAL_MINUTES: "0",
+    });
+    let app: Awaited<ReturnType<typeof buildApp>> | undefined;
+    try {
+      app = await buildApp({ config, logger: false });
+      await expect(buildApp({ config, logger: false })).rejects.toMatchObject({ code: "runtime_in_use" });
+
+      const reader = openDatabase(config.dbPath);
+      try {
+        await reader.sqlite.backup(path.join(root, "online-reader.sqlite"));
+      } finally {
+        reader.sqlite.close();
+      }
+    } finally {
+      if (app) await app.close();
+      const restarted = await buildApp({ config, logger: false });
+      await restarted.close();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
