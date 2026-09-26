@@ -307,11 +307,9 @@ export function fitWorkContext(
   if (trimSection("facts", preserveCompactClaims ? 1 : 0))
     return finalize(candidate);
 
-  // The compact working index is useful for resume continuity, but still
-  // yields before canonical actions/decisions/constraints are omitted.
-  if (trimSection("workingMemory")) return finalize(candidate);
-
-  // Compact, rather than immediately remove, the authoritative resume core.
+  // Compact canonical detail before removing the last useful working pointers.
+  // The working index is unreviewed continuity, not canonical authority, but
+  // its record IDs/provenance are often the only pointer to the next action.
   const compactCanonicalSection = (name: string): boolean => {
     const section = candidate[name] as Record<string, unknown> | undefined;
     if (!section || !Array.isArray(section.items)) return fits();
@@ -324,6 +322,10 @@ export function fitWorkContext(
   for (const name of ["actions", "goals", "constraints"]) {
     if (compactCanonicalSection(name)) return finalize(candidate);
   }
+
+  // If canonical detail alone cannot fit, trim the compact working index only
+  // after the canonical claims have had their deterministic detail reduction.
+  if (trimSection("workingMemory")) return finalize(candidate);
 
   // Before omitting any authoritative resume-core record, switch to a
   // smaller structural projection. This avoids spending a tight budget on

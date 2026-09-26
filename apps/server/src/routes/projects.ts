@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
-import { ProjectCreateInput, ProjectUpdateInput, McpWorkContextResult } from "@contextkeep/shared";
+import {
+  ProjectCreateInput,
+  ProjectUpdateInput,
+  McpWorkContextResult,
+} from "@contextkeep/shared";
 import { projects } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
 import { parseWith } from "../lib/validate.js";
@@ -8,6 +12,12 @@ import { buildBriefPayload, buildTimeline } from "../services/brief.js";
 import { toProjectDto } from "../services/mappers.js";
 import { createProject, updateProject } from "../services/memory-management.js";
 import { ContextKeepMemoryService } from "../services/memory-context.js";
+import { z } from "zod";
+
+const TimelineQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  cursor: z.string().min(1).max(1024).optional(),
+});
 
 export function registerProjectRoutes(app: FastifyInstance): void {
   const { deps } = app.ck;
@@ -19,14 +29,26 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/projects", async (request) => {
-    const input = parseWith(ProjectCreateInput, request.body, "project payload");
-    return createProject(deps, input, { actor: request.ckActor, requestId: request.id });
+    const input = parseWith(
+      ProjectCreateInput,
+      request.body,
+      "project payload",
+    );
+    return createProject(deps, input, {
+      actor: request.ckActor,
+      requestId: request.id,
+    });
   });
 
   app.get("/api/projects/:id", async (request) => {
     const { id } = request.params as { id: string };
-    const row = deps.db.select().from(projects).where(eq(projects.id, id)).get();
-    if (!row) throw new ApiError(404, "project_not_found", `Project ${id} not found.`);
+    const row = deps.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, id))
+      .get();
+    if (!row)
+      throw new ApiError(404, "project_not_found", `Project ${id} not found.`);
     return toProjectDto(row);
   });
 
@@ -37,25 +59,40 @@ export function registerProjectRoutes(app: FastifyInstance): void {
     if (rawAfter !== undefined) {
       after = Number(rawAfter);
       if (!Number.isSafeInteger(after) || after < 0) {
-        throw new ApiError(400, "invalid_freshness_cursor", "Freshness cursor must be a non-negative safe integer.");
+        throw new ApiError(
+          400,
+          "invalid_freshness_cursor",
+          "Freshness cursor must be a non-negative safe integer.",
+        );
       }
     }
     const row = deps.db
-      .select({ id: projects.id, contentVersion: projects.contentVersion, workingMemoryVersion: projects.workingMemoryVersion })
+      .select({
+        id: projects.id,
+        contentVersion: projects.contentVersion,
+        workingMemoryVersion: projects.workingMemoryVersion,
+      })
       .from(projects)
       .where(eq(projects.id, id))
       .get();
-    if (!row) throw new ApiError(404, "project_not_found", `Project ${id} not found.`);
-    const rawWorkingAfter = (request.query as { workingAfter?: string }).workingAfter;
+    if (!row)
+      throw new ApiError(404, "project_not_found", `Project ${id} not found.`);
+    const rawWorkingAfter = (request.query as { workingAfter?: string })
+      .workingAfter;
     let workingAfter: number | undefined;
     if (rawWorkingAfter !== undefined) {
       workingAfter = Number(rawWorkingAfter);
       if (!Number.isSafeInteger(workingAfter) || workingAfter < 0) {
-        throw new ApiError(400, "invalid_working_freshness_cursor", "Working freshness cursor must be a non-negative safe integer.");
+        throw new ApiError(
+          400,
+          "invalid_working_freshness_cursor",
+          "Working freshness cursor must be a non-negative safe integer.",
+        );
       }
     }
     const resetRequired = after !== undefined && after > row.contentVersion;
-    const workingResetRequired = workingAfter !== undefined && workingAfter > row.workingMemoryVersion;
+    const workingResetRequired =
+      workingAfter !== undefined && workingAfter > row.workingMemoryVersion;
     reply.header("cache-control", "no-store");
     return {
       projectId: row.id,
@@ -64,10 +101,15 @@ export function registerProjectRoutes(app: FastifyInstance): void {
       workingCursor: row.workingMemoryVersion,
       workingMemoryVersion: row.workingMemoryVersion,
       changed: after !== undefined && after !== row.contentVersion,
-      delta: after === undefined || resetRequired ? 0 : row.contentVersion - after,
+      delta:
+        after === undefined || resetRequired ? 0 : row.contentVersion - after,
       resetRequired,
-      workingChanged: workingAfter !== undefined && workingAfter !== row.workingMemoryVersion,
-      workingDelta: workingAfter === undefined || workingResetRequired ? 0 : row.workingMemoryVersion - workingAfter,
+      workingChanged:
+        workingAfter !== undefined && workingAfter !== row.workingMemoryVersion,
+      workingDelta:
+        workingAfter === undefined || workingResetRequired
+          ? 0
+          : row.workingMemoryVersion - workingAfter,
       workingResetRequired,
     };
   });
@@ -75,10 +117,17 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/work-context", async (request, reply) => {
     const { id } = request.params as { id: string };
     reply.header("cache-control", "no-store");
-    return McpWorkContextResult.parse(memory.getWorkContext(
-      { scope: "all", projectId: id },
-      { projectId: id, limitPerSection: 5, totalContextBudgetChars: 20_000, diagnostics: false },
-    ));
+    return McpWorkContextResult.parse(
+      memory.getWorkContext(
+        { scope: "all", projectId: id },
+        {
+          projectId: id,
+          limitPerSection: 5,
+          totalContextBudgetChars: 20_000,
+          diagnostics: false,
+        },
+      ),
+    );
   });
 
   app.patch("/api/projects/:id", async (request) => {
@@ -100,6 +149,11 @@ export function registerProjectRoutes(app: FastifyInstance): void {
 
   app.get("/api/projects/:id/timeline", async (request) => {
     const { id } = request.params as { id: string };
-    return buildTimeline(deps, id);
+    const rawQuery = request.query as Record<string, unknown>;
+    const paginated =
+      rawQuery.limit !== undefined || rawQuery.cursor !== undefined;
+    if (!paginated) return buildTimeline(deps, id);
+    const query = parseWith(TimelineQuery, rawQuery, "timeline query");
+    return buildTimeline(deps, id, query);
   });
 }
