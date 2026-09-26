@@ -52,7 +52,9 @@ describe("A02 startup failure releases all database ownership", () => {
     let app: Awaited<ReturnType<typeof buildApp>> | undefined;
     try {
       app = await buildApp({ config, logger: false });
-      await expect(buildApp({ config, logger: false })).rejects.toMatchObject({ code: "runtime_in_use" });
+      await expect(buildApp({ config, logger: false })).rejects.toMatchObject({
+        code: "runtime_in_use",
+      });
 
       const reader = openDatabase(config.dbPath);
       try {

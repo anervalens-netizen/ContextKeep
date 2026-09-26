@@ -9,12 +9,11 @@ export const DIRECTORY_LOCK_FILE = ".contextkeep-lock.sqlite";
 export const RUNTIME_LOCK_FILE = ".contextkeep-runtime.sqlite";
 
 export function isDirectoryLockFile(name: string): boolean {
-  return [DIRECTORY_LOCK_FILE, RUNTIME_LOCK_FILE].some((prefix) => [
-    prefix,
-    `${prefix}-journal`,
-    `${prefix}-wal`,
-    `${prefix}-shm`,
-  ].includes(name));
+  return [DIRECTORY_LOCK_FILE, RUNTIME_LOCK_FILE].some((prefix) =>
+    [prefix, `${prefix}-journal`, `${prefix}-wal`, `${prefix}-shm`].includes(
+      name,
+    ),
+  );
 }
 
 export function canonicalDatabasePath(file: string): string {
