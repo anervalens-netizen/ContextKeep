@@ -374,6 +374,17 @@ export type TimelineEntryDto = z.infer<typeof TimelineEntryDto>;
 export const TimelineDto = z.object({
   projectId: z.string(),
   entries: z.array(TimelineEntryDto),
+  pagination: z
+    .object({
+      limit: z.number().int().positive(),
+      total: z.number().int().nonnegative(),
+      returned: z.number().int().nonnegative(),
+      hasNext: z.boolean(),
+      nextCursor: z.string().nullable(),
+      /** A page cursor is valid only while this canonical project version is unchanged. */
+      snapshotContentVersion: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 export type TimelineDto = z.infer<typeof TimelineDto>;
 

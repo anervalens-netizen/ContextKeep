@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import {
   LIFECYCLE_PREDICATE,
   type BriefDto,
@@ -16,8 +16,18 @@ import {
 import { projects, records, supersessions } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
-import { attachProjectNames, loadEvidenceForProject, toProjectDto } from "./mappers.js";
+import {
+  attachProjectNames,
+  loadEvidenceFor,
+  loadEvidenceForProject,
+  toProjectDto,
+} from "./mappers.js";
 import type { ServiceDeps } from "./import.js";
+import {
+  decodeTimelineCursor,
+  encodeReadCursor,
+  type TimelineReadCursor,
+} from "./bounded-read.js";
 
 const OPEN_TASK_STATUSES = new Set<string>(["open", "in_progress", "blocked"]);
 
@@ -81,12 +91,19 @@ function projectCacheState(
   projectId: string,
 ): { revision: number; contentVersion: number; updatedAt: string } | null {
   const project = deps.sqlite
-    .prepare(`SELECT revision, content_version AS contentVersion, updated_at AS updatedAt FROM projects WHERE id = ?`)
-    .get(projectId) as { revision: number; contentVersion: number; updatedAt: string } | undefined;
+    .prepare(
+      `SELECT revision, content_version AS contentVersion, updated_at AS updatedAt FROM projects WHERE id = ?`,
+    )
+    .get(projectId) as
+    { revision: number; contentVersion: number; updatedAt: string } | undefined;
   return project ?? null;
 }
 
-function nextVolatileReviewDueAt(deps: ServiceDeps, projectId: string, now: string): string | null {
+function nextVolatileReviewDueAt(
+  deps: ServiceDeps,
+  projectId: string,
+  now: string,
+): string | null {
   const row = deps.sqlite
     .prepare(
       `SELECT min(review_due_at) AS due
@@ -101,9 +118,17 @@ function nextVolatileReviewDueAt(deps: ServiceDeps, projectId: string, now: stri
   return row.due;
 }
 
-function briefCacheEntry(deps: ServiceDeps, projectId: string): BriefCacheEntry {
+function briefCacheEntry(
+  deps: ServiceDeps,
+  projectId: string,
+): BriefCacheEntry {
   const state = projectCacheState(deps, projectId);
-  if (state === null) throw new ApiError(404, "project_not_found", `Project ${projectId} not found.`);
+  if (state === null)
+    throw new ApiError(
+      404,
+      "project_not_found",
+      `Project ${projectId} not found.`,
+    );
   const now = nowIso();
   const cached = briefCache.get(projectId);
   if (
@@ -131,7 +156,10 @@ export function buildBriefJson(deps: ServiceDeps, projectId: string): string {
 }
 
 /** Cached UTF-8 payload for the hot HTTP route; avoids re-encoding ~1 MiB on every hit. */
-export function buildBriefPayload(deps: ServiceDeps, projectId: string): Buffer {
+export function buildBriefPayload(
+  deps: ServiceDeps,
+  projectId: string,
+): Buffer {
   return briefCacheEntry(deps, projectId).payload;
 }
 
@@ -150,8 +178,17 @@ export function buildBriefPayload(deps: ServiceDeps, projectId: string): Buffer 
  */
 export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
   const { db, sqlite } = deps;
-  const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
-  if (!project) throw new ApiError(404, "project_not_found", `Project ${projectId} not found.`);
+  const project = db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .get();
+  if (!project)
+    throw new ApiError(
+      404,
+      "project_not_found",
+      `Project ${projectId} not found.`,
+    );
 
   const recordRows = sqlite
     .prepare(
@@ -215,7 +252,10 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
       type: row.type as RecordType,
       subject: row.subject,
       predicate: row.predicate,
-      valueJson: row.value_json === null ? null : (JSON.parse(row.value_json) as unknown),
+      valueJson:
+        row.value_json === null
+          ? null
+          : (JSON.parse(row.value_json) as unknown),
       text: row.text,
       reviewStatus: row.review_status as ReviewStatus,
       evidenceBasis: row.evidence_basis as EvidenceBasis,
@@ -227,13 +267,19 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
       reviewedAt: row.reviewed_at,
       reviewDueAt: row.review_due_at,
       volatile: row.volatile === 1,
-      isOverdue: row.volatile === 1 && row.review_due_at !== null && row.review_due_at < new Date().toISOString(),
+      isOverdue:
+        row.volatile === 1 &&
+        row.review_due_at !== null &&
+        row.review_due_at < new Date().toISOString(),
       revision: row.revision,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       evidence,
     };
-    if (dto.reviewedAt !== null && (lastReviewedAt === null || dto.reviewedAt > lastReviewedAt)) {
+    if (
+      dto.reviewedAt !== null &&
+      (lastReviewedAt === null || dto.reviewedAt > lastReviewedAt)
+    ) {
       lastReviewedAt = dto.reviewedAt;
     }
 
@@ -291,45 +337,206 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
  * Historical timeline (handoff §4 journey A): accepted + superseded records
  * with supersession links, ordered by best-known event time.
  */
-export function buildTimeline(deps: ServiceDeps, projectId: string): TimelineDto {
+export function buildTimeline(
+  deps: ServiceDeps,
+  projectId: string,
+  options?: { limit?: number; cursor?: string },
+): TimelineDto {
   const { db } = deps;
-  const project = db.select().from(projects).where(eq(projects.id, projectId)).get();
-  if (!project) throw new ApiError(404, "project_not_found", `Project ${projectId} not found.`);
+  const project = db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .get();
+  if (!project)
+    throw new ApiError(
+      404,
+      "project_not_found",
+      `Project ${projectId} not found.`,
+    );
 
-  const rows = db
+  const paginated = options !== undefined;
+  const limit = options?.limit ?? 100;
+  const cursor =
+    options?.cursor === undefined
+      ? undefined
+      : decodeTimelineCursor(options.cursor, projectId);
+  if (cursor && cursor.contentVersion !== project.contentVersion) {
+    throw new ApiError(
+      409,
+      "timeline_snapshot_changed",
+      "Project knowledge changed while this timeline page was being read; restart from the first page.",
+      {
+        projectId,
+        currentContentVersion: project.contentVersion,
+        snapshotContentVersion: cursor.contentVersion,
+      },
+    );
+  }
+
+  // Preserve the legacy unbounded response semantics for consumers that do
+  // not opt into pagination, including its existing freshness projection.
+  if (!paginated) {
+    const rows = db
+      .select()
+      .from(records)
+      .where(
+        and(
+          eq(records.projectId, projectId),
+          inArray(records.reviewStatus, ["accepted", "superseded"]),
+        ),
+      )
+      .all();
+    const evidenceMap = loadEvidenceForProject(db, projectId, [
+      "accepted",
+      "superseded",
+    ]);
+    const dtos = attachProjectNames(db, rows, evidenceMap);
+    const idSet = new Set(rows.map((row) => row.id));
+    const supers = db
+      .select()
+      .from(supersessions)
+      .all()
+      .filter(
+        (supersession) =>
+          idSet.has(supersession.priorRecordId) ||
+          idSet.has(supersession.replacementRecordId),
+      );
+    const entries: TimelineEntryDto[] = dtos.map((dto) => {
+      const asSuper = supers.find(
+        (supersession) => supersession.priorRecordId === dto.id,
+      );
+      const replaces = supers
+        .filter((supersession) => supersession.replacementRecordId === dto.id)
+        .map((supersession) => ({
+          recordId: supersession.priorRecordId,
+          confirmedAt: supersession.confirmedAt,
+          reason: supersession.reason,
+        }));
+      return {
+        record: dto,
+        supersededBy: asSuper
+          ? {
+              recordId: asSuper.replacementRecordId,
+              confirmedAt: asSuper.confirmedAt,
+              reason: asSuper.reason,
+            }
+          : null,
+        supersedes: replaces,
+      };
+    });
+    entries.sort((a, b) => {
+      const ta = a.record.sourceEventAt ?? a.record.recordedAt;
+      const tb = b.record.sourceEventAt ?? b.record.recordedAt;
+      return ta.localeCompare(tb);
+    });
+    return { projectId, entries };
+  }
+
+  const statusFilter = inArray(records.reviewStatus, [
+    "accepted",
+    "superseded",
+  ]);
+  const eventTime = sql<string>`coalesce(${records.sourceEventAt}, ${records.recordedAt})`;
+  const afterCursor = cursor
+    ? or(
+        gt(eventTime, cursor.eventTime),
+        and(eq(eventTime, cursor.eventTime), gt(records.id, cursor.recordId)),
+      )
+    : undefined;
+  const where = and(
+    eq(records.projectId, projectId),
+    statusFilter,
+    afterCursor,
+  );
+  const total = paginated
+    ? Number(
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(records)
+          .where(and(eq(records.projectId, projectId), statusFilter))
+          .get()?.count ?? 0,
+      )
+    : undefined;
+  const recordQuery = db
     .select()
     .from(records)
-    .where(and(eq(records.projectId, projectId), inArray(records.reviewStatus, ["accepted", "superseded"])))
-    .all();
-  const evidenceMap = loadEvidenceForProject(db, projectId, ["accepted", "superseded"]);
-  const dtos = attachProjectNames(db, rows, evidenceMap);
+    .where(where)
+    .orderBy(asc(eventTime), asc(records.id));
+  const rows = paginated
+    ? recordQuery.limit(limit + 1).all()
+    : recordQuery.all();
+  const pageRows = paginated ? rows.slice(0, limit) : rows;
+  const evidenceMap = loadEvidenceFor(
+    db,
+    pageRows.map((row) => row.id),
+  );
+  // Keep the same freshness and project-name projection as the legacy API,
+  // while loading only this page's records and evidence.
+  const dtos = attachProjectNames(db, pageRows, evidenceMap);
 
-  const idSet = new Set(rows.map((r) => r.id));
-  const supers = db
-    .select()
-    .from(supersessions)
-    .all()
-    .filter((s) => idSet.has(s.priorRecordId) || idSet.has(s.replacementRecordId));
+  // Query only links touching this page. Links to records on another page are
+  // retained as IDs, so pagination never silently drops supersession context.
+  const pageIds = pageRows.map((row) => row.id);
+  const supers =
+    pageIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(supersessions)
+          .where(
+            or(
+              inArray(supersessions.priorRecordId, pageIds),
+              inArray(supersessions.replacementRecordId, pageIds),
+            ),
+          )
+          .all();
 
   const entries: TimelineEntryDto[] = dtos.map((dto) => {
     const asSuper = supers.find((s) => s.priorRecordId === dto.id);
     const replaces = supers
       .filter((s) => s.replacementRecordId === dto.id)
-      .map((s) => ({ recordId: s.priorRecordId, confirmedAt: s.confirmedAt, reason: s.reason }));
+      .map((s) => ({
+        recordId: s.priorRecordId,
+        confirmedAt: s.confirmedAt,
+        reason: s.reason,
+      }));
     return {
       record: dto,
       supersededBy: asSuper
-        ? { recordId: asSuper.replacementRecordId, confirmedAt: asSuper.confirmedAt, reason: asSuper.reason }
+        ? {
+            recordId: asSuper.replacementRecordId,
+            confirmedAt: asSuper.confirmedAt,
+            reason: asSuper.reason,
+          }
         : null,
       supersedes: replaces,
     };
   });
 
-  entries.sort((a, b) => {
-    const ta = a.record.sourceEventAt ?? a.record.recordedAt;
-    const tb = b.record.sourceEventAt ?? b.record.recordedAt;
-    return ta.localeCompare(tb);
-  });
-
-  return { projectId, entries };
+  const hasNext = rows.length > pageRows.length;
+  const last = pageRows.at(-1);
+  const nextCursor =
+    hasNext && last
+      ? encodeReadCursor({
+          version: 1,
+          kind: "timeline",
+          projectId,
+          eventTime: last.sourceEventAt ?? last.recordedAt,
+          recordId: last.id,
+          contentVersion: project.contentVersion,
+        } satisfies TimelineReadCursor)
+      : null;
+  return {
+    projectId,
+    entries,
+    pagination: {
+      limit,
+      total: total ?? entries.length,
+      returned: entries.length,
+      hasNext,
+      nextCursor,
+      snapshotContentVersion: project.contentVersion,
+    },
+  };
 }
