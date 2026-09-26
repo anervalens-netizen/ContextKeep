@@ -32,11 +32,27 @@ export type FreshnessConflict = {
   recordIds: string[];
 };
 
+/** Bounded, precomputed evidence for one canonical page row. */
+export type FreshnessPreloadSignals = {
+  explicitConflict: boolean;
+  conflictSupportRecordIds: string[];
+  conflictSupportCount: number;
+  conflictReferencesTruncated: boolean;
+  supportRecordIds: string[];
+  supportCount: number;
+  supportReferencesTruncated: boolean;
+  possiblyRelatedRecordIds: string[];
+  possiblyRelatedCount: number;
+  possiblyRelatedReferencesTruncated: boolean;
+};
+
 export interface RecordFreshnessContext {
   nowIso: string;
   /** Preloaded once per result/project; never loaded by the pure classifier. */
   workingRecords?: FreshnessRecord[];
   conflicts?: FreshnessConflict[];
+  /** Optional bounded signals produced by a complete page preloader. */
+  preloadedSignals?: ReadonlyMap<string, FreshnessPreloadSignals>;
 }
 
 type LegacyStateRow = {
@@ -228,6 +244,32 @@ function authorityFor(row: FreshnessRecord): RecordFreshnessDto["authority"] {
   return "unknown";
 }
 
+function withReferenceSummary(
+  row: FreshnessRecord,
+  context: RecordFreshnessContext,
+  result: Omit<RecordFreshnessDto, "referenceSummary">,
+): RecordFreshnessDto {
+  const signal = context.preloadedSignals?.get(row.id);
+  if (!signal) return result;
+  const conflicted = result.currentness === "conflicted";
+  const observation = result.currentness === "needs_verification" || result.currentness === "current";
+  const supportCount = conflicted ? signal.conflictSupportCount : observation ? signal.supportCount : 0;
+  const possiblyRelatedCount = observation ? signal.possiblyRelatedCount : 0;
+  const supportReferencesTruncated = conflicted ? signal.conflictReferencesTruncated : observation ? signal.supportReferencesTruncated : false;
+  const possiblyRelatedReferencesTruncated = observation ? signal.possiblyRelatedReferencesTruncated : false;
+  // Keep complete small-result DTOs compatible with legacy full preloads.
+  if (!supportReferencesTruncated && !possiblyRelatedReferencesTruncated) return result;
+  return {
+    ...result,
+    referenceSummary: {
+      supportCount,
+      possiblyRelatedCount,
+      supportReferencesTruncated,
+      possiblyRelatedReferencesTruncated,
+    },
+  };
+}
+
 export function classifyRecordFreshness(
   row: FreshnessRecord,
   context: RecordFreshnessContext,
@@ -236,12 +278,13 @@ export function classifyRecordFreshness(
   const progress = (row.taskStatus ?? null) as RecordFreshnessDto["progress"];
   const provenance = row.evidenceBasis as RecordFreshnessDto["provenance"];
   const reasons: RecordFreshnessDto["reasons"] = [];
-  const supportRecordIds: string[] = [];
-  const possiblyRelatedRecordIds: string[] = [];
+  let supportRecordIds: string[] = [];
+  let possiblyRelatedRecordIds: string[] = [];
+  const preloaded = context.preloadedSignals?.get(row.id);
 
   if (authority === "historical") {
     reasons.push("superseded_history");
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "historical",
       progress,
@@ -251,10 +294,10 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
   if (authority === "rejected") {
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "not_applicable",
       progress,
@@ -264,11 +307,11 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
   if (authority === "working" || authority === "unreviewed") {
     reasons.push("unreviewed_proposal");
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "unknown",
       progress,
@@ -278,12 +321,12 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
 
   if (row.effectiveFrom && row.effectiveFrom > context.nowIso) {
     reasons.push("effective_not_started");
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "future_effective",
       progress,
@@ -293,11 +336,11 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
   if (row.effectiveTo && row.effectiveTo <= context.nowIso) {
     reasons.push("effective_ended");
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "expired",
       progress,
@@ -307,18 +350,25 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
 
-  for (const conflict of context.conflicts ?? []) {
-    if (!conflict.recordIds.includes(row.id)) continue;
-    reasons.push("explicit_conflict");
-    for (const id of conflict.recordIds) {
-      if (id !== row.id && !supportRecordIds.includes(id)) supportRecordIds.push(id);
+  if (preloaded) {
+    if (preloaded.explicitConflict) {
+      reasons.push("explicit_conflict");
+      supportRecordIds = [...preloaded.conflictSupportRecordIds];
+    }
+  } else {
+    for (const conflict of context.conflicts ?? []) {
+      if (!conflict.recordIds.includes(row.id)) continue;
+      reasons.push("explicit_conflict");
+      for (const id of conflict.recordIds) {
+        if (id !== row.id && !supportRecordIds.includes(id)) supportRecordIds.push(id);
+      }
     }
   }
   if (reasons.includes("explicit_conflict")) {
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "conflicted",
       progress,
@@ -328,12 +378,16 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
 
   if (authority === "canonical" && isCurrentStateClaim(row)) {
     const acceptedTime = observationTime(row);
-    for (const working of context.workingRecords ?? []) {
+    if (preloaded) {
+      supportRecordIds = [...preloaded.supportRecordIds];
+      possiblyRelatedRecordIds = [...preloaded.possiblyRelatedRecordIds];
+    }
+    for (const working of preloaded ? [] : context.workingRecords ?? []) {
       if (
         working.reviewStatus !== "proposed" ||
         working.evidenceBasis !== "agent_report" ||
@@ -362,7 +416,7 @@ export function classifyRecordFreshness(
 
     if (supportRecordIds.length > 0) {
       reasons.push("newer_observation");
-      return {
+      return withReferenceSummary(row, context, {
         authority,
         currentness: "needs_verification",
         progress,
@@ -372,11 +426,11 @@ export function classifyRecordFreshness(
         reasons,
         supportRecordIds,
         possiblyRelatedRecordIds,
-      };
+      });
     }
     if (possiblyRelatedRecordIds.length > 0) {
       reasons.push("possibly_newer_observation");
-      return {
+      return withReferenceSummary(row, context, {
         authority,
         currentness: "needs_verification",
         progress,
@@ -388,13 +442,13 @@ export function classifyRecordFreshness(
         reasons,
         supportRecordIds,
         possiblyRelatedRecordIds,
-      };
+      });
     }
   }
 
   if (reviewOverdue(row, context.nowIso)) {
     reasons.push("review_overdue");
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "review_due",
       progress,
@@ -404,13 +458,13 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
 
   if (authority === "canonical" && isCurrentStateClaim(row)) {
     if (!row.sourceEventAt && !row.effectiveFrom) {
       reasons.push("observation_time_unknown");
-      return {
+      return withReferenceSummary(row, context, {
         authority,
         currentness: "unknown",
         progress,
@@ -420,9 +474,9 @@ export function classifyRecordFreshness(
         reasons,
         supportRecordIds,
         possiblyRelatedRecordIds,
-      };
+      });
     }
-    return {
+    return withReferenceSummary(row, context, {
       authority,
       currentness: "current",
       progress,
@@ -432,10 +486,10 @@ export function classifyRecordFreshness(
       reasons,
       supportRecordIds,
       possiblyRelatedRecordIds,
-    };
+    });
   }
 
-  return {
+  return withReferenceSummary(row, context, {
     authority,
     currentness: "not_applicable",
     progress,
@@ -445,7 +499,7 @@ export function classifyRecordFreshness(
     reasons,
     supportRecordIds,
     possiblyRelatedRecordIds,
-  };
+  });
 }
 
 /** Legacy compatibility helper retained for callers/tests that only need 3 booleans. */

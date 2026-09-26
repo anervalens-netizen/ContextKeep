@@ -1085,14 +1085,19 @@ export class SyncCoordinator {
         VALUES(?,?,?,?,?,?)
         ON CONFLICT(connector) DO UPDATE SET
           last_scan_at=excluded.last_scan_at,
-          last_success_at=excluded.last_success_at,
+          last_success_at=CASE
+            WHEN excluded.last_error IS NULL THEN excluded.last_success_at
+            ELSE connector_sync_state.last_success_at
+          END,
           last_error=excluded.last_error,
           last_result_json=excluded.last_result_json,
           updated_at=excluded.updated_at
       `).run(
         name,
         result.finishedAt,
-        this.lastSuccessAt,
+        // The coordinator summary is global; failed runs must never borrow
+        // another connector's successful timestamp, including on first insert.
+        result.errors.length ? null : result.finishedAt,
         result.errors.length ? `${result.errors.length} artifact(s) failed.` : null,
         JSON.stringify(result),
         stamp,

@@ -5,6 +5,7 @@ import {
   reviewOverdue,
   stateRelationship,
   type FreshnessRecord,
+  type FreshnessPreloadSignals,
   type RecordFreshnessContext,
 } from "./memory-freshness.js";
 import type {
@@ -22,7 +23,6 @@ import type {
 } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
 import {
-  conflicts,
   projects,
   recordEvidence,
   records,
@@ -292,6 +292,8 @@ export function loadRecordFreshnessContext(
   rows: RecordRow[],
   nowIso = new Date().toISOString(),
 ): RecordFreshnessContext {
+  const BATCH_SIZE = 128;
+  const REFERENCE_SAMPLE_SIZE = 20;
   const projectIds = [
     ...new Set(
       rows.map((r) => r.projectId).filter((p): p is string => p !== null),
@@ -304,6 +306,9 @@ export function loadRecordFreshnessContext(
     (row) =>
       row.reviewStatus === "accepted" &&
       isCurrentStateClaim(row as FreshnessRecord),
+  ) as FreshnessRecord[];
+  const acceptedRows = rows.filter(
+    (row) => row.reviewStatus === "accepted" && row.projectId !== null,
   ) as FreshnessRecord[];
   const targetByProject = new Map<string, FreshnessRecord[]>();
   for (const target of freshnessTargets) {
@@ -325,6 +330,27 @@ export function loadRecordFreshnessContext(
     }),
   );
   const workingRecords: FreshnessRecord[] = [];
+  type MutableSignals = FreshnessPreloadSignals;
+  const signals = new Map<string, MutableSignals>();
+  const emptySignals = (): MutableSignals => ({
+    explicitConflict: false,
+    conflictSupportRecordIds: [],
+    conflictSupportCount: 0,
+    conflictReferencesTruncated: false,
+    supportRecordIds: [],
+    supportCount: 0,
+    supportReferencesTruncated: false,
+    possiblyRelatedRecordIds: [],
+    possiblyRelatedCount: 0,
+    possiblyRelatedReferencesTruncated: false,
+  });
+  for (const target of acceptedRows) signals.set(target.id, emptySignals());
+  const rememberId = (list: string[], id: string): void => {
+    if (list.includes(id)) return;
+    list.push(id);
+    list.sort();
+    if (list.length > REFERENCE_SAMPLE_SIZE) list.pop();
+  };
   if (cutoffs.length > 0) {
     // SQL applies exact structural/time restrictions. Stream candidates rather
     // than materializing a project backlog, then reuse the canonical classifier
@@ -349,60 +375,95 @@ export function loadRecordFreshnessContext(
             AND coalesce(nullif(source_event_at, ''), nullif(effective_from, ''), recorded_at)
                 > json_extract(target.value, '$.after')
         )
-      ORDER BY id LIMIT 128
+      ORDER BY id LIMIT ${BATCH_SIZE}
     `);
       for (const working of page) {
         if (!isCurrentStateClaim(working)) continue;
         const workingTime =
           working.sourceEventAt || working.effectiveFrom || working.recordedAt;
         const targets = targetByProject.get(working.projectId!) ?? [];
-        if (
-          targets.some(
-            (target) =>
-              workingTime >
-                (target.sourceEventAt ||
-                  target.effectiveFrom ||
-                  target.recordedAt) &&
-              stateRelationship(target, working) !== "unrelated",
-          )
-        )
-          workingRecords.push(working);
+        let relevantToPage = false;
+        for (const target of targets) {
+          const targetTime = target.sourceEventAt || target.effectiveFrom || target.recordedAt;
+          if (workingTime <= targetTime) continue;
+          const relationship = stateRelationship(target, working);
+          if (relationship === "unrelated") continue;
+          relevantToPage = true;
+          const signal = signals.get(target.id)!;
+          if (relationship === "same_entity" && (working.sourceEventAt || working.effectiveFrom)) {
+            signal.supportCount += 1;
+            rememberId(signal.supportRecordIds, working.id);
+          } else {
+            signal.possiblyRelatedCount += 1;
+            rememberId(signal.possiblyRelatedRecordIds, working.id);
+          }
+        }
+        if (relevantToPage && workingRecords.length < BATCH_SIZE) workingRecords.push(working);
       }
-      if (page.length < 128) break;
+      if (page.length < BATCH_SIZE) break;
       afterId = page[page.length - 1]!.id;
     }
   }
+  for (const signal of signals.values()) {
+    signal.supportReferencesTruncated = signal.supportCount > REFERENCE_SAMPLE_SIZE;
+    signal.possiblyRelatedReferencesTruncated = signal.possiblyRelatedCount > REFERENCE_SAMPLE_SIZE;
+  }
 
-  const conflictRecordIds = rows
-    .filter((row) => row.reviewStatus === "accepted" && row.projectId !== null)
-    .map((row) => row.id);
-  const unresolvedConflicts = db
-    .select({ recordIdsJson: conflicts.recordIdsJson })
-    .from(conflicts)
-    .where(
-      conflictRecordIds.length === 0
-        ? sql`0`
-        : and(
-            inArray(conflicts.projectId, projectIds),
-            eq(conflicts.status, "unresolved"),
-            sql`EXISTS (
-            SELECT 1
-            FROM json_each(CASE
-              WHEN json_valid(${conflicts.recordIdsJson}) THEN ${conflicts.recordIdsJson}
-              ELSE '[]'
-            END) AS conflict_record
-            WHERE EXISTS (
-              SELECT 1
-              FROM json_each(${JSON.stringify(conflictRecordIds)}) AS page_record
-              WHERE page_record.value = conflict_record.value
-            )
-          )`,
-          ),
-    )
-    .all()
-    .map((row) => ({ recordIds: parseJson<string[]>(row.recordIdsJson, []) }));
-
-  return { nowIso, workingRecords, conflicts: unresolvedConflicts };
+  const conflictRecordIds = acceptedRows.map((row) => row.id);
+  if (conflictRecordIds.length > 0) {
+    const projectIdsJson = JSON.stringify(projectIds);
+    const targetIdsJson = JSON.stringify(conflictRecordIds);
+    const conflictCounts = db.all<{ targetId: string; supportCount: number }>(sql`
+      SELECT target_member.value AS targetId,
+             COUNT(DISTINCT CASE WHEN member.value <> target_member.value THEN member.value ELSE NULL END) AS supportCount
+      FROM conflicts AS c
+      JOIN json_each(CASE WHEN json_valid(c.record_ids_json) THEN c.record_ids_json ELSE '[]' END) AS target_member
+      JOIN json_each(CASE WHEN json_valid(c.record_ids_json) THEN c.record_ids_json ELSE '[]' END) AS member
+      WHERE c.status = 'unresolved'
+        AND c.project_id IN (SELECT value FROM json_each(${projectIdsJson}))
+        AND target_member.value IN (SELECT value FROM json_each(${targetIdsJson}))
+      GROUP BY target_member.value
+      ORDER BY target_member.value
+    `);
+    for (const row of conflictCounts) {
+      const signal = signals.get(row.targetId);
+      if (!signal) continue;
+      signal.explicitConflict = true;
+      signal.conflictSupportCount = Number(row.supportCount);
+      signal.conflictReferencesTruncated = signal.conflictSupportCount > REFERENCE_SAMPLE_SIZE;
+    }
+    const conflictSamples = db.all<{ targetId: string; recordId: string }>(sql`
+      WITH refs AS (
+        SELECT target_member.value AS targetId, member.value AS recordId
+        FROM conflicts AS c
+        JOIN json_each(CASE WHEN json_valid(c.record_ids_json) THEN c.record_ids_json ELSE '[]' END) AS target_member
+        JOIN json_each(CASE WHEN json_valid(c.record_ids_json) THEN c.record_ids_json ELSE '[]' END) AS member
+        WHERE c.status = 'unresolved'
+          AND c.project_id IN (SELECT value FROM json_each(${projectIdsJson}))
+          AND target_member.value IN (SELECT value FROM json_each(${targetIdsJson}))
+          AND member.value <> target_member.value
+        GROUP BY target_member.value, member.value
+      ), ranked AS (
+        SELECT targetId, recordId, ROW_NUMBER() OVER (PARTITION BY targetId ORDER BY recordId) AS rowNumber
+        FROM refs
+      )
+      SELECT targetId, recordId FROM ranked
+      WHERE rowNumber <= ${REFERENCE_SAMPLE_SIZE}
+      ORDER BY targetId, recordId
+    `);
+    for (const row of conflictSamples) {
+      const signal = signals.get(row.targetId);
+      if (signal) rememberId(signal.conflictSupportRecordIds, row.recordId);
+    }
+  }
+  const preloadedSignals = new Map<string, FreshnessPreloadSignals>();
+  for (const [recordId, signal] of signals) preloadedSignals.set(recordId, signal);
+  return {
+    nowIso,
+    workingRecords,
+    conflicts: [],
+    preloadedSignals,
+  };
 }
 
 export function attachProjectNames(

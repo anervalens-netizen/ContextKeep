@@ -72,6 +72,13 @@ export const RecordFreshnessDto = z.object({
   reasons: z.array(RecordFreshnessReason),
   supportRecordIds: z.array(z.string()),
   possiblyRelatedRecordIds: z.array(z.string()),
+  /** Counts describe the complete qualifying reference set when samples are bounded. */
+  referenceSummary: z.object({
+    supportCount: z.number().int().nonnegative(),
+    possiblyRelatedCount: z.number().int().nonnegative(),
+    supportReferencesTruncated: z.boolean(),
+    possiblyRelatedReferencesTruncated: z.boolean(),
+  }).optional(),
 });
 export type RecordFreshnessDto = z.infer<typeof RecordFreshnessDto>;
 

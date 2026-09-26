@@ -103,3 +103,18 @@ describe("CK-A05 freshness UI", () => {
     expect(screen.getByText("blocked", { exact: false })).toBeTruthy();
   });
 });
+
+it("shows the total and omission notice for bounded freshness references without hiding evidence links", () => {
+  const ids = Array.from({ length: 20 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+  render(<RecordCard record={record({ freshness: {
+    authority: "canonical", currentness: "needs_verification", progress: null, provenance: "document",
+    stale: true, requiresReview: true, reasons: ["newer_observation"], supportRecordIds: ids,
+    possiblyRelatedRecordIds: [], referenceSummary: { supportCount: 150, possiblyRelatedCount: 0,
+      supportReferencesTruncated: true, possiblyRelatedReferencesTruncated: false },
+  } })} />);
+  const notice = screen.getByTestId("freshness-reference-truncation");
+  expect(notice.textContent).toMatch(/20/); expect(notice.textContent).toMatch(/150/);
+  expect(notice.textContent).toMatch(/omitted/i);
+  expect(screen.getAllByRole("link", { name: /Inspect supporting record/ })).toHaveLength(20);
+  expect(screen.getByRole("link", { name: "Review record" }).getAttribute("href")).toContain("recordId=");
+});

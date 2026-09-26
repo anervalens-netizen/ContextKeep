@@ -46,6 +46,15 @@ export function RecordCard({
     : freshnessCurrentness === "unknown" && record.freshness?.reasons.includes("observation_time_unknown")
       ? "Freshness unknown"
       : null;
+  const referenceSummary = record.freshness?.referenceSummary;
+  const truncatedReferenceNote = referenceSummary && (
+    referenceSummary.supportReferencesTruncated || referenceSummary.possiblyRelatedReferencesTruncated
+  )
+    ? [
+        referenceSummary.supportReferencesTruncated ? `supporting references: showing ${record.freshness?.supportRecordIds.length ?? 0} of ${referenceSummary.supportCount}` : null,
+        referenceSummary.possiblyRelatedReferencesTruncated ? `possibly related references: showing ${record.freshness?.possiblyRelatedRecordIds.length ?? 0} of ${referenceSummary.possiblyRelatedCount}` : null,
+      ].filter((part): part is string => Boolean(part)).join("; ")
+    : null;
 
   return (
     <div className={`p-3 ${selected === undefined ? "" : selected ? "bg-ck-teal-soft/60" : "bg-ck-surface"}`}>
@@ -112,6 +121,7 @@ export function RecordCard({
             {record.freshness.requiresReview ? <a className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId)}?recordId=${encodeURIComponent(record.id)}`}>Review record</a> : null}
             {record.freshness.supportRecordIds.map((id, index) => <a key={id} className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId!)}?recordId=${encodeURIComponent(id)}`}>Inspect supporting record {index + 1}</a>)}
           </div> : null}
+          {truncatedReferenceNote ? <p className="mt-1 text-[11px] text-ck-muted" data-testid="freshness-reference-truncation">{truncatedReferenceNote}; additional references are omitted from this page.</p> : null}
           <div className="mt-1.5">
             <EvidenceList evidence={record.evidence} />
           </div>
