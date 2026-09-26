@@ -26,6 +26,7 @@ PATH_FIELDS = {
     "home_dir", "repo_dir", "backup_dir", "runtime_kit_dir", "data_dir",
     "release_dir", "nas_mount", "nas_dir", "dell_dir",
 }
+REQUIRED_PROFILE_KEYS = PATH_FIELDS | {"primary_host", "dell_target"}
 
 
 def load_profile(filename=None):
@@ -41,6 +42,12 @@ def load_profile(filename=None):
         unknown = set(supplied) - set(DEFAULT_PROFILE)
         if unknown:
             raise ValueError("Unknown operations profile keys: " + ", ".join(sorted(unknown)))
+        missing = REQUIRED_PROFILE_KEYS - set(supplied)
+        if missing:
+            raise ValueError(
+                "Explicit operations profile is missing required keys: "
+                + ", ".join(sorted(missing))
+            )
         profile.update(supplied)
     validate_profile(profile)
     return profile
@@ -56,10 +63,13 @@ def validate_profile(profile):
         if not isinstance(value, str) or not P(value).is_absolute():
             raise ValueError(f"Operations profile requires absolute {key}")
     target = profile.get("dell_target")
-    target_pattern = r'(?:[A-Za-z0-9._%+~-]+@)?(?:[A-Za-z0-9._%-]+|\[[0-9A-Fa-f:.%]+\])(?::[0-9]+)?'
+    target_pattern = r'(?:[A-Za-z0-9._%+~-]+@)?[A-Za-z0-9._%-]+'
     if (not isinstance(target, str) or not target or target.startswith('-') or
             not re.fullmatch(target_pattern, target)):
-        raise ValueError("Operations profile has an invalid dell_target")
+        raise ValueError(
+            "Operations profile has an invalid dell_target; use user@hostname, "
+            "an IPv4/hostname, or an SSH-config alias without a port"
+        )
     release_name = profile.get("runtime_release_name")
     if release_name is not None and (
         not isinstance(release_name, str) or not release_name or P(release_name).name != release_name

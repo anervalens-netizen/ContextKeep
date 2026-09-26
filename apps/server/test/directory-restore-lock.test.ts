@@ -329,8 +329,17 @@ describe.skipIf(process.platform !== "linux")(
           profile,
           JSON.stringify({
             primary_host: os.hostname(),
+            home_dir: path.join(t.root, "operator"),
+            repo_dir: path.join(t.root, "source"),
+            backup_dir: path.join(t.root, "backups"),
+            runtime_kit_dir: path.join(t.root, "runtime-kits"),
             data_dir: t.dataDir,
             release_dir: release,
+            nas_mount: path.join(t.root, "nas"),
+            nas_dir: path.join(t.root, "nas", "backups"),
+            dell_target: "synthetic-standby",
+            dell_dir: path.join(t.root, "standby", "backups"),
+            runtime_release_name: path.basename(release),
           }),
         );
         const args = [

@@ -30,6 +30,7 @@ def load(name):
 
 backup=load('backup-three-hosts')
 restore=load('restore-snapshot')
+ops_config=load('contextkeep_ops_config')
 
 
 def put(file,content='fixture'):
@@ -342,6 +343,28 @@ class BackupWorkflowTests(unittest.TestCase):
         self.assertFalse(self.base.exists())
         self.assertEqual(self.calls,[['hostname']])
 
+    def test_partial_explicit_profile_fails_before_any_write_or_command(self):
+        partial=self.root/'partial-ops-profile.json'
+        partial.write_text(json.dumps({'primary_host':'server','dell_target':'synthetic-standby'}))
+        with self.assertRaisesRegex(ValueError,'missing required keys'):
+            backup.main(config=str(partial),runner=self.runner)
+        self.assertFalse(self.base.exists())
+        self.assertEqual(self.calls,[])
+
+    def test_complete_explicit_profile_is_valid(self):
+        profile=self.profile()
+        loaded=backup.load_profile(str(profile))
+        self.assertEqual(loaded['primary_host'],'server')
+        self.assertEqual(loaded['dell_target'],'synthetic-standby')
+        for key in ops_config.PATH_FIELDS:
+            self.assertEqual(loaded[key],json.loads(profile.read_text())[key])
+
+    def test_no_profile_keeps_template_defaults(self):
+        loaded=backup.load_profile()
+        for key in ops_config.REQUIRED_PROFILE_KEYS:
+            self.assertEqual(loaded[key],ops_config.DEFAULT_PROFILE[key])
+        self.assertIsNone(loaded['runtime_release_name'])
+
     def test_profile_dry_run_reports_runtime_kit_space_without_mutation(self):
         with contextlib.redirect_stdout(io.StringIO()):self.invoke()
         profile=self.profile()
@@ -407,11 +430,14 @@ class BackupWorkflowTests(unittest.TestCase):
         self.assertTrue(any(rsync_dest and shlex.quote(str(remote_dir)+'/') in value for value in rsync_dest))
 
     def test_profile_rejects_malformed_remote_targets_without_restricting_valid_aliases(self):
-        for target in ['-oProxyCommand=bad', 'host\n--bad', 'user@@host', 'host:not-a-port']:
-            with self.subTest(target=target),self.assertRaisesRegex(ValueError,'invalid dell_target'):
+        for target in ['-oProxyCommand=bad', 'host\n--bad', 'user@@host', 'host:not-a-port',
+                       'host:2222', '[fd00::1]:2222', 'fd00::1']:
+            with self.subTest(target=target),self.assertRaisesRegex(ValueError,'without a port'):
                 backup.load_profile(str(self.profile(dell_target=target)))
-        valid=self.profile(dell_target='any-user@[fd00::1]:2222')
-        self.assertEqual(backup.load_profile(str(valid))['dell_target'],'any-user@[fd00::1]:2222')
+        for target in ['any-user@standby-alias', '192.0.2.44', 'standby-alias']:
+            with self.subTest(target=target):
+                valid=self.profile(dell_target=target)
+                self.assertEqual(backup.load_profile(str(valid))['dell_target'],target)
 
 
 class RestoreWorkflowTests(unittest.TestCase):

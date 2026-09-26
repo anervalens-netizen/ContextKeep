@@ -17,11 +17,14 @@ fixture and is not an inventory. A profile configures:
 
 With no profile, existing template defaults remain in force. Profile
 validation happens before the backup directory, lock, archive or restore
-target is changed. A hostname, data path or runtime-release mismatch fails
-closed. `--dry-run` validates identity and archive/runtime compatibility
-without invoking a writer; `--report-space` reports retained runtime-kit
-count/bytes and filesystem capacity. Neither option deletes snapshots or
-kits.
+target is changed. An explicitly selected profile must provide every
+`PATH_FIELDS` value plus `primary_host` and `dell_target`; only
+`runtime_release_name` is optional. A hostname, data path or runtime-release
+mismatch fails closed. `dell_target` supports an ordinary `user@hostname` or
+IP and SSH-config alias, without a port or other transport syntax.
+`--dry-run` validates identity and archive/runtime compatibility without
+invoking a writer; `--report-space` reports retained runtime-kit count/bytes
+and filesystem capacity. Neither option deletes snapshots or kits.
 
 The normal backup still retains snapshots and kits, records references from a
 snapshot manifest to its runtime kit, verifies hashes and SQLite integrity,
