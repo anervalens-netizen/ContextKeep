@@ -9,16 +9,16 @@ emitting response bytes. A completed claim can be replayed byte-for-byte;
 `pending` is retryable only as an in-progress 409; `indeterminate` means the
 effect may have committed and must be reconciled.
 
-The agreed result-compaction contract is: completed response bodies may
-eventually become durable key/hash tombstones. A retry then returns HTTP 409
+Completed response bodies older than the configured retention window
+(default 30 days) are compacted into durable key/hash tombstones. A retry returns HTTP 409
 with `idempotency_result_expired`: the earlier request completed, but its
 stored response expired. A completed request may have been a validation/error
 or other non-mutating result; this code does not claim that a mutation was
 applied. The protocol meaning is completed request, expired stored result, and
 `reconcile` next action. The client reconciles, and the server never auto-rekeys
-or executes the mutation again. Indeterminate outcomes remain durable. Until this
-compaction response is implemented and tested, the current source's
-`idempotency_outcome_unknown` response remains the integration boundary.
+or executes the mutation again. Indeterminate outcomes remain durable and use
+`idempotency_outcome_unknown`. Both responses are implemented recovery states;
+clients must distinguish unknown effect from expired completed result.
 
 ## Cursor and reset recovery
 
@@ -39,12 +39,12 @@ the protocol-byte limit, and byte truncation must not produce an invalid
 structured result. Credential-like values are rejected or redacted at the
 boundary.
 
-The agreed server-MCP contract additionally maps a pre-budget oversized or
-corrupt cached reply to `idempotency_result_unavailable`, retains the original
-key, and directs reconciliation. It does not create a new key or perform an
-automatic retry. This mapping remains integration-dependent until the server
-source and regressions expose it; the current source still exposes its
-existing `idempotency_outcome_unknown` and `result_too_large` boundaries.
+Server MCP also maps an older oversized or corrupt cached reply to
+`idempotency_result_unavailable`, retains the original key and directs
+reconciliation. It does not create a new key or re-execute the write. This
+implemented path is separate from `idempotency_outcome_unknown` (unknown
+effect), `idempotency_result_expired` (compacted response) and `result_too_large`
+(a newly generated result exceeding the result budget).
 Clients should inspect the structured error code and `nextAction`, preserve
 the original idempotency key for an explicit retryable in-progress case, and
 reconcile state before retrying any indeterminate or expired result. See the

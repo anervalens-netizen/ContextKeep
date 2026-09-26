@@ -53,8 +53,8 @@ const git=(args,options={})=>{
  }
 };
 function scanBlob(issues,path,data){
- if(data.includes(0))return;
- issues.push(...inspectPublicFile(path,data.toString('utf8')));
+ // Filename rules also apply to binary payloads; only text detection is skipped.
+ issues.push(...inspectPublicFile(path,data.includes(0)?'':data.toString('utf8')));
 }
 function checkRepositoryUnsafe(args,repository){
  const gitOptions={cwd:repository};
@@ -74,13 +74,23 @@ function checkRepositoryUnsafe(args,repository){
    if(separator<0)continue;
    for(const kind of inspectCommitMessage(commit,record.slice(separator+1)))issues.push({commit,kind});
   }
-  const objects=git(['rev-list','--objects',ref],{...gitOptions,encoding:'utf8'}).trim().split('\n').filter(Boolean);
   const seen=new Set();
-  for(const entry of objects){
-   const space=entry.indexOf(' ');if(space<0)continue;
-   const sha=entry.slice(0,space),path=entry.slice(space+1);if(seen.has(sha))continue;seen.add(sha);
-   if(git(['cat-file','-t',sha],{...gitOptions,encoding:'utf8'}).trim()!=='blob')continue;
-   filesScanned++;scanBlob(issues,path,git(['cat-file','blob',sha],gitOptions));
+  for(const commit of commits){
+   // A single blob may appear at several historical names. Path-sensitive
+   // privacy checks must visit every distinct (object, pathname) pair.
+   const entries=git(['ls-tree','-rz','--full-tree',commit],{...gitOptions,encoding:'utf8'}).split('\0').filter(Boolean);
+   for(const entry of entries){
+    const tab=entry.indexOf('\t');if(tab<0)throw new GitCheckError('git-tree-malformed');
+    const [mode,type,sha]=entry.slice(0,tab).split(' '),path=entry.slice(tab+1);
+    if(type!=='blob')continue;
+    const key=sha+'\0'+path;if(seen.has(key))continue;seen.add(key);
+    const data=git(['cat-file','blob',sha],gitOptions);
+    filesScanned++;scanBlob(issues,path,data);
+    if(mode==='120000'){
+     const target=data.toString('utf8');
+     if(target.startsWith('/')||target.split('/').includes('..'))issues.push({path,kind:'external-symlink',line:1});
+    }
+   }
   }
  }else{
   const paths=git(['ls-files','-z'],{...gitOptions,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -89,6 +99,7 @@ function checkRepositoryUnsafe(args,repository){
    if(staged){filesScanned++;scanBlob(issues,path,git(['show',`:${path}`],gitOptions));continue;}
    if(!existsSync(file))continue;
    if(lstatSync(file).isSymbolicLink()){
+    issues.push(...inspectPublicFile(path));
     const target=readlinkSync(file);if(target.startsWith('/')||target.split('/').includes('..'))issues.push({path,kind:'external-symlink',line:1});
     continue;
    }

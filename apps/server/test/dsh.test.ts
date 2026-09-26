@@ -1,3 +1,4 @@
+import { validateMutationAcknowledgement } from "../../web/src/lib/mutation-ack.js";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -323,6 +324,9 @@ describe("M3.3 ExampleAssistant connector", () => {
     expect(imported.status).toBe("created");
     expect(imported.redactionCount).toBeGreaterThan(0);
     expect(imported.workspaceBindingId).toBeNull();
+    expect(imported.externalId).toBe("memory:APPS.md");
+    expect(validateMutationAcknowledgement("/api/connectors/dsh/memory/import", "POST", { relativePath: "APPS.md" }, imported).valid).toBe(true);
+    expect(validateMutationAcknowledgement("/api/connectors/dsh/memory/import", "POST", { relativePath: "APPS.md" }, { ...imported, externalId: "APPS.md" }).valid).toBe(false);
 
     const source = t.app.ck.handle.sqlite
       .prepare("SELECT original_text FROM sources WHERE id=?")

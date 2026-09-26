@@ -76,6 +76,9 @@ describe("L0.1 external freshness regression", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(16_500); });
     expect(screen.getByText("MCP_UPDATE_AFTER_PAGE_LOAD")).toBeTruthy();
 
+    const timelineKey = ["timeline", "project-1", "paged"];
+    client.setQueryData(timelineKey, { entries: [] });
+    expect(client.getQueryState(timelineKey)?.isInvalidated).toBe(false);
     projectRevision = 2;
     liveBrief = {
       ...liveBrief,
@@ -85,6 +88,7 @@ describe("L0.1 external freshness regression", () => {
     };
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
     expect(screen.getByText("SYNTHETIC_METADATA_PATCH")).toBeTruthy();
+    expect(client.getQueryState(timelineKey)?.isInvalidated).toBe(true);
     client.clear();
   });
 });

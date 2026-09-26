@@ -191,6 +191,9 @@ export function validateMutationAcknowledgement(
   if (upperMethod === "POST") {
     const syncJobId = pathId(url, "/api/sync/jobs/", "/action");
     if (syncJobId !== null) {
+      const action = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).action : null;
+      if (action === "retry" || action === "resume") return parsed(SyncRunResultDto.safeParse(value));
+      if (action !== "cancel") return invalid("unknown sync job action");
       const checked = SyncJobDto.safeParse(value);
       if (!checked.success) return invalid("sync job action response is malformed");
       return checked.data.id === syncJobId
@@ -214,7 +217,7 @@ export function validateMutationAcknowledgement(
       const checked = CodexImportResultDto.safeParse(value);
       if (!checked.success) return invalid("Codex import response is malformed");
       const input = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : null;
-      const expected = url.endsWith("/sessions/import") ? input?.sessionId : input?.fileName;
+      const expected = url.endsWith("/sessions/import") ? input?.sessionId : typeof input?.fileName === "string" ? `rollout-summary:${input.fileName}` : undefined;
       return typeof expected === "string" && checked.data.externalId !== expected
         ? invalid("Codex import response identity does not match the request")
         : { valid: true, value: checked.data };
@@ -223,7 +226,7 @@ export function validateMutationAcknowledgement(
       const checked = DshImportResultDto.safeParse(value);
       if (!checked.success) return invalid("DSH import response is malformed");
       const input = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : null;
-      const expected = url.endsWith("/sessions/import") ? input?.sessionId : input?.relativePath;
+      const expected = url.endsWith("/sessions/import") ? input?.sessionId : typeof input?.relativePath === "string" ? `memory:${input.relativePath}` : undefined;
       return typeof expected === "string" && checked.data.externalId !== expected
         ? invalid("DSH import response identity does not match the request")
         : { valid: true, value: checked.data };

@@ -1,3 +1,4 @@
+import { validateMutationAcknowledgement } from "../../web/src/lib/mutation-ack.js";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -388,6 +389,9 @@ describe("M3.2 Codex connector", () => {
     expect(imported.workspaceBindingId).toBe(workspaceId);
     expect(imported.projectId).toBe(project.id);
     expect(imported.redactionCount).toBeGreaterThan(0);
+    expect(imported.externalId).toBe(`rollout-summary:${fileName}`);
+    expect(validateMutationAcknowledgement("/api/connectors/codex/summaries/import", "POST", { fileName, adapterId: "manual" }, imported).valid).toBe(true);
+    expect(validateMutationAcknowledgement("/api/connectors/codex/summaries/import", "POST", { fileName }, { ...imported, externalId: fileName }).valid).toBe(false);
 
     const source = t.app.ck.handle.sqlite
       .prepare("SELECT original_text FROM sources WHERE id=?")

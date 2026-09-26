@@ -1,3 +1,4 @@
+import { validateMutationAcknowledgement } from "../../web/src/lib/mutation-ack.js";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -791,6 +792,7 @@ describe("L4.2 retry/cancel/resume", () => {
     expectStatus(res, 200);
     const result = res.json<SyncRunResultDto>();
     expect(result.runId).not.toBe("failed-sync-job");
+    expect(validateMutationAcknowledgement("/api/sync/jobs/failed-sync-job/action", "POST", { action: "retry" }, result).valid).toBe(true);
     expect(result.plan.selected).toBe(1);
     expect(result.counts.archivedCreated).toBe(1);
 
@@ -840,6 +842,7 @@ describe("L4.2 retry/cancel/resume", () => {
     const resumed = await t.post("/api/sync/jobs/interrupted-sync-job/action", { action: "resume" });
     expectStatus(resumed, 200);
     const result = resumed.json<SyncRunResultDto>();
+    expect(validateMutationAcknowledgement("/api/sync/jobs/interrupted-sync-job/action", "POST", { action: "resume" }, result).valid).toBe(true);
     expect(result.plan.selected).toBe(1);
     expect(result.counts.extractedCreated + result.counts.extractionUnchanged).toBe(1);
 
@@ -861,6 +864,8 @@ describe("L4.2 retry/cancel/resume", () => {
     const cancelled = await t.post("/api/sync/jobs/running-sync-job/action", { action: "cancel" });
     expectStatus(cancelled, 200);
     expect(cancelled.json<{ stage: string }>().stage).toBe("cancelled");
+    expect(validateMutationAcknowledgement("/api/sync/jobs/running-sync-job/action", "POST", { action: "cancel" }, cancelled.json()).valid).toBe(true);
+    expect(validateMutationAcknowledgement("/api/sync/jobs/running-sync-job/action", "POST", { action: "retry" }, cancelled.json()).valid).toBe(false);
 
     const row = t.app.ck.handle.sqlite
       .prepare("SELECT stage,finished_at,last_error FROM sync_jobs WHERE id=?")

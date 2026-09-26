@@ -107,10 +107,10 @@ export default function ProjectDetail(): ReactNode {
       void queryClient.invalidateQueries({ queryKey: ["brief", projectId] });
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
     }
-    if (freshness.changed || freshness.resetRequired) {
+    if (freshness.changed || freshness.resetRequired || freshness.projectRevisionChanged || freshness.projectRevisionResetRequired) {
       void queryClient.invalidateQueries({ queryKey: ["timeline", projectId] });
     }
-    if (freshness.changed || freshness.resetRequired || freshness.workingChanged || freshness.workingResetRequired) {
+    if (freshness.changed || freshness.resetRequired || freshness.workingChanged || freshness.workingResetRequired || freshness.projectRevisionChanged || freshness.projectRevisionResetRequired) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.workContext(projectId) });
       void queryClient.invalidateQueries({ queryKey: queryRoots.inbox });
     }
