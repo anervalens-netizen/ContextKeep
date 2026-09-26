@@ -7,6 +7,7 @@ import {
   records,
 } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
+import { dualContentResultBytes, MCP_RESULT_BYTE_BUDGET } from "../lib/result-budget.js";
 import { newId } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 import { loadEvidenceFor, attachProjectNames, toProjectDto } from "./mappers.js";
@@ -272,7 +273,7 @@ function pageFromSession(
   }
   const nextOffset = offset + page.length;
   const nextPageToken = nextOffset < changes.length ? `${row.id}:${nextOffset}` : null;
-  return {
+  const result = {
     projectId: row.projectId,
     resetRequired: payload.baseline === true,
     fullSnapshotRequired: payload.baseline === true,
@@ -303,6 +304,23 @@ function pageFromSession(
     fullSnapshotTruncated: payload.baseline === true && !payload.fullSnapshot,
     baselineMode: payload.baseline === true ? "changes_from_empty" : null,
   };
+  // Inline snapshots duplicate the baseline changes and are only a convenience.
+  // Keep the complete material baseline pageable when both representations
+  // plus that duplicate would exceed the result transport budget.
+  if (dualContentResultBytes(result) > MCP_RESULT_BYTE_BUDGET && result.fullSnapshot !== null) {
+    result.fullSnapshot = null;
+    result.fullSnapshotTruncated = true;
+  }
+  while (page.length > 1 && dualContentResultBytes(result) > MCP_RESULT_BYTE_BUDGET) {
+    page.pop();
+    result.returned = page.length;
+    result.pageBytes = Buffer.byteLength(JSON.stringify(page), "utf8");
+    result.pageOversize = result.pageBytes > DELTA_PAGE_MAX_BYTES;
+    result.nextPageToken = `${row.id}:${offset + page.length}`;
+  }
+  // A single record is never skipped. The MCP boundary reports an explicit
+  // oversize error if even that one material change cannot be represented.
+  return result;
 }
 
 export function getContextDelta(

@@ -11,7 +11,8 @@ import {
   tryClaim,
 } from "../services/idempotency.js";
 
-export const MCP_RESULT_BYTE_BUDGET = 750_000;
+import { MCP_RESULT_BYTE_BUDGET } from "../lib/result-budget.js";
+export { MCP_RESULT_BYTE_BUDGET } from "../lib/result-budget.js";
 
 function boundedResult(result: CallToolResult): CallToolResult {
   if (Buffer.byteLength(JSON.stringify(result), "utf8") > MCP_RESULT_BYTE_BUDGET) {

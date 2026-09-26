@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
+import { MCP_RESULT_BYTE_BUDGET } from "../src/lib/result-budget.js";
 import { ensureContextCursorBaselines } from "../src/services/context-journal.js";
 import { bumpProjectWorkingMemoryVersion } from "../src/services/content-version.js";
 import { makeTestApp, type TestApp } from "./helpers.js";
@@ -42,6 +43,7 @@ async function callApp(app: TestApp["app"], name: string, args: Record<string, u
   expect(response.statusCode).toBe(200);
   const body = response.json<any>();
   expect(body.error).toBeUndefined();
+  expect(Buffer.byteLength(JSON.stringify(body.result), "utf8")).toBeLessThanOrEqual(MCP_RESULT_BYTE_BUDGET);
   if (!expectError) expect(body.result?.isError, JSON.stringify(body.result?.structuredContent)).not.toBe(true);
   return body.result as { isError?: boolean; structuredContent: any };
 }
@@ -477,7 +479,9 @@ describe("CKR-19 durable context delta", () => {
       resetReason: "page_expired",
     });
 
-    const oldPath = path.join(path.dirname(t.config.dbPath), "old-store.sqlite");
+    const oldDirectory = path.join(path.dirname(t.config.dbPath), "restored-copy");
+    fs.mkdirSync(oldDirectory);
+    const oldPath = path.join(oldDirectory, "store.sqlite");
     await t.app.ck.deps.sqlite.backup(oldPath);
     await capture(t, projectId, "newer than backup", "newer-than-backup");
     const newerClient = await cursor(t, projectId);
@@ -562,11 +566,11 @@ describe("CKR-19 durable context delta", () => {
 
 
 describe("CK-A09 delta byte paging", () => {
-  it("bounds serialized change pages and still converges across a large evidence corpus", async () => {
+  it.each(["plain", "escaped"])("bounds full dual-content results and converges across a %s evidence corpus", async (encoding) => {
     const { t, projectId } = await setup("CK-A09 delta bytes");
     const base = await cursor(t, projectId);
     const ids: string[] = [];
-    const evidenceText = "e".repeat(32_000);
+    const evidenceText = encoding === "plain" ? "e".repeat(32_000) : '\\"'.repeat(16_000);
 
     for (let i = 0; i < 20; i++) {
       const created = await capture(
@@ -594,6 +598,22 @@ describe("CK-A09 delta byte paging", () => {
     expect(pages).toBeGreaterThan(1);
     expect([...seen].sort()).toEqual([...ids].sort());
   }, 30_000);
+
+  it("omits redundant inline snapshots when necessary without losing baseline records", async () => {
+    const { t, projectId } = await setup("Synthetic baseline transport budget");
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const created = await capture(t, projectId, `baseline outcome ${i}`, `baseline-transport-${i}`, "fact", "b".repeat(53_000));
+      ids.push(created.outcome.recordId as string);
+    }
+    const current = await cursor(t, projectId);
+    const reset = await delta(t, projectId, { ...current, canonicalCursor: current.canonicalCursor + 100 }, { limit: 100 });
+    expect(reset.resetRequired).toBe(true);
+    expect(reset.fullSnapshot).toBeNull();
+    expect(reset.fullSnapshotTruncated).toBe(true);
+    expect(reset.baselineMode).toBe("changes_from_empty");
+    expect(reset.changes.map((change: any) => change.recordId).sort()).toEqual(ids.sort());
+  });
 
   it("never drops a single oversized change even when it exceeds the normal page byte budget", async () => {
     const { t, projectId } = await setup("CK-A09 delta oversized");

@@ -324,9 +324,20 @@ describe.skipIf(process.platform !== "linux")(
           `import ${JSON.stringify(pathToFileURL(path.resolve("src/cli/restore.ts")).href)};\n`,
         );
         const snapshot = makeSnapshot(t.root, t.backup, path.basename(release));
+        const profile = path.join(t.root, "synthetic-restore-profile.json");
+        fs.writeFileSync(
+          profile,
+          JSON.stringify({
+            primary_host: os.hostname(),
+            data_dir: t.dataDir,
+            release_dir: release,
+          }),
+        );
         const args = [
           path.resolve("../../ops/restore-snapshot.py"),
           snapshot,
+          "--config",
+          profile,
           "--data-dir",
           alias,
           "--node",
