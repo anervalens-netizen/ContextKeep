@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   BriefDto,
   HandoffExportDto,
-  TimelineDto,
   WorkspaceReconciliationDto,
   WorkspaceReconciliationItemDto,
   RecordDto,
@@ -16,7 +15,7 @@ import { Icon, type IconName } from "../components/Icon.js";
 import { ProjectHistoryBackfill } from "../components/ProjectHistoryBackfill.js";
 import { ProjectMemoryDashboard } from "../components/ProjectMemoryDashboard.js";
 import { RecordCard } from "../components/RecordCard.js";
-import { VirtualList } from "../components/VirtualList.js";
+import { ProjectTimeline } from "../components/ProjectTimeline.js";
 import { notifyError } from "../lib/hooks.js";
 import { describeReadError, formatLocalDateTime } from "../lib/presentation.js";
 import { queryKeys, queryRoots } from "../lib/query-contracts.js";
@@ -446,25 +445,7 @@ function OverviewSkeleton(): ReactNode {
 }
 
 function TimelineTab({ projectId }: { projectId: string }): ReactNode {
-  const timelineQuery = useQuery({ queryKey: ["timeline", projectId], queryFn: () => apiFetch<TimelineDto>(`/api/projects/${projectId}/timeline`) });
-  if (timelineQuery.isLoading) return <p className="rounded-2xl border border-ck-line bg-ck-surface p-4 text-sm text-ck-muted">Loading timeline…</p>;
-  if (timelineQuery.isError) return <p className="rounded-2xl border border-ck-red/30 bg-ck-red/5 p-4 text-sm text-ck-red">Timeline unavailable.</p>;
-  const entries = timelineQuery.data!.entries;
-  return (
-    <section className="overflow-hidden rounded-3xl border border-ck-line bg-ck-surface shadow-sm">
-      <div className="border-b border-ck-line px-4 py-3"><h1 className="text-sm font-semibold">Project timeline</h1><p className="mt-0.5 text-xs text-ck-muted">Accepted and superseded knowledge in chronological context.</p></div>
-      <VirtualList
-        items={entries}
-        estimateRowHeight={150}
-        emptyText="No accepted or superseded records yet."
-        renderRow={(entry) => (
-          <div className="border-b border-ck-line last:border-b-0">
-            <RecordCard record={entry.record} footer={entry.supersededBy ? <p className="text-[11px] text-ck-amber">Superseded{entry.supersededBy.confirmedAt ? ` ${entry.supersededBy.confirmedAt.slice(0, 10)}` : ""}: {entry.supersededBy.reason}</p> : entry.supersedes.length > 0 ? <p className="text-[11px] text-ck-green">Supersedes {entry.supersedes.length} earlier record(s).</p> : null} />
-          </div>
-        )}
-      />
-    </section>
-  );
+  return <ProjectTimeline projectId={projectId} />;
 }
 
 function ExportTab({ projectId }: { projectId: string }): ReactNode {
