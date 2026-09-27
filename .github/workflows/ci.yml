@@ -20,7 +20,7 @@ on:
 jobs:
   test:
     name: typecheck + functional + recovery + browser
-    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","gaming-ci","contextkeep-build"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' || vars.CI_EXECUTOR != 'gaming') && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","gaming-ci","contextkeep-build"]') }}
     timeout-minutes: 20
 
     steps:
