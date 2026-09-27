@@ -12,6 +12,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 # One job. No matrix — the repo pins Node + pnpm exact in package.json
 # (`pnpm@11.22.0`), so a single Node 24 runner is the contract.
@@ -19,7 +20,7 @@ on:
 jobs:
   test:
     name: typecheck + functional + recovery + browser
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-24.04' || fromJSON('["self-hosted","Linux","X64","gaming-ci","contextkeep-build"]') }}
     timeout-minutes: 20
 
     steps:
@@ -79,8 +80,13 @@ jobs:
           NODE_ENV: production
         run: pnpm build
 
-      - name: Install isolated browser
+      - name: Install isolated browser and dependencies (GitHub-hosted)
+        if: runner.environment == 'github-hosted'
         run: pnpm --filter @contextkeep/web exec playwright install --with-deps chromium
+
+      - name: Install isolated browser (Gaming)
+        if: runner.environment == 'self-hosted'
+        run: pnpm --filter @contextkeep/web exec playwright install chromium
 
       - name: Authenticated desktop and mobile navigation
         env:
