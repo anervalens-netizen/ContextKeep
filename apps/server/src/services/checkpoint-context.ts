@@ -16,6 +16,7 @@ export function compactWorkingCheckpoint(
   if (!checkpoint) return null;
   return {
     kind: checkpoint.kind,
+    ...(checkpoint.taskId ? { taskId: checkpoint.taskId } : {}),
     ...(checkpoint.summary ? { summary: clip(checkpoint.summary, 400) } : {}),
     ...(checkpoint.outcome ? { outcome: clip(checkpoint.outcome, 400) } : {}),
     nextAction: checkpoint.nextAction ? clip(checkpoint.nextAction, 500) : null,
@@ -38,6 +39,7 @@ export function compactWorkingCheckpoint(
 export function latestCheckpointFor(
   db: Db,
   projectId: string,
+  taskId?: string,
 ): WorkContextCheckpointDto | null {
   const row = db
     .select()
@@ -46,6 +48,9 @@ export function latestCheckpointFor(
       and(
         eq(records.projectId, projectId),
         eq(records.evidenceBasis, "agent_report"),
+        taskId
+          ? sql`CASE WHEN json_valid(${records.valueJson}) = 1 THEN json_extract(${records.valueJson}, '$.taskId') END = ${taskId}`
+          : undefined,
         inArray(records.reviewStatus, ["accepted", "proposed"]),
         sql`CASE WHEN json_valid(${records.valueJson}) = 1 THEN json_extract(${records.valueJson}, '$.kind') ELSE NULL END = 'working_checkpoint'`,
       ),

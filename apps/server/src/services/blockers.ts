@@ -86,7 +86,7 @@ function parseResolutionValue(valueJson: string | null): ResolutionValue | null 
   }
 }
 
-function checkpointBlockersForProject(deps: ServiceDeps, projectId: string): CheckpointBlocker[] {
+function checkpointBlockersForProject(deps: ServiceDeps, projectId: string, taskId?: string): CheckpointBlocker[] {
   const rows = deps.sqlite.prepare(`
     SELECT id, revision, review_status AS reviewStatus, recorded_at AS recordedAt,
            value_json AS valueJson
@@ -107,7 +107,7 @@ function checkpointBlockersForProject(deps: ServiceDeps, projectId: string): Che
   const blockers: CheckpointBlocker[] = [];
   for (const row of rows) {
     const checkpoint = parseWorkingCheckpoint(row.valueJson);
-    if (!checkpoint) continue;
+    if (!checkpoint || (taskId && checkpoint.taskId !== taskId)) continue;
     checkpoint.blockers.forEach((text, index) => {
       blockers.push({
         blockerId: blockerIdFor(row.id, row.revision, index),
@@ -141,10 +141,10 @@ function resolutionRowsForProject(deps: ServiceDeps, projectId: string): Resolut
 export function getBlockerState(
   deps: ServiceDeps,
   projectId: string,
-  page: { offset?: number; limit?: number } = {},
+  page: { offset?: number; limit?: number; taskId?: string } = {},
 ) {
   requireProject(deps, projectId);
-  const blockers = checkpointBlockersForProject(deps, projectId);
+  const blockers = checkpointBlockersForProject(deps, projectId, page.taskId);
   const resolutions = resolutionRowsForProject(deps, projectId);
   const resolutionByBlocker = new Map<string, { row: ResolutionRow; value: ResolutionValue }>();
   for (const row of resolutions) {

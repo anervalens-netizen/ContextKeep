@@ -1,3 +1,4 @@
+import { listTasks,getTaskView } from "../services/workflow.js";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import {
@@ -22,6 +23,9 @@ const TimelineQuery = z.object({
 export function registerProjectRoutes(app: FastifyInstance): void {
   const { deps } = app.ck;
   const memory = new ContextKeepMemoryService(deps);
+  const page=z.object({offset:z.coerce.number().int().min(0).default(0),limit:z.coerce.number().int().min(1).max(50).default(20)});
+  app.get("/api/projects/:id/tasks",async request=>{const p=z.object({id:z.string().uuid()}).parse(request.params);const q=page.parse(request.query);return listTasks(deps,p.id,q.offset,q.limit);});
+  app.get("/api/projects/:id/tasks/:taskId",async request=>{const p=z.object({id:z.string().uuid(),taskId:z.string().uuid()}).parse(request.params);return getTaskView(deps,{projectId:p.id,taskId:p.taskId,...page.parse(request.query)});});
 
   app.get("/api/projects", async () => {
     const rows = deps.db.select().from(projects).all();

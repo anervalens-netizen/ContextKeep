@@ -8,6 +8,7 @@ import { loadEvidenceFor, loadEvidenceRefsFor, parseJson, toProjectDto, type Evi
 import { retrieveRecordMatches, search, type RetrievedRecordMatch } from "./search.js";
 import { searchRelations } from "./relations.js";
 import { synthesize } from "./synthesis.js";
+import { requireTaskScope } from "./task-scope.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import { compactWorkingCheckpoint, latestCheckpointFor } from "./checkpoint-context.js";
 import { getBlockerState } from "./blockers.js";
@@ -218,12 +219,13 @@ export class ContextKeepMemoryService {
 
   getWorkContext(
     context: MemoryToolRunContext,
-    input: { projectId?: string; limitPerSection?: number; task?: string; totalContextBudgetChars?: number; diagnostics?: boolean; permanentConstraintIds?: string[] },
+    input: { projectId?: string; taskId?: string; limitPerSection?: number; task?: string; totalContextBudgetChars?: number; diagnostics?: boolean; permanentConstraintIds?: string[] },
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
     const project = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
     if (!project) throw new ApiError(404, "project_not_found", "Project not found.");
     const limit = clamp(input.limitPerSection, 5, 10);
+    if (input.taskId) requireTaskScope(this.deps, projectId, input.taskId);
     const task = input.task?.trim() || undefined;
     const fetchLimit = task ? Math.min(50, Math.max(limit * 5, 25)) : limit;
     const contextNow = new Date().toISOString();
@@ -523,8 +525,8 @@ export class ContextKeepMemoryService {
       }),
     };
     // Review changes authority, not the chronology of agent resume.
-    const latestCheckpoint = latestCheckpointFor(this.deps.db, projectId);
-    const blockerState = getBlockerState(this.deps, projectId);
+    const latestCheckpoint = latestCheckpointFor(this.deps.db, projectId, input.taskId);
+    const blockerState = getBlockerState(this.deps, projectId, { taskId: input.taskId });
     const latestBlockers = blockerState.active.map((item) => item.text).slice(0, 20);
     const compactBlockerState = {
       activeCount: blockerState.activeCount,
@@ -728,6 +730,7 @@ export class ContextKeepMemoryService {
       },
       objective: project.description,
       task: task ?? null,
+      taskId: input.taskId ?? null,
       goalSemantics: "goals are current accepted decision records; unstated goals are never inferred",
       goals,
       actions,

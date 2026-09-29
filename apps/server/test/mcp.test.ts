@@ -79,8 +79,8 @@ describe("private ContextKeep MCP", () => {
       "list_projects", "get_project", "get_work_context", "get_project_brief", "get_project_timeline", "search_context",
       "get_record", "get_context_delta", "list_blockers", "resolve_blocker", "create_handoff", "add_owner_note", "add_source", "capture_working_memory", "capture_work", "propose_correction",
     ]));
-    expect(tools).toHaveLength(35);
-    expect(tools.filter((tool: any) => tool.annotations.readOnlyHint)).toHaveLength(18);
+    expect(tools).toHaveLength(43);
+    expect(tools.filter((tool: any) => tool.annotations.readOnlyHint)).toHaveLength(21);
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe("object"); expect(tool.inputSchema.additionalProperties).toBe(false);
       expect(tool.outputSchema).toBeTruthy();
@@ -150,7 +150,7 @@ describe("private ContextKeep MCP", () => {
     const client = new Client({ name: "ContextKeep acceptance", version: "1" });
     try {
       await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`), { requestInit: { headers: { authorization: `Bearer ${TOKEN}` } } }));
-      expect((await client.listTools()).tools).toHaveLength(35);
+      expect((await client.listTools()).tools).toHaveLength(43);
       const result = await client.callTool({ name: "get_project", arguments: { projectId } });
       expect(result.isError).not.toBe(true);
       expect((result.structuredContent as any).project.id).toBe(projectId);
@@ -695,10 +695,10 @@ describe("MCP complete memory workflow", () => {
     expect(result.structuredContent.error.issues[0].path).toBe("limit");
     expect(result.structuredContent.error.issues[0].message).toContain("15");
     const cap=await ok(t,"get_capabilities",{});
-    expect(cap.tools).toHaveLength(35);
-    expect(cap.version).toBe("2.10.1");
+    expect(cap.tools).toHaveLength(43);
+    expect(cap.version).toBe("2.11.0");
     expect(cap.applicationVersion).toBe("0.1.0");
-    expect(cap.schemaVersion).toBe(16);
+    expect(cap.schemaVersion).toBe(17);
     expect(cap.contractVersion).toBe("mcp-first-v1");
     expect(cap.protocols.latest).toBe("2026-07-28");
     expect(cap.protocols.supported).toEqual(expect.arrayContaining(["2026-07-28","2025-11-25","2025-06-18","2025-03-26"]));

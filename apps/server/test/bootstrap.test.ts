@@ -37,7 +37,7 @@ describe("A17: startup refuses a newer-version store", () => {
   });
 
   it("server schema authority is v16 and the shared mirror stays in parity", () => {
-    expect(SERVER_SCHEMA_VERSION).toBe(16);
+    expect(SERVER_SCHEMA_VERSION).toBe(17);
     expect(SHARED_SCHEMA_VERSION).toBe(SERVER_SCHEMA_VERSION);
   });
 

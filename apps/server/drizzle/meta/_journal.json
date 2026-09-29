@@ -120,6 +120,13 @@
       "when": 1790083500000,
       "tag": "0016_retire_internal_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0017_workflow_events",
+      "breakpoints": true
     }
   ]
 }

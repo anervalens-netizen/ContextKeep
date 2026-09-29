@@ -1,3 +1,4 @@
+import { PwaTaskPanel } from "../components/PwaTaskPanel.js";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -319,6 +320,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
       </section>
 
       <ProjectMemoryDashboard projectId={projectId} />
+      <PwaTaskPanel projectId={projectId} />
 
       {sessionCount > 0 ? <ProjectHistoryBackfill projectId={projectId} sessionCount={sessionCount} /> : null}
 

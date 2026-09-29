@@ -1,5 +1,6 @@
 export interface WorkingCheckpoint {
   kind: "working_checkpoint";
+  taskId?: string;
   summary?: string;
   outcome?: string;
   nextAction: string | null;
@@ -27,6 +28,9 @@ export function parseWorkingCheckpoint(
   if (candidate.kind !== "working_checkpoint") return null;
   return {
     kind: "working_checkpoint",
+    ...(typeof candidate.taskId === "string"
+      ? { taskId: candidate.taskId }
+      : {}),
     ...(typeof candidate.summary === "string"
       ? { summary: candidate.summary }
       : {}),
@@ -56,6 +60,7 @@ export function checkpointIdentity(value: WorkingCheckpoint | null): string {
   if (!value) return "working_capture";
   return JSON.stringify({
     kind: value.kind,
+    ...(value.taskId ? { taskId: value.taskId } : {}),
     summary: value.summary ?? null,
     outcome: value.outcome ?? null,
     nextAction: value.nextAction,

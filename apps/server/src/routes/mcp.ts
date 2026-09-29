@@ -1,3 +1,4 @@
+import { WorkflowEvents } from "../services/workflow-events.js";
 import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import {
@@ -17,10 +18,17 @@ import { createContextKeepMcpServer } from "../mcp/tools.js";
 export function registerMcpRoutes(app: FastifyInstance): void {
   const { config, deps } = app.ck;
   const token = config.mcpToken;
+  const workflowEvents = token ? new WorkflowEvents(deps,crypto.createHash("sha256").update(token).digest("hex"),config.sessionSecret) : undefined;
+  let pumping: Promise<unknown> | undefined;
+  const timer = workflowEvents ? setInterval(()=>{ if(!pumping) pumping=workflowEvents.pump().catch(()=>app.log.error("Workflow delivery failed; details omitted.")).finally(()=>{pumping=undefined;}); },2000) : undefined;
+  timer?.unref();
+  app.addHook("onClose",async()=>{if(timer)clearInterval(timer);await pumping;});
   const factory: McpServerFactory = () => createContextKeepMcpServer(deps, [token!, config.sessionSecret], {
     defaultClientId: config.mcpDefaultClientId,
     delegateWorkingMemory: config.mcpDelegateWorkingMemory,
     buildSha: config.buildSha,
+    workflowEvents,
+    webDist:config.webDist,
   });
   const modernHandler = createMcpHandler(
     factory,
@@ -37,7 +45,17 @@ export function registerMcpRoutes(app: FastifyInstance): void {
   const mcpHandler = {
     fetch: async (request: Request, options?: McpHandlerRequestOptions): Promise<Response> => {
       if (!(await isLegacyRequest(request, options?.parsedBody, { maxRequestBodySize: 128 * 1024 }))) {
-        return modernHandler.fetch(request, options);
+        const response=await modernHandler.fetch(request, options);
+        // SDK 2.1.0 drops the draft events capability from its closed modern schema.
+        // Decorate only authenticated discovery responses; protocol handlers remain SDK-owned.
+        const method=(options?.parsedBody as {method?:string}|undefined)?.method;
+        if(method==="server/discover" && workflowEvents && response.ok && response.headers.get("content-type")?.includes("application/json")) {
+          const body=await response.json() as {result?:{capabilities?:Record<string,unknown>}};
+          if(body.result?.capabilities)body.result.capabilities.events={};
+          const headers=new Headers(response.headers);headers.delete("content-length");
+          return new Response(JSON.stringify(body),{status:response.status,headers});
+        }
+        return response;
       }
       const server = await factory({ era: "legacy", ...options?.authInfo && { authInfo: options.authInfo }, requestInfo: request });
       const transport = new WebStandardStreamableHTTPServerTransport({

@@ -16,7 +16,10 @@ import { normalizeText } from "./normalize.js";
 import { editRecord } from "./review.js";
 import { sourceBelongsToProject } from "./source-membership.js";
 
+import { requireTaskScope } from "./task-scope.js";
+
 export interface CaptureWorkInput {
+  taskId?: string;
   projectId: string;
   outcome: string;
   evidenceText: string | null;
@@ -43,6 +46,7 @@ function buildCheckpoint(input: CaptureWorkInput, capturedAt: string): WorkingCh
   if (!input.checkpoint) return null;
   return {
     kind: "working_checkpoint",
+    ...(input.taskId ? { taskId: input.taskId } : {}),
     summary: input.checkpoint.summary ?? input.checkpoint.outcome ?? input.outcome,
     outcome: input.checkpoint.outcome ?? input.outcome,
     nextAction: input.checkpoint.nextAction ?? null,
@@ -55,6 +59,7 @@ function buildCheckpoint(input: CaptureWorkInput, capturedAt: string): WorkingCh
 export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: ActorCtx) {
   return deps.sqlite.transaction(() => {
     requireProject(deps, input.projectId);
+    if (input.taskId) requireTaskScope(deps, input.projectId, input.taskId);
     const rawEvidence = input.evidenceText ?? input.outcome;
     const normalized = normalizeText(rawEvidence);
     if (!normalized) throw new ApiError(400, "empty_after_normalization", "Evidence is empty after normalization.");
@@ -143,9 +148,10 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
         : input.structuredValueJson === undefined || input.structuredValueJson === null
           ? null
           : JSON.stringify(input.structuredValueJson),
-      dedupIdentity: input.dedupIdentity ?? `agent_report:${checkpointIdentity(checkpoint)}`,
+      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}`,
     }, ctx);
     const outcomeRecord = requireRecord(deps, created.record.id);
+    if (input.taskId) deps.sqlite.prepare("INSERT OR IGNORE INTO workflow_task_records(task_id,record_id) VALUES (?,?)").run(input.taskId, outcomeRecord.id);
     if (outcomeRecord.reviewStatus !== "proposed" || outcomeRecord.evidenceBasis !== "agent_report") {
       throw new ApiError(409, "capture_working_identity_conflict", "Working capture identity resolved to a non-working record.");
     }
@@ -162,6 +168,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
 
     const progress = [];
     for (const update of input.progressUpdates) {
+      if(input.taskId && update.recordId!==input.taskId)throw new ApiError(409,"capture_progress_task_mismatch","Scoped capture cannot change another task.");
       const current = requireRecord(deps, update.recordId, update.revision);
       if (current.projectId !== input.projectId)
         throw new ApiError(409, "capture_progress_project_mismatch", "Progress target belongs to another project.");
@@ -198,6 +205,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
 
     return {
       projectId: input.projectId,
+      ...(input.taskId ? { taskId: input.taskId } : {}),
       source: { id: sourceId, reused: reusedSource, excerptIds },
       outcome: { recordId: outcomeRecord.id, revision: outcomeRecord.revision, reviewStatus: outcomeRecord.reviewStatus,
         evidenceBasis: outcomeRecord.evidenceBasis, duplicate: created.duplicate, canonicalDuplicateRecordId },
