@@ -54,6 +54,16 @@ describe("durable signed workflow events",()=>{
   enqueueExecutionEvent(deps,{...data,revision:5},new Date().toISOString(),"event-2");
   await events.pump();expect(received).toHaveLength(2);
  });
+ it("preserves callback verification age and key rotation overlap across refresh",async()=>{
+  const {deps,input,data}=await fixture();const nextSecret="whsec_"+randomBytes(32).toString("base64");let challenges=0,deliveries=0;
+  const events=new WorkflowEvents(deps,"owner","fixture",async(_u,headers,body)=>{const b=JSON.parse(body);if(b.type==="verification"){challenges++;return {status:200,body:JSON.stringify({challenge:b.challenge})};}deliveries++;new Webhook(nextSecret).verify(body,headers);new Webhook(input.delivery.secret).verify(body,headers);return {status:204,body:""};});
+  await events.subscribe(input);const verifiedAt=new Date(Date.now()-120000).toISOString();deps.sqlite.prepare("UPDATE workflow_subscriptions SET verified_at=?").run(verifiedAt);
+  await events.subscribe(input);expect((deps.sqlite.prepare("SELECT verified_at FROM workflow_subscriptions").get() as {verified_at:string}).verified_at).toBe(verifiedAt);expect(challenges).toBe(1);
+  const rotated={...input,delivery:{...input.delivery,secret:nextSecret}};await events.subscribe(rotated);await events.subscribe(rotated);expect(challenges).toBe(2);
+  expect((deps.sqlite.prepare("SELECT old_secret FROM workflow_subscriptions").get() as {old_secret:string|null}).old_secret).not.toBeNull();
+  enqueueExecutionEvent(deps,data,new Date().toISOString(),"rotation");await events.pump();expect(deliveries).toBe(1);
+  deps.sqlite.prepare("UPDATE workflow_subscriptions SET verified_at='2000-01-01'").run();await events.subscribe(rotated);expect(challenges).toBe(3);
+ });
  it("fences unsubscribe during verification and rejects mismatched challenge",async()=>{
   const {deps,input}=await fixture();let release:(value:{status:number;body:string})=>void=()=>{};
   let body="";const events=new WorkflowEvents(deps,"owner","fixture",async(_u,_h,b)=>{body=b;return new Promise(r=>{release=r;});});

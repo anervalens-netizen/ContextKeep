@@ -166,10 +166,9 @@ export class WorkflowEvents {
       existing?.active === 1 &&
       existing.secret &&
       this.unseal(existing.secret) === i.delivery.secret;
-    if (
-      !sameKey ||
-      Date.parse(existing!.verified_at) + 300000 < now.getTime()
-    ) {
+    const needsVerification =
+      !sameKey || Date.parse(existing!.verified_at) + 300000 < now.getTime();
+    if (needsVerification) {
       const challenge = randomBytes(32).toString("hex"),
         body = JSON.stringify({ type: "verification", challenge }),
         eventId = randomUUID();
@@ -221,13 +220,19 @@ export class WorkflowEvents {
           i.arguments.taskId,
           i.delivery.url,
           this.seal(i.delivery.secret),
-          existing?.active && !sameKey ? existing.secret : null,
+          existing?.active && !sameKey
+            ? existing.secret
+            : sameKey
+              ? (existing?.old_secret ?? null)
+              : null,
           existing?.active && !sameKey
             ? new Date(Date.now() + 300000).toISOString()
-            : null,
+            : sameKey
+              ? (existing?.rotation_until ?? null)
+              : null,
           expires,
           generation + 1,
-          new Date().toISOString(),
+          needsVerification ? new Date().toISOString() : existing!.verified_at,
         );
     })();
     return { id, refreshBefore: expires, cursor: null, truncated: false };
