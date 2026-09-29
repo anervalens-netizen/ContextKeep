@@ -23,7 +23,9 @@
     "react-dom": "19.2.8",
     "workbox-window": "7.4.1",
     "zod": "4.5.4",
-    "zustand": "5.0.15"
+    "zustand": "5.0.15",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@openai/mcp-extensions": "0.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

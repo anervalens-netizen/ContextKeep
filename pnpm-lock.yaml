@@ -47,6 +47,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.1.0
         version: 2.1.0
+      '@openai/mcp-extensions':
+        specifier: 0.1.0
+        version: 0.1.0(@modelcontextprotocol/ext-apps@1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4))(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -71,6 +74,9 @@ importers:
       prom-client:
         specifier: 15.1.3
         version: 15.1.3
+      standardwebhooks:
+        specifier: 1.1.1
+        version: 1.1.1
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -80,7 +86,7 @@ importers:
         version: 2.1.0
       '@modelcontextprotocol/sdk':
         specifier: 1.30.1
-        version: 1.30.1(zod@4.5.4)
+        version: 1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4)
       '@types/better-sqlite3':
         specifier: 9.6.0
         version: 9.6.0
@@ -105,6 +111,12 @@ importers:
       '@contextkeep/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@modelcontextprotocol/ext-apps':
+        specifier: 1.7.5
+        version: 1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4)
+      '@openai/mcp-extensions':
+        specifier: 0.1.0
+        version: 0.1.0(@modelcontextprotocol/ext-apps@1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4))(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))
       '@tanstack/react-query':
         specifier: 5.102.8
         version: 5.102.8(react@19.2.8)
@@ -724,6 +736,9 @@ packages:
 
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
+
+  '@cfworker/json-schema@4.1.1':
+    resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
   '@csstools/color-helpers@6.1.1':
     resolution: {integrity: sha512-gLNsunvwf3mCi5u5o46/Z/JcJMnhbHSaZ69rkgPzNM3J4s8hWwpPUQB6/tt0EDFyCiWzxANlx+2LJwpYj4zS1w==}
@@ -1406,6 +1421,20 @@ packages:
     resolution: {integrity: sha512-YdFj5gMRHr0gYNAhTbQDgjLHiEJdIAUYxomhKseUNye7ZGlISQmUoLh2sveFFCiQ7j2YMffT1kgSND0FSfIFjQ==}
     engines: {node: '>=20'}
 
+  '@modelcontextprotocol/ext-apps@1.7.5':
+    resolution: {integrity: sha512-TjPH2S2y5UEGKhmI6+XGFuqfqOV4ppe1x6DA3txnUaEWkgtA4G5vo14jGKFZmegdkZ1H4QMLyujLvoU1BEdnAg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.29.0
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   '@modelcontextprotocol/node@2.1.0':
     resolution: {integrity: sha512-6xg3iWVcOfiL8Y7rI6xUqXD0lI2AY5q3djsa/cOi1IJUSwx06t0gvhSwU/6mIIohrFlt40/ANUG56DQ0HLhILQ==}
     engines: {node: '>=20'}
@@ -1436,6 +1465,16 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+
+  '@openai/mcp-extensions@0.1.0':
+    resolution: {integrity: sha512-AkQ7hRS9DSUTBHgwVwd+BO6yh1y75SldqNTt8YISUnJODKD3Esg+zC2mq96FMmgzCTV7VRykkgzBzkF6W1zkdw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@modelcontextprotocol/ext-apps': ^1.7.5
+      '@modelcontextprotocol/sdk': ^1.29.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/ext-apps':
+        optional: true
 
   '@opentelemetry/api-logs@0.222.0':
     resolution: {integrity: sha512-9mb1If+IF6u0ZVXkHQ6ogEae5HwA6ajIVUgpSDQyRASxft6BSXHvBvPooRle3yFN/fKnCdSOnuu0OC3PLcF6+g==}
@@ -1794,6 +1833,12 @@ packages:
     resolution: {integrity: sha512-at8QVep6S3h5Y6gSbdGU06bRY5WJkf6WUduM9YtvYMbYhB1MOFfUgc6kehitQXzOtMSaT70q7f9ydPhpqu821w==}
     cpu: [x64]
     os: [win32]
+
+  '@stablelib/base64@1.0.1':
+    resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@tailwindcss/node@4.3.3':
     resolution: {integrity: sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg==}
@@ -2638,6 +2683,9 @@ packages:
 
   fast-querystring@1.1.2:
     resolution: {integrity: sha512-g6KuKWmFXc0fID8WWH0jit4g0AGBoJhCkJMb1RmbsSEUNvQ+ZC8D6CUZ+GtF8nMzSPXnhiePyyqqipzNNEnHjg==}
+
+  fast-sha256@1.3.0:
+    resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
   fast-uri@3.1.7:
     resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
@@ -3705,6 +3753,9 @@ packages:
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
+  standardwebhooks@1.1.1:
+    resolution: {integrity: sha512-bCbX9ZEyFkWPsRz7Bl3NuQUJohmwGSev/yhr7vhaGPlc4AfIrspIRa6cPTBuI1ItmrTDJ4d/S2hCsfe4+vQGnQ==}
+
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
@@ -4140,6 +4191,9 @@ packages:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
     peerDependencies:
       zod: ^3.25.28 || ^4
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
   zod@4.5.4:
     resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
@@ -4864,6 +4918,8 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
+  '@cfworker/json-schema@4.1.1': {}
+
   '@csstools/color-helpers@6.1.1': {}
 
   '@csstools/css-calc@3.3.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)':
@@ -5340,6 +5396,15 @@ snapshots:
     dependencies:
       zod: 4.5.4
 
+  '@modelcontextprotocol/ext-apps@1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4)':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4)
+      '@standard-schema/spec': 1.1.0
+      zod: 4.5.4
+    optionalDependencies:
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+
   '@modelcontextprotocol/node@2.1.0(@modelcontextprotocol/server@2.1.0)(hono@4.13.8)':
     dependencies:
       '@hono/node-server': 1.19.17(hono@4.13.8)
@@ -5347,7 +5412,7 @@ snapshots:
     optionalDependencies:
       hono: 4.13.8
 
-  '@modelcontextprotocol/sdk@1.30.1(zod@4.5.4)':
+  '@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.8)
       ajv: 8.20.0
@@ -5366,6 +5431,8 @@ snapshots:
       raw-body: 3.0.2
       zod: 4.5.4
       zod-to-json-schema: 3.25.2(zod@4.5.4)
+    optionalDependencies:
+      '@cfworker/json-schema': 4.1.1
     transitivePeerDependencies:
       - supports-color
 
@@ -5376,6 +5443,14 @@ snapshots:
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
+
+  '@openai/mcp-extensions@0.1.0(@modelcontextprotocol/ext-apps@1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4))(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))':
+    dependencies:
+      '@cfworker/json-schema': 4.1.1
+      '@modelcontextprotocol/sdk': 1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4)
+      zod: 4.4.3
+    optionalDependencies:
+      '@modelcontextprotocol/ext-apps': 1.7.5(@modelcontextprotocol/sdk@1.30.1(@cfworker/json-schema@4.1.1)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.5.4)
 
   '@opentelemetry/api-logs@0.222.0':
     dependencies:
@@ -5616,6 +5691,10 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.63.1':
     optional: true
+
+  '@stablelib/base64@1.0.1': {}
+
+  '@standard-schema/spec@1.1.0': {}
 
   '@tailwindcss/node@4.3.3':
     dependencies:
@@ -6513,6 +6592,8 @@ snapshots:
   fast-querystring@1.1.2:
     dependencies:
       fast-decode-uri-component: 1.0.1
+
+  fast-sha256@1.3.0: {}
 
   fast-uri@3.1.7: {}
 
@@ -7614,6 +7695,11 @@ snapshots:
 
   stackback@0.0.2: {}
 
+  standardwebhooks@1.1.1:
+    dependencies:
+      '@stablelib/base64': 1.0.1
+      fast-sha256: 1.3.0
+
   statuses@2.0.2: {}
 
   std-env@4.2.0: {}
@@ -8100,6 +8186,8 @@ snapshots:
   zod-to-json-schema@3.25.2(zod@4.5.4):
     dependencies:
       zod: 4.5.4
+
+  zod@4.4.3: {}
 
   zod@4.5.4: {}
 
