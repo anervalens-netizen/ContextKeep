@@ -12,7 +12,9 @@ activation, owner-specific plans and verification receipts stay in private stora
 - [x] Implement persistent webhook subscriptions and signed delivery.
 - [x] Add the optional executor result bridge.
 - [x] Verify retry, restart, concurrency, revocation and isolated end-to-end behavior.
-- [ ] Verify a recoverable release and actual host activation.
+- [x] Verify a recoverable release and authenticated runtime discovery.
+- [x] Qualify the live executor bridge with an idempotent read-only job.
+- [ ] Verify actual host panel activation and event-driven continuation.
 
 Process completion, webhook acceptance, agent verification and task completion
 are distinct facts. An unreviewed agent report never becomes accepted knowledge
@@ -26,7 +28,7 @@ Implementation verification:
 - Signed webhook subscriptions/outbox/delivery retries use durable storage.
 - SDK 2.1.0's closed modern capability schema needs a narrow discovery-response
   adapter to preserve the draft events capability; actual wire discovery is tested.
-- Host activation and production qualification remain pending. Local tests are not
+- Host activation remains pending. Local and service integration tests are not
   evidence of ChatGPT delivery or automatic continuation.
 
 Qualification: server functional tests, web tests and executor tests pass; recovery,
