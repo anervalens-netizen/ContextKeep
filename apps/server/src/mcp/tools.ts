@@ -380,13 +380,13 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("list_projects", "Resolve project names/aliases to UUIDs. Paginated; limit 1–50. Optional q filters names/aliases.",
     z.strictObject({ ...Page, limit: z.number().int().min(1).max(50).default(50), q: z.string().trim().min(1).max(200).optional() }), true,
     (input) => listProjects(deps, input, input.q), ProjectListResult);
-  define("get_project", "Read project metadata, canonical freshness and recent accepted context. Superseded/unreviewed records are not current truth; working freshness is exposed separately.",
+  define("get_project", "Read a project, freshness metadata and bounded accepted context. Use get_work_context for task-scoped working memory.",
     z.strictObject({ projectId: ProjectId, limit: z.number().int().min(1).max(24).default(12) }), true,
     (input) => service.getProjectOverview(context, input), z.object({ project: z.unknown(), recentCanonicalRecords: z.array(z.unknown()), acceptedCounts: z.record(z.string(), z.number()) }).passthrough());
-  define("get_work_context", "Start work on one project with one deterministic bounded call. Returns canonical goals/decisions, facts/current-state, constraints, open actions/questions, separately labeled unreviewed working memory, latest checkpoint, handoffs, both freshness cursors and stale/truncated/unknown indicators. Optional task ranks relevant items; totalContextBudgetChars is a strict serialized response budget. Set diagnostics=true for bounded deterministic lexical selection/omission reasons; diagnostics are absent by default. No raw source bodies, inferred goals, hidden reasoning, or provider calls.",
+  define("get_work_context", "Read bounded canonical and separate proposed context, checkpoints, handoffs and freshness. task ranks items; totalContextBudgetChars caps serialized output. diagnostics reports selection/omission. No inferred goals, raw sources or provider calls.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), limitPerSection: z.number().int().min(1).max(10).default(5), task: z.string().trim().min(1).max(2000).optional(), totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(), diagnostics: z.boolean().default(false), permanentConstraintIds: z.array(z.string().uuid()).max(5).optional() }), true,
     (input) => service.getWorkContext(context, input), McpWorkContextResult);
-  define("get_context_delta", "Read durable incremental project context from canonical+working cursors and project revision. The first page fixes a durable high-watermark; later pageToken reads are stable across concurrent writes. Missing/expired/ahead history returns resetRequired with an exact full material snapshot instead of an empty delta.",
+  define("get_context_delta", "Read canonical/working cursor deltas bound to project revision. Page tokens retain a stable high-watermark across writes. Missing, expired or ahead history returns resetRequired plus the full material snapshot, not an empty delta.",
     z.strictObject({
       projectId: ProjectId,
       canonicalCursor: z.number().int().min(0),
@@ -400,11 +400,11 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readBrief(deps, input), BriefResult);
   define("get_project_timeline", "Read accepted and superseded history, newest first, with confirmed supersession links. SQL pagination; limit 1–50.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readTimeline(deps, input), TimelineResult);
-  define("search_context", "Search bounded project memory with scope=canonical (default), working (only unreviewed agent_report memory) or all (separate canonical and working result arrays). Canonical results remain truth-bearing; working results are explicitly proposal-only with provenance/status/timestamps and never blended into canonical truth. Historical/superseded canonical content is opt-in. Limit 1–15.",
+  define("search_context", "Search canonical (default), proposed agent reports (working), or separately labeled arrays (all). Preserve status/provenance/timestamps; never blend working into truth. Historical canonical content is opt-in. Limit 1–15.",
     z.strictObject({ q: z.string().trim().min(1).max(500), projectId: ProjectId.optional(),
       match: z.enum(["terms", "phrase"]).default("terms"), scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false), limit: z.number().int().min(1).max(15).default(10) }), true,
     (input) => service.searchContext(context, input), McpSearchResultDto);
-  define("get_record", "Read complete record text, revision and paged evidence. Default accepted/historical; includeUnreviewed enables proposals/rejected/deleted states. evidenceLimit 1–10; each excerpt capped at 4000 chars, get_source reads the rest.",
+  define("get_record", "Read one record with paged evidence. Accepted-only by default; includeUnreviewed explicitly opts into proposed reports. Preserve provenance and review status.",
     z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
     input => readRecord(deps, input), RecordResult);
   define("create_handoff", "When the user asks for a handoff, persist a canonical evidence-based handoff snapshot. This writes an export, not new accepted knowledge.",
@@ -422,7 +422,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         return confirmation;
       })();
     }, CorrectionConfirmResult);
-  define("add_source", "Save supplied user text or an explicitly labeled agent report through canonical manual import. Preserve authorLabel; do not represent agent observations as owner declarations. No model calls, URL fetching, filesystem reads or automatic acceptance. Proposed material remains unreviewed.",
+  define("add_source", "Import supplied owner text or explicitly attributed agent reports. Preserve authorLabel; agent observations are not owner declarations. No model/URL/filesystem reads or auto-acceptance.",
     z.strictObject({ projectId: ProjectId, text: z.string().trim().min(1).max(64000),
       title: z.string().max(400).nullable().default(null), authorLabel: z.string().max(200).default("owner via MCP"), eventAt: z.string().datetime().nullable().default(null),
       ...IdentityFields, idempotencyKey: WriteKey }), false, (input) => {
@@ -436,7 +436,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     blockers: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
     artifactRefs: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
   });
-  define("capture_working_memory", "Capture useful agent working memory immediately when the owner has configured delegation for this MCP endpoint. Proposal-only: persists agent-authored evidence and an unreviewed agent_report; optional checkpoint metadata is stored in the existing structured valueJson field; never changes accepted task progress or canonical truth. On a shared endpoint, optional clientId selects stable per-agent attribution; otherwise the configured default client is used.",
+  define("capture_working_memory", "Delegated proposal-only evidence capture with optional checkpoint/runEvidence. Never changes accepted progress or truth. Requires owner-configured delegation and a stable explicit clientId or configured default identity.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
       runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
       outcome: z.string().trim().min(1).max(8000),
@@ -454,7 +454,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         clientId: delegatedClientId, sessionId: input.sessionId ?? "delegated-working-memory", idempotencyKey: input.idempotencyKey,
       }));
     }, CaptureResult);
-  define("capture_work", "Atomically capture one agent work outcome: persist supplied evidence as an agent-authored source, create an evidence-linked proposed outcome record, optionally persist structured checkpoint metadata (summary/outcome, nextAction, blockers, artifactRefs), and optionally update explicit accepted action progress. For execution verification, supply runEvidence with the current runId, runRevision and exact externalJobId after inspecting its receipt. The outcome is never auto-accepted.",
+  define("capture_work", "Atomically save evidence and a proposed agent report; optionally checkpoint or explicitly update accepted action progress. Verification requires runEvidence matching the inspected terminal runId, runRevision and externalJobId. Never auto-accept.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
       runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
       outcome: z.string().trim().min(1).max(8000),
@@ -466,7 +466,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("list_blockers", "Read bounded blocker lifecycle pages for one project. Counts are exact; active/resolved/history arrays are paginated with one shared offset/limit. Blocker ids derive from checkpoint record/index; later checkpoints that omit a blocker do not resolve it.",
     z.strictObject({ projectId: ProjectId, offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(25) }), true,
     (input) => getBlockerState(deps, input.projectId, input), BlockerStateResult);
-  define("resolve_blocker", "Explicitly resolve or withdraw one blocker by blockerId. The resolution is evidence-linked proposed agent_report working memory, never canonical truth and never marks a linked accepted action done. Same-key retries replay; stale/cross-project references fail closed.",
+  define("resolve_blocker", "Resolve/withdraw a blocker into proposed evidence; retain its originating task. Never accepts knowledge or closes the action. Same-key retries replay; stale/cross-project references fail.",
     z.strictObject({
       projectId: ProjectId,
       blockerId: z.string().trim().min(1).max(120),
