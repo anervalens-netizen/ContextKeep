@@ -43,6 +43,8 @@ An explicit task-record `done` or `cancelled` status takes precedence over any
 agent progress report. A later audited task-status change
 supersedes progress tied to older revisions, including an explicit reopening.
 A text edit or owner acceptance alone is not a status change or reopening.
+Explicit status edits during owner acceptance are recognized from the resulting
+acceptance snapshot, including historical edits with intermediate audit revisions.
 The older report is retained with its provenance; it cannot authorize a new
 continuation claim. Changing a report is not an implicit owner reopening.
 

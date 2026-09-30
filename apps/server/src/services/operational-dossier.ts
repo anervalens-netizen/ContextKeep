@@ -73,11 +73,13 @@ export function effectiveTaskState(
   progress: ReturnType<typeof getTaskProgress>,
 ) {
   // A text edit or review also increments revision. Only an audited status
-  // change may supersede reported progress with a nonterminal state.
+  // change may supersede reported progress with a nonterminal state. Acceptance
+  // snapshots also cover retained edits whose intermediate snapshot used the
+  // pre-acceptance revision; immutable audit rows need not be rewritten.
   const statusChangedAfterReport = task.taskStatus !== null && progress !== null &&
     progress.taskRevision < task.revision && !!deps.sqlite.prepare(`
       SELECT 1 FROM audit_events
-      WHERE target_type='record' AND target_id=? AND action='record.edited'
+      WHERE target_type='record' AND target_id=? AND action IN ('record.edited','record.accepted')
         AND json_valid(before_ref) AND json_valid(after_ref)
         AND CAST(json_extract(after_ref,'$.revision') AS INTEGER)>?
         AND CAST(json_extract(after_ref,'$.revision') AS INTEGER)<=?

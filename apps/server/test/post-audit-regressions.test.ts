@@ -394,3 +394,90 @@ it("does not reinterpret a proposed text edit as an explicit task reopening", as
   expect(resumed.dossier.stateSource).toBe("reported_progress");
   expect(resumed.dossier.taskReviewStatus).toBe("proposed");
 });
+
+it("recognizes an explicit status edit during owner acceptance, including retained audit snapshots", async () => {
+  const f = await setup();
+  const { t, deps, projectId, taskId } = f;
+  await call(t, "set_task_continuation", {
+    projectId,
+    taskId,
+    expectedPolicyRecordId: null,
+    mode: "verify_and_report",
+    objective: "Inspect the existing synthetic result",
+    evidenceText: "Synthetic bounded authorization",
+    ...identity(),
+  });
+  const run = await startRun(f),
+    terminal = await observe(f, run, "2026-01-02T12:00:00Z");
+  reportTaskProgress(
+    deps,
+    {
+      projectId,
+      taskId,
+      taskRevision: 1,
+      expectedProgressRecordId: null,
+      status: "cancelled",
+      summary: "Synthetic stopped task",
+      nextAction: null,
+      ownerAction: null,
+      evidenceText: "Synthetic stop report",
+    },
+    { actor: "test:post-audit", requestId: randomUUID() },
+  );
+  const accepted = await t.post("/api/inbox/decide", {
+    items: [{ recordId: taskId, revision: 1 }],
+    action: "accept",
+    edits: { [taskId]: { revision: 1, taskStatus: "open" } },
+    ownerAction: true,
+  });
+  expect(accepted.statusCode, accepted.payload).toBe(200);
+  const resumed = await call(t, "resume_task", { projectId, taskId });
+  expect(resumed.dossier.taskReviewStatus).toBe("accepted");
+  expect(resumed.dossier.state).toBe("open");
+  const claim = await call(t, "claim_continuation", {
+    projectId,
+    taskId,
+    runId: run.runId,
+    runRevision: terminal.run.revision,
+    consumerId: "synthetic-consumer",
+    ...identity(),
+  });
+  expect(claim.claimed).toBe(true);
+});
+
+it("does not reinterpret plain owner acceptance as reopening a reported cancellation", async () => {
+  const f = await setup();
+  const { t, deps, projectId, taskId } = f;
+  await call(t, "edit_record", {
+    recordId: taskId,
+    revision: 1,
+    taskStatus: "open",
+    ...identity(),
+  });
+  reportTaskProgress(
+    deps,
+    {
+      projectId,
+      taskId,
+      taskRevision: 2,
+      expectedProgressRecordId: null,
+      status: "cancelled",
+      summary: "Synthetic stopped task",
+      nextAction: null,
+      ownerAction: null,
+      evidenceText: "Synthetic stop report",
+    },
+    { actor: "test:post-audit", requestId: randomUUID() },
+  );
+  const accepted = await t.post("/api/inbox/decide", {
+    items: [{ recordId: taskId, revision: 2 }],
+    action: "accept",
+    edits: {},
+    ownerAction: true,
+  });
+  expect(accepted.statusCode, accepted.payload).toBe(200);
+  const resumed = await call(t, "resume_task", { projectId, taskId });
+  expect(resumed.dossier.taskReviewStatus).toBe("accepted");
+  expect(resumed.dossier.state).toBe("cancelled");
+  expect(resumed.dossier.stateSource).toBe("reported_progress");
+});

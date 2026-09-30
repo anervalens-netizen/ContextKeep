@@ -15,7 +15,11 @@ No production data is used in fixtures. Operational receipts remain private.
 Do not auto-accept reports, replay jobs, remove blockers, or impose blanket exit-code rules.
 
 Evidence: the same 22 synthetic cases produced 16 expected failures and six passing
-controls on the unchanged baseline; all 22 pass on the implementation. Type,
+controls on the unchanged baseline; all 22 pass on the implementation.
+Three additional controls cover text-only edits, explicit reopening during owner
+acceptance, and plain acceptance without reopening. All 25 focused cases pass.
+The acceptance case was independently reproduced from external review and fixed
+using the existing resulting acceptance snapshot, without rewriting old audits. Type,
 context, static and privacy checks passed. Full release qualification is running.
 
 Next: finish the complete gate and external review; no deployment is claimed yet.
