@@ -112,7 +112,7 @@ function assertRequiredColumns(db: Database.Database, table: string, columns: st
   }
 }
 
-function assertVersionedSchemaShape(db: Database.Database, schemaVersion: number): void {
+export function assertVersionedSchemaShape(db: Database.Database, schemaVersion: number): void {
   const existing = new Set(
     (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((row) => row.name),
   );

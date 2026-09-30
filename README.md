@@ -61,5 +61,5 @@ Event delivery supports generation-safe renewal and bounded graceful shutdown.
 The host widget advertises v5 while retaining reads of installed v2/v3/v4 resources.
 
 Private monitoring can use authenticated `GET /api/health`. It reports a real
-SQLite read, not merely successful delivery of the application's HTML. Production
+SQLite application/schema read, not merely successful delivery of the application's HTML. Production
 qualification still requires the release gate and independent recovery evidence.

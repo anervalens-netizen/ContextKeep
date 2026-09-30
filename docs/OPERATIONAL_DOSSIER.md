@@ -39,6 +39,18 @@ binding remains visible as historical context and cannot replace a selected
 task's next step. Reported and accepted task states may disagree; the dossier
 shows the distinction rather than changing either implicitly.
 
+An explicit task-record `done` or `cancelled` status takes precedence over any
+agent progress report. A later task-record revision with an explicit status
+supersedes progress tied to older revisions, including an explicit reopening.
+The older report is retained with its provenance; it cannot authorize a new
+continuation claim. Changing a report is not an implicit owner reopening.
+
+Resume text includes `historicalVerification`, `currentEvidenceValidity`, and
+all actionable dossier warnings. A historical pass is never presented as proof
+that edited, retracted, or legacy-unbound evidence remains valid. Resume stays
+read-only and instructs the next consumer to reread the selected task.
+
+
 `get_operational_timeline` combines record history and retained latest run
 observations with source/review labels. It is not a complete OS process log.
 `get_project_timeline` retains its canonical-only compatibility contract.

@@ -521,7 +521,7 @@ describe("blocker resolution traceability and readiness", () => {
     expect(ready.headers["cache-control"]).toContain("no-store");
     const original = deps.sqlite.prepare.bind(deps.sqlite);
     vi.spyOn(deps.sqlite, "prepare").mockImplementation(((sql: string) => {
-      if (sql === "SELECT 1 AS reachable")
+      if (sql === "SELECT MAX(version) AS version FROM schema_version")
         throw new Error("Private failure details");
       return original(sql);
     }) as typeof deps.sqlite.prepare);

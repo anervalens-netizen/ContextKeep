@@ -85,3 +85,19 @@ idempotency key and identical arguments.
 
 New evidence is still an unreviewed agent report. Run verification, operational
 task progress and canonical knowledge remain independent.
+
+## UTC observation ordering
+
+MCP 2.13.1 compares UTC observation instants chronologically, including timestamps
+without fractions, equivalent fractions with trailing zeroes, and sub-millisecond
+precision. Retained observation timestamps and event hashes are not rewritten.
+Equal or older instants remain journaled but do not invalidate a verified run;
+an actually newer observation resets verification as before.
+
+## Readiness
+
+Authenticated `/api/health` checks the actual schema stamp against the runtime,
+required application tables/columns/indexes/triggers using the recovery schema
+contract, and bounded project/record reads. Missing structure, incompatible
+schema, or a failed read returns 503 with no private diagnostics. It does not
+perform an expensive integrity scan or replace independent backup qualification.

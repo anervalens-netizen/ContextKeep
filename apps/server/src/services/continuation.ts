@@ -4,7 +4,7 @@ import type { ActorCtx, ServiceDeps } from "./import.js";
 import { requireTaskScope } from "./task-scope.js";
 import { captureWork } from "./capture-work.js";
 import { getRun } from "./workflow.js";
-import { getTaskProgress, latestTaskValue } from "./operational-dossier.js";
+import { effectiveTaskState, getTaskProgress, latestTaskValue } from "./operational-dossier.js";
 import { ApiError } from "../lib/errors.js";
 
 type Scope = { projectId: string; taskId: string };
@@ -104,7 +104,7 @@ export function claimContinuation(
       return { claimed: false, reason: "execution_not_terminal" };
     if (run.verification !== "pending")
       return { claimed: false, reason: "already_verified" };
-    const state = getTaskProgress(deps, task.id)?.status ?? task.taskStatus;
+    const { state } = effectiveTaskState(task, getTaskProgress(deps, task.id));
     if (state === "done" || state === "cancelled")
       return { claimed: false, reason: "task_closed" };
     const policyRow = latestTaskValue(deps, task.id, "continuation_policy");

@@ -203,6 +203,13 @@ export type ObservationInput = RunScope & {
   exitCode: number | null;
   observedAt: string;
 };
+/** MCP observations are UTC ISO instants. Retain arbitrary fractional precision:
+ * Date.parse would collapse distinct sub-millisecond events. Do not rewrite raw
+ * payloads/rows, which are part of immutable observation hashes and retries. */
+function observationTimeKey(value: string): string {
+  const [seconds, fraction = ""] = value.slice(0, -1).split(".");
+  return `${seconds}.${fraction.replace(/0+$/, "")}`;
+}
 export function observeRun(deps: ServiceDeps, input: ObservationInput) {
   return deps.sqlite.transaction(() => {
     const run = getRun(deps, input.projectId, input.taskId, input.runId);
@@ -243,7 +250,7 @@ export function observeRun(deps: ServiceDeps, input: ObservationInput) {
     // A late observation may refine a lost result; older/conflicting terminal facts remain in the journal.
     const previous = deps.sqlite
       .prepare(
-        "SELECT observed_at AS at FROM workflow_observations WHERE run_id=? ORDER BY observed_at DESC LIMIT 1",
+        "SELECT observed_at AS at FROM workflow_observations WHERE run_id=? ORDER BY rtrim(observed_at, 'Z') DESC LIMIT 1",
       )
       .get(run.id) as { at: string } | undefined;
     const id = randomUUID(),
@@ -260,7 +267,7 @@ export function observeRun(deps: ServiceDeps, input: ObservationInput) {
         input.observedAt,
         now,
       );
-    const apply = !previous || input.observedAt > previous.at;
+    const apply = !previous || observationTimeKey(input.observedAt) > observationTimeKey(previous.at);
     if (apply)
       deps.sqlite
         .prepare(
