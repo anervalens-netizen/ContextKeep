@@ -37,6 +37,36 @@ async function call(name: string, args: Record<string, unknown> = {}) {
   return result.structuredContent as Record<string, unknown>;
 }
 const transport: TaskTransport = {
+  overview: async (projectId, offset = 0) =>
+    (await call("get_project_dossier", {
+      projectId,
+      offset,
+      limit: 10,
+    })) as unknown as Awaited<
+      ReturnType<NonNullable<TaskTransport["overview"]>>
+    >,
+  portfolio: async (offset = 0) =>
+    (await call("get_portfolio", {
+      offset,
+      limit: 20,
+      includeRetired: false,
+    })) as unknown as Awaited<
+      ReturnType<NonNullable<TaskTransport["portfolio"]>>
+    >,
+  resume: async (projectId, taskId) =>
+    (await call("resume_task", { projectId, taskId })) as unknown as Awaited<
+      ReturnType<NonNullable<TaskTransport["resume"]>>
+    >,
+  activity: async (projectId, taskId, offset = 0, scope = "all") =>
+    (await call("get_operational_timeline", {
+      projectId,
+      ...(taskId ? { taskId } : {}),
+      offset,
+      limit: 20,
+      scope,
+    })) as unknown as Awaited<
+      ReturnType<NonNullable<TaskTransport["activity"]>>
+    >,
   projects: async () => {
     const projects = [];
     let offset: number | null = 0;
@@ -64,6 +94,12 @@ function render() {
     <TaskPanel
       transport={transport}
       selection={selection}
+      onResume={(s, text) => {
+        void extensions.modelContext?.update({
+          structuredContent: { ...s, resumeRequested: true },
+          content: [{ type: "text", text }],
+        });
+      }}
       onSelection={(s) => {
         const compact = JSON.stringify(s);
         if (compact === lastSelection) return;

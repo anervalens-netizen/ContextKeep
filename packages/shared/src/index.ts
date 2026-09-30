@@ -15,7 +15,7 @@ export * from "./resume.js";
  * Future persistent schema migrations MUST bump this constant so older builds
  * refuse the newer store.
  */
-export const APP_SCHEMA_VERSION = 17;
+export const APP_SCHEMA_VERSION = 18;
 
 /** Adapter registry contract (handoff §8 step 4, M0 scope 11). */
 export interface ExtractionAdapter {

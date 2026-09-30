@@ -1,4 +1,5 @@
 import { listTasks,getTaskView } from "../services/workflow.js";
+import { projectDossier, resumeTask, portfolioOverview, operationalTimeline } from "../services/operational-dossier.js";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import {
@@ -27,6 +28,27 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/tasks",async request=>{const p=z.object({id:z.string().uuid()}).parse(request.params);const q=page.parse(request.query);return listTasks(deps,p.id,q.offset,q.limit);});
   app.get("/api/projects/:id/tasks/:taskId",async request=>{const p=z.object({id:z.string().uuid(),taskId:z.string().uuid()}).parse(request.params);return getTaskView(deps,{projectId:p.id,taskId:p.taskId,...page.parse(request.query)});});
 
+  const dossierParams = z.object({ id: z.string().uuid() });
+  app.get("/api/portfolio", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    const q = page.parse(request.query); return portfolioOverview(deps, q.offset, q.limit);
+  });
+  app.get("/api/projects/:id/dossier", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    const p = dossierParams.parse(request.params), q = page.parse(request.query);
+    return projectDossier(deps, p.id, q.offset, q.limit);
+  });
+  app.get("/api/projects/:id/tasks/:taskId/resume", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    const p = dossierParams.extend({ taskId: z.string().uuid() }).parse(request.params);
+    return resumeTask(deps, p.id, p.taskId);
+  });
+  app.get("/api/projects/:id/activity", async (request, reply) => {
+    reply.header("cache-control", "no-store");
+    const p = dossierParams.parse(request.params);
+    const q = page.extend({ taskId: z.string().uuid().optional(), scope: z.enum(["all","canonical","working","executions"]).default("all") }).parse(request.query);
+    return operationalTimeline(deps, { projectId: p.id, ...q, includeRetired: true });
+  });
   app.get("/api/projects", async () => {
     const rows = deps.db.select().from(projects).all();
     return rows.map(toProjectDto);

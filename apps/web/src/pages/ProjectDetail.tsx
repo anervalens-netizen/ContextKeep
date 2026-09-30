@@ -319,8 +319,11 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
         </div>
       </section>
 
-      <ProjectMemoryDashboard projectId={projectId} />
       <PwaTaskPanel projectId={projectId} />
+      <details className="rounded-2xl border border-ck-line bg-ck-surface p-4">
+        <summary className="cursor-pointer text-sm font-semibold">Istoric și detalii ale memoriei proiectului</summary>
+        <ProjectMemoryDashboard projectId={projectId} />
+      </details>
 
       {sessionCount > 0 ? <ProjectHistoryBackfill projectId={projectId} sessionCount={sessionCount} /> : null}
 

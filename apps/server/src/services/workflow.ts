@@ -1,4 +1,5 @@
 import { enqueueExecutionEvent } from "./workflow-events.js";
+import { taskDossier, getTaskProgress } from "./operational-dossier.js";
 import { randomUUID } from "node:crypto";
 import type { ServiceDeps } from "./import.js";
 import { requireTaskScope } from "./task-scope.js";
@@ -375,6 +376,7 @@ export function getTaskView(
   ).n;
   return {
     task,
+    dossier: taskDossier(deps, input.projectId, input.taskId),
     latestCheckpoint: latestCheckpointFor(
       deps.db,
       input.projectId,
@@ -418,7 +420,7 @@ export function listTasks(
       .get(projectId) as { n: number }
   ).n;
   return {
-    items: rows,
+    items: rows.map((row) => { const r = row as { id: string }; return { ...r, operationalProgress: getTaskProgress(deps, r.id) }; }),
     total,
     offset,
     limit,

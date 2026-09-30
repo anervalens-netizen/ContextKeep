@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { z } from "zod";
 import { registerWorkflowTools } from "../../server/dist/mcp/workflow-tools.js";
+import { registerDossierTools } from "../../server/dist/mcp/dossier-tools.js";
 
 // Consume the server's actual published contracts. Zod parsing alone would
 // insert defaults and hide arguments missing at the host validation boundary.
@@ -14,6 +15,13 @@ registerWorkflowTools((name, _description, schema) => {
   if (["list_tasks", "get_task"].includes(name))
     taskInputs[name] = z.toJSONSchema(schema, { target: "draft-7" });
 }, {});
+registerDossierTools(
+  (name, _description, schema) => {
+    taskInputs[name] = z.toJSONSchema(schema, { target: "draft-7" });
+  },
+  {},
+  () => ({ actor: "test" }),
+);
 
 const dist = process.env.CK_MCP_DIST
   ? new URL("file://" + process.env.CK_MCP_DIST.replace(/\/$/, "") + "/")
@@ -123,7 +131,66 @@ try {
               reviewStatus: "proposed",
               revision: 1,
             };
+            const dossier = {
+              projectId: "demo-project",
+              taskId: "demo-task",
+              title: "Synthetic task",
+              objective: "Verify the synthetic result",
+              taskRevision: 1,
+              state: "in_progress",
+              stateSource: "reported_progress",
+              summary: "Synthetic verification is ready",
+              nextAction: "Inspect the existing synthetic artifact",
+              ownerAction: null,
+              progress: null,
+              lastReported: {
+                recordId: "report-a",
+                recordedAt: "2026-01-01T00:00:00.000Z",
+                reviewStatus: "proposed",
+                evidenceBasis: "agent_report",
+              },
+              execution: null,
+              blockers: { activeCount: 0 },
+              continuation: {
+                policy: null,
+                activeSubscriptions: 0,
+                ready: false,
+              },
+              warnings: [],
+              stateToken: "synthetic-state-1",
+            };
+            const project = {
+              id: "demo-project",
+              name: "Demo project",
+              lifecycle: "active",
+            };
             const results = {
+              get_project_dossier: {
+                project,
+                goals: [],
+                tasks: [],
+                pagination: { total: 1, nextOffset: null },
+                historicalUnscopedCheckpoints: 0,
+                links: { items: [] },
+              },
+              get_portfolio: {
+                items: [
+                  { ...project, taskCount: 1, tasks: [], moreTasks: false },
+                ],
+                total: 1,
+                nextOffset: null,
+              },
+              resume_task: {
+                dossier,
+                resumeText:
+                  "Resume synthetic task: inspect the existing artifact; do not restart its job.",
+                startsExecution: false,
+              },
+              get_operational_timeline: {
+                items: [],
+                total: 0,
+                nextOffset: null,
+              },
               list_projects: {
                 projects: [{ id: "demo-project", name: "Demo project" }],
                 nextOffset: null,
@@ -131,6 +198,7 @@ try {
               list_tasks: { items: [task], nextOffset: null },
               get_task: {
                 task,
+                dossier,
                 latestCheckpoint: null,
                 blockers: { active: [] },
                 runs: [],
@@ -201,6 +269,24 @@ try {
           await app.getByLabel("Task", { exact: true }).inputValue(),
           "demo-task",
         );
+        await app
+          .getByRole("heading", { name: "Ce contează acum", exact: true })
+          .waitFor();
+        await app
+          .getByRole("button", { name: "Reia lucrarea", exact: true })
+          .click();
+        await app.getByLabel("Resume context", { exact: true }).waitFor();
+        assert.match(
+          await app.getByLabel("Resume context").inputValue(),
+          /do not restart/,
+        );
+        const frameElement = page.frames().find((f) => f.parentFrame());
+        assert.equal(
+          await frameElement.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth,
+          ),
+          true,
+        );
         const calls = await page.evaluate(() => window.calls);
         assert.ok(
           calls.some(
@@ -217,6 +303,10 @@ try {
               "list_projects",
               "list_tasks",
               "get_task",
+              "get_project_dossier",
+              "get_portfolio",
+              "resume_task",
+              "get_operational_timeline",
             ].includes(c.name),
           ),
         );

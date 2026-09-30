@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import "./task-panel.css";
+import {
+  TaskNow,
+  ProjectNow,
+  PortfolioNow,
+  OperationalHistory,
+  type TaskDossier,
+  type ProjectDossier,
+  type PortfolioPage,
+  type ActivityPage,
+} from "./OperationalDossier.js";
 export type TaskSelection = {
   projectId: string;
   taskId: string;
   revision: number;
+  stateToken?: string;
 };
 type Project = { id: string; name: string };
 type Task = {
@@ -24,6 +35,7 @@ type Run = {
 };
 export type TaskView = {
   task: Task;
+  dossier?: TaskDossier;
   latestCheckpoint: {
     recordedAt: string;
     provenance: string;
@@ -42,6 +54,22 @@ export type TaskView = {
 };
 export interface TaskTransport {
   projects(): Promise<Project[]>;
+  overview?: (projectId: string, offset?: number) => Promise<ProjectDossier>;
+  portfolio?: (offset?: number) => Promise<PortfolioPage>;
+  resume?: (
+    projectId: string,
+    taskId: string,
+  ) => Promise<{
+    dossier: TaskDossier;
+    resumeText: string;
+    startsExecution: false;
+  }>;
+  activity?: (
+    projectId: string,
+    taskId?: string,
+    offset?: number,
+    scope?: string,
+  ) => Promise<ActivityPage>;
   tasks(
     projectId: string,
     offset?: number,
@@ -53,11 +81,13 @@ export function TaskPanel({
   projectId: fixedProject,
   selection,
   onSelection,
+  onResume,
 }: {
   transport: TaskTransport;
   projectId?: string;
   selection?: TaskSelection;
   onSelection?: (s: TaskSelection) => void;
+  onResume?: (s: TaskSelection, text: string) => void;
 }) {
   const [projects, setProjects] = useState<Project[]>([]),
     [projectId, setProjectId] = useState(
@@ -65,6 +95,14 @@ export function TaskPanel({
     ),
     [taskId, setTaskId] = useState(selection?.taskId ?? "");
   const [offset, setOffset] = useState(0);
+  const [resumeText, setResumeText] = useState("");
+  const [resuming, setResuming] = useState(false);
+  const selectedKey = useRef("");
+  selectedKey.current = `${projectId}:${taskId}`;
+  useEffect(() => {
+    setResumeText("");
+    setResuming(false);
+  }, [projectId, taskId]);
   useEffect(() => setOffset(0), [projectId, taskId]);
   const [tasks, setTasks] = useState<Task[]>([]),
     [nextTasks, setNextTasks] = useState<number | null>(null),
@@ -136,11 +174,14 @@ export function TaskPanel({
   }, [transport, projectId]);
   useEffect(() => {
     const request = ++serial.current;
-    let stopped = false;
+    let stopped = false,
+      pending = false;
     setView(null);
     setError("");
     if (!projectId || !taskId) return;
     const refresh = async () => {
+      if (pending || stopped) return;
+      pending = true;
       try {
         setLoading(true);
         const next = await transport.task(projectId, taskId, offset);
@@ -151,16 +192,20 @@ export function TaskPanel({
           projectId,
           taskId,
           revision: next.task.revision,
+          ...(next.dossier ? { stateToken: next.dossier.stateToken } : {}),
         });
       } catch {
         if (!stopped && serial.current === request)
           setError("Could not refresh task. Displayed data may be stale.");
       } finally {
+        pending = false;
         if (!stopped && serial.current === request) setLoading(false);
       }
     };
     void refresh();
-    const timer = setInterval(() => void refresh(), 5000);
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "hidden") void refresh();
+    }, 15000);
     return () => {
       stopped = true;
       clearInterval(timer);
@@ -177,6 +222,30 @@ export function TaskPanel({
       }
     } catch {
       setError("Could not load more tasks.");
+    }
+  }
+  async function prepareResume() {
+    if (!transport.resume || resuming) return;
+    const key = selectedKey.current;
+    setResuming(true);
+    try {
+      const result = await transport.resume(projectId, taskId);
+      if (selectedKey.current !== key) return;
+      setResumeText(result.resumeText);
+      onResume?.(
+        {
+          projectId,
+          taskId,
+          revision: result.dossier.taskRevision,
+          stateToken: result.dossier.stateToken,
+        },
+        result.resumeText,
+      );
+    } catch {
+      if (selectedKey.current === key)
+        setError("Contextul de reluare nu poate fi pregătit.");
+    } finally {
+      if (selectedKey.current === key) setResuming(false);
     }
   }
   return (
@@ -221,7 +290,7 @@ export function TaskPanel({
             <option value="">Select a task</option>
             {tasks.map((t) => (
               <option key={t.id} value={t.id}>
-                {(t.text ?? t.subject).slice(0, 160)} · {t.reviewStatus}
+                {t.subject.slice(0, 160)} · {t.reviewStatus}
               </option>
             ))}
           </select>
@@ -231,6 +300,19 @@ export function TaskPanel({
         )}
       </div>
       {error && <p role="alert">{error}</p>}
+      {!projectId && transport.portfolio && (
+        <PortfolioNow load={transport.portfolio} onProject={setProjectId} />
+      )}
+      {projectId && !taskId && transport.overview && (
+        <ProjectNow
+          projectId={projectId}
+          load={transport.overview}
+          onTask={setTaskId}
+        />
+      )}
+      {projectId && !taskId && transport.activity && (
+        <OperationalHistory projectId={projectId} load={transport.activity} />
+      )}
       {!view && tasksStatus !== "error" && (
         <p className="ck-task-muted">
           {tasksStatus === "loading"
@@ -244,34 +326,64 @@ export function TaskPanel({
       )}
       {view && (
         <>
-          <div className="ck-task-state">
-            <strong>{view.task.text ?? view.task.subject}</strong>
-            <span>{view.task.taskStatus ?? "No progress recorded"}</span>
-            <span>
-              {view.task.reviewStatus} · revision {view.task.revision}
-            </span>
-          </div>
-          <article>
-            <h3>Resume</h3>
-            <p>
-              {view.latestCheckpoint?.checkpoint?.summary ??
-                "No checkpoint for this task."}
-            </p>
-            {view.latestCheckpoint && (
-              <>
-                <p>
-                  <b>Next:</b>{" "}
-                  {view.latestCheckpoint.checkpoint?.nextAction ??
-                    "Not specified"}
-                </p>
-                <small>
-                  {view.latestCheckpoint.status} ·{" "}
-                  {view.latestCheckpoint.provenance} ·{" "}
-                  {new Date(view.latestCheckpoint.recordedAt).toLocaleString()}
-                </small>
-              </>
-            )}
-          </article>
+          {view.dossier && <TaskNow dossier={view.dossier} />}
+          {transport.resume && (
+            <div className="ck-resume-controls">
+              <button disabled={resuming} onClick={() => void prepareResume()}>
+                {resuming ? "Se pregătește…" : "Reia lucrarea"}
+              </button>
+              <small>
+                Pregătește contextul actual. Nu pornește nicio execuție.
+              </small>
+              {resumeText && (
+                <label>
+                  Context de reluare
+                  <textarea
+                    aria-label="Resume context"
+                    readOnly
+                    value={resumeText}
+                    rows={9}
+                    onFocus={(e) => e.target.select()}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+          <details className="ck-original-task">
+            <summary>Obiectivul și starea inițială</summary>
+            <div className="ck-task-state">
+              <strong>{view.task.text ?? view.task.subject}</strong>
+              <span>{view.task.taskStatus ?? "No progress recorded"}</span>
+              <span>
+                {view.task.reviewStatus} · revision {view.task.revision}
+              </span>
+            </div>
+          </details>
+          {!view.dossier && (
+            <article>
+              <h3>Resume</h3>
+              <p>
+                {view.latestCheckpoint?.checkpoint?.summary ??
+                  "No checkpoint for this task."}
+              </p>
+              {view.latestCheckpoint && (
+                <>
+                  <p>
+                    <b>Next:</b>{" "}
+                    {view.latestCheckpoint.checkpoint?.nextAction ??
+                      "Not specified"}
+                  </p>
+                  <small>
+                    {view.latestCheckpoint.status} ·{" "}
+                    {view.latestCheckpoint.provenance} ·{" "}
+                    {new Date(
+                      view.latestCheckpoint.recordedAt,
+                    ).toLocaleString()}
+                  </small>
+                </>
+              )}
+            </article>
+          )}
           {view.blockers.active.length > 0 && (
             <article>
               <h3>Blockers</h3>
@@ -306,21 +418,30 @@ export function TaskPanel({
               ))
             )}
           </article>
-          <article>
-            <h3>Evidence timeline</h3>
-            {view.records.length === 0 ? (
-              <p>No reports for this task.</p>
-            ) : (
-              view.records.map((r) => (
-                <details key={r.id}>
-                  <summary>
-                    {new Date(r.recordedAt).toLocaleString()} · {r.reviewStatus}
-                  </summary>
-                  <p className="ck-task-evidence">{r.text}</p>
-                </details>
-              ))
-            )}
-          </article>
+          {transport.activity ? (
+            <OperationalHistory
+              projectId={projectId}
+              taskId={taskId}
+              load={transport.activity}
+            />
+          ) : (
+            <article>
+              <h3>Evidence timeline</h3>
+              {view.records.length === 0 ? (
+                <p>No reports for this task.</p>
+              ) : (
+                view.records.map((r) => (
+                  <details key={r.id}>
+                    <summary>
+                      {new Date(r.recordedAt).toLocaleString()} ·{" "}
+                      {r.reviewStatus}
+                    </summary>
+                    <p className="ck-task-evidence">{r.text}</p>
+                  </details>
+                ))
+              )}
+            </article>
+          )}
           <nav aria-label="Task history pages">
             <button
               disabled={offset === 0}
