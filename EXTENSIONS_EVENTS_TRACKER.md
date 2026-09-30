@@ -46,3 +46,8 @@ Browser bundle regression:
   iframe without Node globals. It covers global launch without a tool result,
   contextual task selection, pending initialization and rejected initialization.
 - These synthetic browser checks do not close the actual-host verification item.
+
+Release dependency maintenance:
+- The dependency audit detected vulnerable transitive URI/address parsing and
+  brace expansion releases. Exact same-major patch overrides replace only the
+  affected versions. The audit threshold and release-age policy are unchanged.
