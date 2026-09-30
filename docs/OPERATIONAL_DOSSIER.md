@@ -94,6 +94,11 @@ An older schema-17 binary cannot read a schema-18 store; rollback requires the
 matching pre-upgrade database recovery copy, not only a binary symlink change.
 The production writer remains singular; passive copies must not become writers.
 
+The dossier widget advertises `ui://contextkeep/tasks/v4.html`; older installed
+resource URIs remain readable. Change the advertised version when the bundled
+host UI changes so host caches cannot retain an obsolete interface. A host may
+still require connection-metadata refresh before it discovers newly added tools.
+
 Qualification includes concurrent task/progress writers, stale revisions,
 duplicate/expired claims, wrong-task evidence, outcome/verification separation,
 retired project filtering, pagination, HTTP/MCP parity, and the compiled host
