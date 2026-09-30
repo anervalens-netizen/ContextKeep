@@ -15,6 +15,22 @@ const extensions = new OpenAIExtensions(app);
 let selection: TaskSelection | undefined,
   lastSelection = "";
 const root = createRoot(document.getElementById("root")!);
+function connectionNotice(message: string, failed = false) {
+  root.render(
+    <section className="ck-task-panel">
+      <h2>ContextKeep</h2>
+      <p role={failed ? "alert" : "status"}>{message}</p>
+    </section>,
+  );
+}
+connectionNotice("Connecting to ContextKeep…");
+const connectionTimer = setTimeout(() => {
+  connectionNotice(
+    "ContextKeep is taking longer to connect. Close and reopen the panel to try again.",
+    true,
+  );
+}, 10000);
+
 async function call(name: string, args: Record<string, unknown> = {}) {
   const result = await app.callServerTool({ name, arguments: args });
   if (result.isError) throw new Error("ContextKeep request failed.");
@@ -89,13 +105,18 @@ app.addEventListener("hostcontextchanged", () => {
 void app
   .connect()
   .then(() => {
+    clearTimeout(connectionTimer);
+    const context = app.getHostContext();
+    if (context?.theme) applyDocumentTheme(context.theme);
+    if (context?.styles?.variables)
+      applyHostStyleVariables(context.styles.variables);
     takeSelection(extensions.modelContext?.getCurrent()?.structuredContent);
     render();
   })
   .catch(() => {
-    root.render(
-      <p>
-        Open this panel through the ContextKeep plugin in a compatible host.
-      </p>,
+    clearTimeout(connectionTimer);
+    connectionNotice(
+      "ContextKeep could not connect. Close and reopen the panel to try again.",
+      true,
     );
   });

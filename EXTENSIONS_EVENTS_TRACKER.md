@@ -35,3 +35,14 @@ Qualification: server functional tests, web tests and executor tests pass; recov
 build, browser navigation and dependency audit checks pass. The isolated pilot
 uses a real read-only executor job and a synthetic webhook receiver. PWA checks
 cover desktop and mobile. These receipts do not certify ChatGPT host activation.
+
+Browser bundle regression:
+- A real browser reproduced an empty app before initialization because the library
+  bundle retained a Node-only environment reference. Compile it to a production
+  constant; do not add a browser process shim.
+- Show a connection state immediately and a visible failure for a rejected or
+  delayed handshake. Apply the initial host theme after connecting.
+- The browser navigation gate now also runs the bundled MCP App in a sandboxed
+  iframe without Node globals. It covers global launch without a tool result,
+  contextual task selection, pending initialization and rejected initialization.
+- These synthetic browser checks do not close the actual-host verification item.

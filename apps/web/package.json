@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "icons": "node --import tsx/esm scripts/generate-icons.ts",
     "screenshots": "node --import tsx/esm scripts/screenshot.ts",
-    "verify:nav": "node scripts/verify-nav.mjs"
+    "verify:nav": "node scripts/verify-nav.mjs && node scripts/verify-mcp-app.mjs",
+    "verify:mcp": "node scripts/verify-mcp-app.mjs"
   },
   "dependencies": {
     "@contextkeep/shared": "workspace:*",
