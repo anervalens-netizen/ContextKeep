@@ -82,6 +82,7 @@ function secretValid(secret: string) {
     b.toString("base64").replace(/=+$/, "") === s.replace(/=+$/, "")
   );
 }
+class DeliveryShutdownError extends Error {}
 export class WorkflowEvents {
   private stopping = false;
   private readonly pumps = new Set<Promise<{ processed: number }>>();
@@ -113,7 +114,8 @@ export class WorkflowEvents {
     try {
       return await new Promise<{ status: number; body: string }>(
         (resolve, reject) => {
-          onAbort = () => reject(new Error("delivery_shutdown"));
+          onAbort = () =>
+            reject(new DeliveryShutdownError("delivery_shutdown"));
           controller.signal.addEventListener("abort", onAbort, { once: true });
           this.post(url, headers, body, controller.signal).then(
             resolve,
@@ -365,6 +367,7 @@ export class WorkflowEvents {
         continue;
       }
       let status = 0;
+      let shutdownAborted = false;
       try {
         const s = sub!;
         const old =
@@ -384,7 +387,8 @@ export class WorkflowEvents {
             row.payload,
           )
         ).status;
-      } catch {
+      } catch (error) {
+        shutdownAborted = error instanceof DeliveryShutdownError;
         /* bounded retry; never persist secret-bearing exception text */
       }
       const currentSubscription = this.deps.sqlite
@@ -408,7 +412,7 @@ export class WorkflowEvents {
           .run(new Date(Date.now() + 1000).toISOString(), row.id, lease);
         continue;
       }
-      if (this.stopping && status === 0) {
+      if (shutdownAborted) {
         // A shutdown cancellation is not a failed receiver attempt.
         this.deps.sqlite
           .prepare(
@@ -428,7 +432,7 @@ export class WorkflowEvents {
         permanent =
           [410, 413].includes(status) ||
           (status >= 400 && status < 500 && ![408, 429].includes(status));
-      this.deps.sqlite
+      const transition = this.deps.sqlite
         .prepare(
           `UPDATE workflow_deliveries SET status=?,http_status=?,next_at=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=? AND status='sending'`,
         )
@@ -445,7 +449,8 @@ export class WorkflowEvents {
           row.id,
           lease,
         );
-      if (status === 410)
+      // A stale lease may not revoke a subscription owned by a replacement delivery.
+      if (status === 410 && transition.changes === 1)
         this.deps.sqlite
           .prepare(
             "UPDATE workflow_subscriptions SET active=0,secret='',old_secret=NULL,generation=generation+1 WHERE id=? AND generation=?",

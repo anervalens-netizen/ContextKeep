@@ -28,6 +28,13 @@ revision and executor receipt before saving anything. A null `externalJobId`
 is supported only when the run itself has no receipt, such as an uncertain/lost
 start; it is not a substitute for inspecting a real completed job.
 
+The capture seals the complete inspected report and evidence fingerprint after
+all excerpts are attached. A concurrent report edit or evidence addition cannot
+be certified by a later verification call, even when the report revision stays
+unchanged. Capture a distinct freshly inspected report after a change; an
+existing binding is immutable. Owner acceptance alone does not change that
+semantic snapshot.
+
 4. Call `verify_run` with the current run revision and the captured report ID.
    This creates an immutable verification receipt containing the run/result
    identity, report revision and evidence fingerprint. Verification increments
@@ -70,6 +77,7 @@ Existing ordinary capture payloads and installed application identifiers remain
 supported. Clients that verify executions must refresh tool metadata and supply
 `runEvidence`; there is deliberately no silent fallback that certifies an old
 unrelated report. `verification_evidence_unbound`, `verification_evidence_stale`,
+`verification_evidence_changed`,
 `evidence_receipt_mismatch` and `evidence_run_mismatch` identify recoverable input
 or correlation problems. Read current state and reconcile rather than re-keying
 an uncertain mutation. Retrying the same intended write uses the same

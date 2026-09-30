@@ -139,6 +139,84 @@ describe("bounded delivery shutdown and recovery", () => {
     expect(await events.pump()).toEqual({ processed: 0 });
     expect(f.deps.sqlite.open).toBe(true);
   });
+  it("counts an ordinary in-flight transport failure during shutdown", async () => {
+    const f = await setup();
+    let fail: (error: Error) => void = () => {};
+    const deferred = new Promise<{ status: number; body: string }>(
+      (_resolve, reject) => {
+        fail = reject;
+      },
+    );
+    const events = new WorkflowEvents(
+      f.deps,
+      f.principal,
+      f.t.config.sessionSecret,
+      async (_u, _h, body) => {
+        const p = JSON.parse(body);
+        return p.type === "verification"
+          ? { status: 200, body: JSON.stringify({ challenge: p.challenge }) }
+          : deferred;
+      },
+    );
+    await events.subscribe(f.input);
+    f.enqueue();
+    f.deps.sqlite.prepare("UPDATE workflow_deliveries SET attempts=7").run();
+    const pumping = events.pump(1),
+      draining = events.stopAndDrain(1000);
+    fail(new Error("Synthetic connection failure before cancellation"));
+    await pumping;
+    await draining;
+    expect(
+      f.deps.sqlite
+        .prepare("SELECT status,attempts,http_status FROM workflow_deliveries")
+        .get(),
+    ).toEqual({ status: "failed", attempts: 8, http_status: 0 });
+    expect(workflowHealth(f.deps, f.scope.taskId).failedDeliveries).toBe(1);
+  });
+  it("does not revoke the subscription after a replacement pump owns the lease", async () => {
+    const f = await setup();
+    let release: (v: { status: number; body: string }) => void = () => {},
+      calls = 0;
+    const deferred = new Promise<{ status: number; body: string }>(
+      (resolve) => {
+        release = resolve;
+      },
+    );
+    const events = new WorkflowEvents(
+      f.deps,
+      f.principal,
+      f.t.config.sessionSecret,
+      async (_u, _h, body) => {
+        const p = JSON.parse(body);
+        if (p.type === "verification")
+          return {
+            status: 200,
+            body: JSON.stringify({ challenge: p.challenge }),
+          };
+        return ++calls === 1 ? deferred : { status: 204, body: "" };
+      },
+    );
+    await events.subscribe(f.input);
+    f.enqueue();
+    const stale = events.pump(1);
+    f.deps.sqlite
+      .prepare(
+        "UPDATE workflow_deliveries SET lease_until='2000-01-01T00:00:00.000Z'",
+      )
+      .run();
+    await events.pump(1);
+    release({ status: 410, body: "" });
+    await stale;
+    expect(
+      f.deps.sqlite.prepare("SELECT active FROM workflow_subscriptions").get(),
+    ).toEqual({ active: 1 });
+    expect(
+      f.deps.sqlite
+        .prepare("SELECT status,http_status,attempts FROM workflow_deliveries")
+        .get(),
+    ).toEqual({ status: "delivered", http_status: 204, attempts: 2 });
+  });
+
   it("retries the same event with renewed credentials after the old response fails", async () => {
     const f = await setup();
     let release: (r: { status: number; body: string }) => void = () => {};

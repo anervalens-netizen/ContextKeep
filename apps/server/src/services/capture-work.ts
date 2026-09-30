@@ -154,7 +154,6 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
       dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
     }, ctx);
     const outcomeRecord = requireRecord(deps, created.record.id);
-    if (runBinding) bindRunEvidence(deps, outcomeRecord.id, runBinding);
     if (input.taskId) deps.sqlite.prepare("INSERT OR IGNORE INTO workflow_task_records(task_id,record_id) VALUES (?,?)").run(input.taskId, outcomeRecord.id);
     if (outcomeRecord.reviewStatus !== "proposed" || outcomeRecord.evidenceBasis !== "agent_report") {
       throw new ApiError(409, "capture_working_identity_conflict", "Working capture identity resolved to a non-working record.");
@@ -169,6 +168,9 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
       ).run(outcomeRecord.id, excerptId, input.eventAt);
       addedEvidence += inserted.changes;
     }
+
+    // Bind the complete captured proof only after all excerpts are attached.
+    if (runBinding) bindRunEvidence(deps, outcomeRecord.id, runBinding);
 
     const progress = [];
     for (const update of input.progressUpdates) {

@@ -24,6 +24,7 @@ type Binding = {
   run_revision: number;
   external_job_id: string | null;
   observation_hash: string;
+  captured_evidence_hash: string;
 };
 function readRun(deps: ServiceDeps, runId: string): EvidenceRun | undefined {
   return deps.sqlite
@@ -85,10 +86,17 @@ export function bindRunEvidence(
   recordId: string,
   binding: ReturnType<typeof validateRunEvidence>,
 ) {
+  const capturedProof = proofState(deps, recordId);
+  if (!capturedProof?.hasEvidence)
+    throw new ApiError(
+      409,
+      "verification_evidence_missing",
+      "Capture evidence before binding its inspected snapshot.",
+    );
   deps.sqlite
     .prepare(
       `INSERT OR IGNORE INTO workflow_run_evidence
-    (record_id,run_id,run_revision,external_job_id,observation_hash,captured_at) VALUES(?,?,?,?,?,?)`,
+    (record_id,run_id,run_revision,external_job_id,observation_hash,captured_evidence_hash,captured_at) VALUES(?,?,?,?,?,?,?)`,
     )
     .run(
       recordId,
@@ -96,6 +104,7 @@ export function bindRunEvidence(
       binding.runRevision,
       binding.externalJobId,
       binding.observationHash,
+      capturedProof.hash,
       new Date().toISOString(),
     );
   const saved = deps.sqlite
@@ -105,12 +114,13 @@ export function bindRunEvidence(
     saved.run_id !== binding.runId ||
     saved.run_revision !== binding.runRevision ||
     saved.external_job_id !== binding.externalJobId ||
-    saved.observation_hash !== binding.observationHash
+    saved.observation_hash !== binding.observationHash ||
+    saved.captured_evidence_hash !== capturedProof.hash
   )
     throw new ApiError(
       409,
       "evidence_binding_conflict",
-      "This report is already bound to a different executor result.",
+      "This report is already bound to another result or inspected proof snapshot. Capture a distinct fresh report.",
     );
 }
 function proofState(deps: ServiceDeps, recordId: string) {
@@ -187,6 +197,12 @@ export function verificationProof(
       409,
       "verification_evidence_missing",
       "Verification evidence is unavailable or retracted.",
+    );
+  if (binding.captured_evidence_hash !== proof.hash)
+    throw new ApiError(
+      409,
+      "verification_evidence_changed",
+      "The report or evidence changed since the inspected capture. Inspect and capture a distinct fresh report before verifying.",
     );
   return {
     recordRevision: proof.record.revision,

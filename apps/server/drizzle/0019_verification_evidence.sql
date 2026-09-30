@@ -4,6 +4,7 @@ CREATE TABLE workflow_run_evidence (
  run_revision INTEGER NOT NULL,
  external_job_id TEXT,
  observation_hash TEXT NOT NULL,
+ captured_evidence_hash TEXT NOT NULL,
  captured_at TEXT NOT NULL
 );
 --> statement-breakpoint

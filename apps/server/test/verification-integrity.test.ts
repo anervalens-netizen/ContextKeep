@@ -137,6 +137,78 @@ function doneInput(scope: { projectId: string; taskId: string }) {
 }
 
 describe("correlated verification and current evidence validity", () => {
+  it.each(["report", "evidence"])(
+    "rejects a %s edit between inspected capture and verification",
+    async (kind) => {
+      const { t, deps, scope } = await setup();
+      const run = terminal(deps, scope),
+        proof = await captureProof(t, run);
+      if (kind === "report") {
+        await call(t, "edit_record", {
+          recordId: proof.outcome.recordId,
+          revision: 1,
+          text: "Concurrent uninspected conclusion",
+          ...identity(),
+        });
+      } else {
+        const extra = await call(t, "capture_work", {
+          ...scope,
+          outcome: "Separate synthetic evidence",
+          evidenceText: "New uninspected supporting text",
+          ...identity(),
+        });
+        deps.sqlite
+          .prepare(
+            `INSERT INTO record_evidence(record_id,excerpt_id,relation)
+        SELECT ?,excerpt_id,relation FROM record_evidence WHERE record_id=?`,
+          )
+          .run(proof.outcome.recordId, extra.outcome.recordId);
+        expect(
+          deps.sqlite
+            .prepare("SELECT revision FROM records WHERE id=?")
+            .get(proof.outcome.recordId),
+        ).toMatchObject({ revision: 1 });
+      }
+      expect(() =>
+        verifyRun(deps, {
+          ...run,
+          recordId: proof.outcome.recordId,
+          verdict: "passed",
+        }),
+      ).toThrow(
+        expect.objectContaining({ code: "verification_evidence_changed" }),
+      );
+      expect(
+        getRun(deps, scope.projectId, scope.taskId, run.runId).verification,
+      ).toBe("pending");
+      expect(
+        deps.sqlite
+          .prepare("SELECT count(*) AS n FROM workflow_verification_receipts")
+          .get(),
+      ).toEqual({ n: 0 });
+    },
+  );
+  it("permits acceptance of the inspected proof before verification", async () => {
+    const { t, deps, scope } = await setup();
+    const run = terminal(deps, scope),
+      proof = await captureProof(t, run);
+    await call(t, "review_records", {
+      items: [{ recordId: proof.outcome.recordId, revision: 1 }],
+      action: "accept",
+      ownerAction: true,
+      ...identity(),
+    });
+    verifyRun(deps, {
+      ...run,
+      recordId: proof.outcome.recordId,
+      verdict: "passed",
+    });
+    expect(
+      taskDossier(deps, scope.projectId, scope.taskId).execution
+        ?.evidenceValidity.status,
+    ).toBe("valid");
+  });
+
   it("rejects unrelated same-task evidence even when it is recent", async () => {
     const { t, deps, scope } = await setup();
     const old = await call(t, "capture_work", {

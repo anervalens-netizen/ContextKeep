@@ -119,6 +119,56 @@ describe("project dossier paging stays live", () => {
     });
     expect(screen.getByText("three")).toBeTruthy();
   });
+  it("publishes refreshed prefixes even when a previously loaded later page repeatedly fails", async () => {
+    let fail = false,
+      rows = [
+        task("one", "Old first"),
+        task("two"),
+        task("three"),
+        task("four"),
+      ];
+    const load = vi.fn(async (id: string, offset = 0) => {
+      if (offset && fail) throw new Error("Synthetic later page outage");
+      return page(id, rows, offset);
+    });
+    await act(async () => {
+      render(<ProjectNow projectId="fixture" load={load} onTask={() => {}} />);
+    });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mai multe lucrări" }),
+      );
+    });
+    expect(screen.getByText("four")).toBeTruthy();
+    fail = true;
+    rows = [
+      task("four", "Fresh fourth"),
+      task("one", "Fresh first"),
+      task("two"),
+      task("three"),
+    ];
+    await tick();
+    expect(screen.getAllByText("Fresh fourth")).toHaveLength(1);
+    expect(screen.getByText("Fresh first")).toBeTruthy();
+    expect(screen.queryByText("Old first")).toBeNull();
+    expect(screen.queryByText("four")).toBeNull();
+    expect(screen.getByText("three")).toBeTruthy();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    rows = [
+      task("four", "Latest fourth"),
+      task("one", "Latest first"),
+      task("two"),
+      task("three"),
+    ];
+    await tick();
+    expect(screen.getByText("Latest first")).toBeTruthy();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fail = false;
+    await tick();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("two")).toBeTruthy();
+  });
+
   it("discards old in-flight pages when switching projects", async () => {
     let release: (p: ProjectDossier) => void = () => {};
     const deferred = new Promise<ProjectDossier>((resolve) => {

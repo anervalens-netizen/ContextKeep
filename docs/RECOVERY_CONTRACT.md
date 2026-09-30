@@ -85,3 +85,8 @@ an event continuation after recovery. Do not fabricate bindings for old records.
 
 The authenticated `/api/health` endpoint performs a live database read. It is a
 minimal application-readiness check, not a backup, restore or host-delivery test.
+
+Schema-19 backup verification requires both execution-evidence tables, their
+required columns (including the captured proof fingerprint), and the associated
+lookup indexes. SQLite integrity alone cannot certify a copy missing these
+objects. Historical schema copies remain validated against their own version.

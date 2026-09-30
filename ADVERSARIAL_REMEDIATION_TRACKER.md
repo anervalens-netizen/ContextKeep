@@ -31,3 +31,10 @@ legacy verification. Typecheck and public-data checks passed before full tests.
 
 Deployment and external review remain open. Do not interpret these source checks
 as production completion. Detailed operational receipts are retained privately.
+
+## Review follow-up
+
+Five external review findings fixed locally: inspected proof snapshot; partial
+prefix refresh; exact shutdown abort accounting; delivery lease revocation fence;
+schema-19 recovery objects. Focused qualification: 51 server and five UI tests
+passed. Complete qualification and deployment remain open.

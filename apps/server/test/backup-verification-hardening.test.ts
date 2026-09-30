@@ -237,3 +237,26 @@ it("rejects a schema-18 recovery copy missing durable continuation claims", asyn
     expect(error.message).toContain("workflow_continuations");
   } finally { await t.cleanup(); }
 });
+
+
+describe("schema 19 evidence recovery contract", () => {
+  it.each([
+    ["binding table", "DROP TABLE workflow_run_evidence", "workflow_run_evidence"],
+    ["receipt table", "DROP TABLE workflow_verification_receipts", "workflow_verification_receipts"],
+    ["snapshot fingerprint", "ALTER TABLE workflow_run_evidence DROP COLUMN captured_evidence_hash", "captured_evidence_hash"],
+    ["evidence index", "DROP INDEX workflow_run_evidence_run", "workflow_run_evidence_run"],
+  ])("rejects an integrity-clean backup missing its %s", async (_label, sql, missing) => {
+    const t=await makeTestApp();
+    try {
+      const dir=path.join(t.dataDir,"schema19-backups");
+      const source=await createBackup(t.app.ck.handle,t.app.ck.deps,dir,10,{actor:"test:recovery"});
+      expect(verifyBackup(source.file).schemaVersion).toBe(19);
+      const broken=path.join(dir,"broken.sqlite");fs.copyFileSync(source.file,broken);
+      const db=new Database(broken);
+      try { db.pragma("foreign_keys = OFF");db.exec(sql);expect(db.pragma("integrity_check")).toEqual([{integrity_check:"ok"}]); }
+      finally {db.close();}
+      const error=captureApiError(()=>verifyBackup(broken));
+      expect(error.code).toBe("backup_invalid_schema");expect(error.message).toContain(missing);
+    } finally {await t.cleanup();}
+  });
+});

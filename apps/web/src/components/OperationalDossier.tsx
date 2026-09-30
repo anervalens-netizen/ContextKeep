@@ -276,41 +276,63 @@ export function ProjectNow({
     setData(null);
     setError("");
     setFilter("active");
+    let pageCache: ProjectDossier[] = [];
+    function publish(fresh: ProjectDossier[], partial: boolean) {
+      if (stopped || generation.current !== g || fresh.length === 0) return;
+      // A failed later page must not discard a successfully refreshed prefix.
+      const pages = partial
+        ? [...fresh, ...pageCache.slice(fresh.length)]
+        : fresh;
+      pageCache = pages;
+      loadedPages.current = pages.length;
+      const tasks = new Map<string, ProjectDossier["tasks"][number]>();
+      for (const page of pages)
+        for (const task of page.tasks) {
+          // New prefix wins over potentially stale duplicate cards in retained pages.
+          if (!tasks.has(task.taskId)) tasks.set(task.taskId, task);
+        }
+      const first = pages[0]!,
+        last = pages[pages.length - 1]!;
+      setData({
+        ...first,
+        tasks: [...tasks.values()],
+        pagination: { ...last.pagination, total: first.pagination.total },
+      });
+    }
     async function refresh(targetPages = loadedPages.current) {
       if (pending.current || stopped) return;
       pending.current = true;
       setMoreBusy(true);
+      const fresh: ProjectDossier[] = [];
       try {
         // Re-read the visible prefix rather than append to obsolete page boundaries.
         const first = await load(projectId, 0);
+        fresh.push(first);
         let last = first,
-          pages = 1,
           previousOffset = 0;
-        const tasks = new Map(first.tasks.map((task) => [task.taskId, task]));
-        while (pages < targetPages && last.pagination.nextOffset !== null) {
+        while (
+          fresh.length < targetPages &&
+          last.pagination.nextOffset !== null
+        ) {
           if (stopped || generation.current !== g) return;
           const offset = last.pagination.nextOffset;
           if (offset <= previousOffset)
             throw new Error("Non-advancing task page");
           last = await load(projectId, offset);
-          for (const task of last.tasks) tasks.set(task.taskId, task);
+          fresh.push(last);
           previousOffset = offset;
-          pages++;
         }
-        if (!stopped && generation.current === g) {
-          loadedPages.current = pages;
-          setData({
-            ...first,
-            tasks: [...tasks.values()],
-            pagination: last.pagination,
-          });
-          setError("");
-        }
+        publish(fresh, false);
+        if (!stopped && generation.current === g) setError("");
       } catch {
-        if (!stopped && generation.current === g)
+        if (!stopped && generation.current === g) {
+          publish(fresh, true);
           setError(
-            "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+            fresh.length > 0
+              ? "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi; reîncercarea este automată."
+              : "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
           );
+        }
       } finally {
         if (!stopped && generation.current === g) {
           pending.current = false;

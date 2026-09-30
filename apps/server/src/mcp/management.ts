@@ -114,7 +114,7 @@ export function registerManagementTools(define: DefineTool, deps: ServiceDeps, a
       recordType:RecordType.optional(),taskStatus:TaskStatus.optional(),...Page}),true,input=>listRecords(deps,input),ListRecordsResult);
   define("list_sources","List source metadata in a project, newest first. Sources are evidence, not automatically accepted truth. Limit 1–50.",
     z.strictObject({projectId:Id,...Page}),true,input=>listSources(deps,input),PagedResult);
-  define("get_source","Read source text in character pages and its excerpt IDs. Text maxChars 1–20000; excerpts 1–10, each capped at 4000 characters. Use excerpt IDs to create evidence-linked proposals.",
+  define("get_source","Read source evidence by ID with bounded character/excerpt paging. Source text is not automatically accepted knowledge.",
     z.strictObject({sourceId:Id,offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
       excerptOffset:z.number().int().min(0).default(0),excerptLimit:z.number().int().min(1).max(10).default(5)}),true,input=>readSource(deps,input),SourceReadResult);
   define("search_relations","Search bounded evidence-backed relation records inside one project. Canonical accepted and proposed working relations are returned separately; scope=all never blends them. q is optional and uses generic subject/object/text tokens only. Limit 1–15.",
