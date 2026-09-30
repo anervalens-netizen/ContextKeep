@@ -14,7 +14,7 @@ activation, owner-specific plans and verification receipts stay in private stora
 - [x] Verify retry, restart, concurrency, revocation and isolated end-to-end behavior.
 - [x] Verify a recoverable release and authenticated runtime discovery.
 - [x] Qualify the live executor bridge with an idempotent read-only job.
-- [ ] Verify actual host panel activation and event-driven continuation.
+- [x] Verify actual host panel activation and event-driven continuation.
 
 Process completion, webhook acceptance, agent verification and task completion
 are distinct facts. An unreviewed agent report never becomes accepted knowledge
@@ -28,13 +28,16 @@ Implementation verification:
 - Signed webhook subscriptions/outbox/delivery retries use durable storage.
 - SDK 2.1.0's closed modern capability schema needs a narrow discovery-response
   adapter to preserve the draft events capability; actual wire discovery is tested.
-- Host activation remains pending. Local and service integration tests are not
-  evidence of ChatGPT delivery or automatic continuation.
+- Actual host panel activation and native event-driven continuation have been
+  qualified separately. Detailed receipts remain in private project memory.
 
 Qualification: server functional tests, web tests and executor tests pass; recovery,
 build, browser navigation and dependency audit checks pass. The isolated pilot
 uses a real read-only executor job and a synthetic webhook receiver. PWA checks
-cover desktop and mobile. These receipts do not certify ChatGPT host activation.
+cover desktop and mobile. A separate host qualification confirmed direct panel
+rendering and native subscription before execution, followed by event-triggered
+agent continuation, retained-result inspection and separate run verification.
+Synthetic test results alone do not certify host activation.
 
 Browser bundle regression:
 - A real browser reproduced an empty app before initialization because the library
@@ -45,7 +48,8 @@ Browser bundle regression:
 - The browser navigation gate now also runs the bundled MCP App in a sandboxed
   iframe without Node globals. It covers global launch without a tool result,
   contextual task selection, pending initialization and rejected initialization.
-- These synthetic browser checks do not close the actual-host verification item.
+- These synthetic browser checks are complemented by the separate actual-host
+  qualification above.
 
 Release dependency maintenance:
 - The dependency audit detected vulnerable transitive URI/address parsing and
@@ -67,3 +71,8 @@ UI resource cache lifecycle:
   refresh. A wire-level regression checks the new mapping and legacy reads.
 - Refresh the developer connection after UI metadata changes. Serving the latest
   bundle at the origin does not prove an existing host iframe has loaded it.
+
+Qualification closure:
+- The one-off host pilot is complete; its test automation is disabled.
+- General project subscriptions and continuation policies remain a separate
+  configuration step. Pilot success does not enable them automatically.
