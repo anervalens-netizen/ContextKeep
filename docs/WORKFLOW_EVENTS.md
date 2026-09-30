@@ -29,7 +29,13 @@ the previous result is unknown.
 
 ## Plugin UI
 
-open_task_panel declares global/thread entrypoints and ui://contextkeep/tasks.
+open_task_panel declares global/thread entrypoints and
+ui://contextkeep/tasks/v2.html. Resource URIs are host cache keys: bump the
+version when shipped HTML, JavaScript or CSS behavior changes, and update the
+tool descriptor and resource listing together. The legacy ui://contextkeep/tasks
+URI stays readable while existing developer connections refresh their metadata.
+After deployment, refresh the developer-mode connection in ChatGPT Plugins;
+reloading the app page alone does not refresh imported metadata.
 resources/read serves a self-contained MCP App built separately from PWA startup.
 The shared dossier is also available in the PWA project overview. It uses read
 tools through the MCP Apps bridge; browser cookies and PWA embedding credentials

@@ -59,3 +59,11 @@ Host tool-call contract regression:
   definitions and rejects missing fields before returning synthetic results.
 - A failed task-list request no longer displays a contradictory empty-project
   message; successful empty responses remain distinct from loading and errors.
+
+UI resource cache lifecycle:
+- Publish the repaired bundle through a new versioned resource URI and advertise
+  that same URI in tools/list and resources/list.
+- Preserve resources/read for the previously installed URI during metadata
+  refresh. A wire-level regression checks the new mapping and legacy reads.
+- Refresh the developer connection after UI metadata changes. Serving the latest
+  bundle at the origin does not prove an existing host iframe has loaded it.
