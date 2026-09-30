@@ -358,3 +358,39 @@ describe("application database readiness", () => {
     expect(failed.payload).not.toContain("synthetic_missing_hash");
   });
 });
+
+it("does not reinterpret a proposed text edit as an explicit task reopening", async () => {
+  const f = await setup();
+  const { t, deps, projectId, taskId } = f;
+  await call(t, "edit_record", {
+    recordId: taskId,
+    revision: 1,
+    taskStatus: "open",
+    ...identity(),
+  });
+  reportTaskProgress(
+    deps,
+    {
+      projectId,
+      taskId,
+      taskRevision: 2,
+      expectedProgressRecordId: null,
+      status: "cancelled",
+      summary: "Synthetic stopped task",
+      nextAction: null,
+      ownerAction: null,
+      evidenceText: "Synthetic stop report",
+    },
+    { actor: "test:post-audit", requestId: randomUUID() },
+  );
+  await call(t, "edit_record", {
+    recordId: taskId,
+    revision: 2,
+    text: "Synthetic corrected wording only",
+    ...identity(),
+  });
+  const resumed = await call(t, "resume_task", { projectId, taskId });
+  expect(resumed.dossier.state).toBe("cancelled");
+  expect(resumed.dossier.stateSource).toBe("reported_progress");
+  expect(resumed.dossier.taskReviewStatus).toBe("proposed");
+});

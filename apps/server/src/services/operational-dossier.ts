@@ -68,12 +68,24 @@ export function getTaskProgress(deps: ServiceDeps, taskId: string) {
  * revision with a stated status also supersedes reports about older revisions;
  * the original report remains visible with its own provenance. */
 export function effectiveTaskState(
-  task: { taskStatus: string | null; revision: number },
+  deps: Pick<ServiceDeps, "sqlite">,
+  task: { id: string; taskStatus: string | null; revision: number },
   progress: ReturnType<typeof getTaskProgress>,
 ) {
+  // A text edit or review also increments revision. Only an audited status
+  // change may supersede reported progress with a nonterminal state.
+  const statusChangedAfterReport = task.taskStatus !== null && progress !== null &&
+    progress.taskRevision < task.revision && !!deps.sqlite.prepare(`
+      SELECT 1 FROM audit_events
+      WHERE target_type='record' AND target_id=? AND action='record.edited'
+        AND json_valid(before_ref) AND json_valid(after_ref)
+        AND CAST(json_extract(after_ref,'$.revision') AS INTEGER)>?
+        AND CAST(json_extract(after_ref,'$.revision') AS INTEGER)<=?
+        AND json_extract(before_ref,'$.taskStatus') IS NOT json_extract(after_ref,'$.taskStatus')
+        AND json_extract(after_ref,'$.taskStatus')=?
+      LIMIT 1`).get(task.id, progress.taskRevision, task.revision, task.taskStatus);
   const useRecord = task.taskStatus !== null && (
-    task.taskStatus === "done" || task.taskStatus === "cancelled" ||
-    (progress !== null && progress.taskRevision < task.revision)
+    task.taskStatus === "done" || task.taskStatus === "cancelled" || statusChangedAfterReport
   );
   if (useRecord) return { state: task.taskStatus!, stateSource: "task_record" as const };
   if (progress) return { state: progress.status, stateSource: "reported_progress" as const };
@@ -260,7 +272,7 @@ export function taskDossier(
       }
     | undefined;
   const health = workflowHealth(deps,taskId);
-  const { state, stateSource } = effectiveTaskState(task, progress);
+  const { state, stateSource } = effectiveTaskState(deps, task, progress);
   const stateToken = [
     task.revision,
     progress?.recordId ?? "",

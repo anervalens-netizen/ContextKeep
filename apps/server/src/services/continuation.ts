@@ -104,7 +104,7 @@ export function claimContinuation(
       return { claimed: false, reason: "execution_not_terminal" };
     if (run.verification !== "pending")
       return { claimed: false, reason: "already_verified" };
-    const { state } = effectiveTaskState(task, getTaskProgress(deps, task.id));
+    const { state } = effectiveTaskState(deps, task, getTaskProgress(deps, task.id));
     if (state === "done" || state === "cancelled")
       return { claimed: false, reason: "task_closed" };
     const policyRow = latestTaskValue(deps, task.id, "continuation_policy");
