@@ -23,6 +23,7 @@ import {
   setContinuationPolicy,
   claimContinuation,
   finishContinuation,
+  reconcileContinuation,
 } from "../src/services/continuation.js";
 
 const token = randomUUID(),
@@ -549,4 +550,67 @@ describe("bounded continuation", () => {
       reason: "task_closed",
     });
   });
+});
+
+it("recovers an abandoned continuation without its old session token and without replaying a job", async () => {
+  const { t, deps, projectId, taskId } = await setup();
+  const run = terminal(deps, projectId, taskId);
+  setContinuationPolicy(
+    deps,
+    {
+      projectId,
+      taskId,
+      expectedPolicyRecordId: null,
+      mode: "verify_and_report",
+      objective: "Inspect fixture",
+      evidenceText: "Fixture",
+    },
+    ctx(),
+  );
+  claimContinuation(deps, run);
+  const proof = await call(t, "capture_work", {
+    projectId,
+    taskId,
+    outcome: "Fresh result inspection found missing evidence",
+    ...identity(),
+  });
+  const last = taskDossier(deps, projectId, taskId).continuation.lastClaim!;
+  const args = {
+    ...run,
+    expectedClaimUpdatedAt: last.updatedAt,
+    resultRecordId: proof.outcome.recordId,
+    result: "needs_owner" as const,
+  };
+  expect(() => reconcileContinuation(deps, args)).toThrow(
+    expect.objectContaining({ code: "continuation_recovery_not_abandoned" }),
+  );
+  deps.sqlite
+    .prepare(
+      "UPDATE workflow_continuations SET lease_until='2000-01-01T00:00:00.000Z' WHERE run_id=?",
+    )
+    .run(run.runId);
+  const before = deps.sqlite
+    .prepare("SELECT count(*) AS n FROM workflow_runs")
+    .get();
+  expect(reconcileContinuation(deps, args)).toMatchObject({
+    reconciled: true,
+    executionStarted: false,
+  });
+  expect(
+    deps.sqlite.prepare("SELECT count(*) AS n FROM workflow_runs").get(),
+  ).toEqual(before);
+  expect(
+    taskDossier(deps, projectId, taskId).continuation.lastClaim?.status,
+  ).toBe("completed");
+});
+it("refuses successful task closure while its latest result is unverified", async () => {
+  const { deps, projectId, taskId } = await setup();
+  terminal(deps, projectId, taskId);
+  expect(() =>
+    reportTaskProgress(
+      deps,
+      { ...report(projectId, taskId), status: "done" },
+      ctx(),
+    ),
+  ).toThrow(expect.objectContaining({ code: "task_verification_required" }));
 });

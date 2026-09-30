@@ -221,3 +221,19 @@ describe("F12: backup verification hardening", () => {
     }
   });
 });
+
+it("rejects a schema-18 recovery copy missing durable continuation claims", async () => {
+  const t = await makeTestApp();
+  try {
+    const dir = path.join(t.dataDir, "continuation-backups");
+    const source = await createBackup(t.app.ck.handle, t.app.ck.deps, dir, 10, { actor: "test:continuity" });
+    expect(verifyBackup(source.file).schemaVersion).toBe(18);
+    const broken = path.join(dir, "missing-continuations.sqlite");
+    fs.copyFileSync(source.file, broken);
+    const db = new Database(broken);
+    db.exec("DROP TABLE workflow_continuations"); db.close();
+    const error = captureApiError(() => verifyBackup(broken));
+    expect(error.code).toBe("backup_invalid_schema");
+    expect(error.message).toContain("workflow_continuations");
+  } finally { await t.cleanup(); }
+});

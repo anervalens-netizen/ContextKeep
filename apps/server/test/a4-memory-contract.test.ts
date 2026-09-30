@@ -342,7 +342,7 @@ describe("A4 AI-first memory contract", () => {
     expect(restored.workingMemoryVersion).toBe(1);
     const columns = target.app.ck.handle.sqlite.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
     expect(columns.some((column) => column.name === "working_memory_version")).toBe(true);
-    expect((target.app.ck.handle.sqlite.prepare("SELECT MAX(version) AS v FROM schema_version").get() as { v: number }).v).toBe(17);
+    expect((target.app.ck.handle.sqlite.prepare("SELECT MAX(version) AS v FROM schema_version").get() as { v: number }).v).toBe(18);
     expect(target.app.ck.deps.db.select().from(records).all()).toHaveLength(1);
 
     const legacyV2 = { ...dump, version: 2 };
@@ -352,7 +352,7 @@ describe("A4 AI-first memory contract", () => {
     expect(legacyTarget.app.ck.deps.db.select().from(records).all()).toHaveLength(1);
 
     const backup = await createBackup(target.app.ck.handle, target.app.ck.deps, target.config.backupDir, 2, { actor: "test:a4" });
-    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 17 });
+    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 18 });
   });
 
   it("advertises core MCP contracts and current Remote Control naming", async () => {
@@ -361,7 +361,7 @@ describe("A4 AI-first memory contract", () => {
     const response = await t.app.inject({ method: "POST", url: "/mcp", headers: AUTHORIZE, payload: { jsonrpc: "2.0", id: crypto.randomUUID(), method: "tools/list", params: {} } });
     expect(response.statusCode).toBe(200);
     const tools = response.json().result.tools as Array<{ name: string; outputSchema?: unknown }>;
-    expect(tools).toHaveLength(43);
+    expect(tools).toHaveLength(55);
     for (const name of ["get_project", "get_work_context", "get_context_delta", "search_context", "capture_work", "get_capabilities"]) {
       expect(tools.find((tool) => tool.name === name)?.outputSchema).toBeTruthy();
     }

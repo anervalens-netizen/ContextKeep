@@ -75,8 +75,9 @@ For a received `execution.finished` event:
 
 A claim expiration is an uncertainty signal, not permission to repeat external
 effects. Retained claims are not silently reassigned. The original claimant can
-finish after reconciling its retained result; other sessions must inspect that
-state and explicitly reconcile rather than restart the executor. A completed
+finish after reconciling its retained result; other sessions use `reconcile_continuation` with the current claim timestamp and
+fresh same-task evidence after expiry, never restarting the executor. The recovery
+operation cannot steal an active claim or skip verification. A completed
 continuation does not close the task or emit another execution-finished event.
 
 This mechanism does not fix a frozen host conversation. Host support for native
@@ -97,3 +98,8 @@ Qualification includes concurrent task/progress writers, stale revisions,
 duplicate/expired claims, wrong-task evidence, outcome/verification separation,
 retired project filtering, pagination, HTTP/MCP parity, and the compiled host
 iframe without Node globals. Public tests use synthetic data only.
+
+Portable JSON exports remain knowledge seeds, not disaster-recovery copies. They
+do not export live task correlations, executor observations, webhook credentials
+or continuation claims. Use a verified full SQLite snapshot and its matching
+runtime kit to retain operational continuity after recovery.

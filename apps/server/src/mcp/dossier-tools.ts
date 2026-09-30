@@ -13,6 +13,7 @@ import {
   setContinuationPolicy,
   claimContinuation,
   finishContinuation,
+  reconcileContinuation,
 } from "../services/continuation.js";
 
 type Define = <S extends z.ZodType>(
@@ -43,7 +44,7 @@ export function registerDossierTools(
 ) {
   define(
     "get_project_dossier",
-    "Start with the current project dossier: distinct recent tasks, reported progress, next steps, owner input and dependency identities. Keeps historical unscoped checkpoints separate; starts no execution.",
+    "Current tasks, outcomes, next steps and owner input; not old history.",
     z.strictObject({ projectId: uuid, ...page }),
     true,
     (i) => projectDossier(deps, i.projectId, i.offset, i.limit),
@@ -51,7 +52,7 @@ export function registerDossierTools(
   );
   define(
     "resume_task",
-    "Prepare compact task-specific resume context from current evidence. Does not execute anything or change selection in other sessions. Read stateToken and preserve taskId in all subsequent work.",
+    "Read-only, task-scoped resume context. Never starts a job.",
     z.strictObject(scope),
     true,
     (i) => resumeTask(deps, i.projectId, i.taskId),
@@ -59,7 +60,7 @@ export function registerDossierTools(
   );
   define(
     "report_task_progress",
-    "Record evidence-backed operational progress for an existing action/task, including proposed tasks, without changing accepted task progress. Compare expectedProgressRecordId and taskRevision to prevent lost updates between sessions.",
+    "Evidence-backed progress with revision fences; accepted task unchanged.",
     z.strictObject({
       ...scope,
       ...write,
@@ -77,7 +78,7 @@ export function registerDossierTools(
   );
   define(
     "get_portfolio",
-    "Read recent task summaries across projects with exact project pagination; retired projects are excluded by default. No health, progress or completeness is inferred from missing data.",
+    "Paginated recent tasks across projects; retired excluded by default.",
     z.strictObject({ ...page, includeRetired: z.boolean().default(false) }),
     true,
     (i) => portfolioOverview(deps, i.offset, i.limit, i.includeRetired),
@@ -85,7 +86,7 @@ export function registerDossierTools(
   );
   define(
     "get_operational_timeline",
-    "Read unified project/task activity: accepted knowledge, proposed reports, explicit progress and retained execution observations with provenance. Separate from canonical-only timeline. Paginated, no implicit acceptance.",
+    "Task/project activity with provenance; never auto-accepts reports.",
     z.strictObject({
       projectId: uuid,
       taskId: uuid.optional(),
@@ -100,7 +101,7 @@ export function registerDossierTools(
   );
   define(
     "get_changes_digest",
-    "Read bounded changes since a UTC timestamp across active/non-retired projects or one project. Use for concise change-only summaries: completed results, blocked work and owner input. Follow nextOffset; never present a partial page as complete.",
+    "Dated changes, with pagination. Missing data is not success.",
     z.strictObject({
       projectId: uuid.optional(),
       since: z.string().datetime(),
@@ -114,7 +115,7 @@ export function registerDossierTools(
   );
   define(
     "get_project_links",
-    "Read identity-backed incoming and outgoing project/device dependencies across the portfolio. Resolves current project names by ID and keeps evidence/review status; does not infer links from text.",
+    "Identity-backed incoming/outgoing dependencies with provenance.",
     z.strictObject({ projectId: uuid, ...page }),
     true,
     (i) => projectLinks(deps, i.projectId, i.offset, i.limit),
@@ -122,7 +123,7 @@ export function registerDossierTools(
   );
   define(
     "link_project",
-    "Record an evidence-backed dependency from one project to exactly one other project ID or device ID. Proposed relation only, not automatic lifecycle/health acceptance.",
+    "Propose a link to exactly one project ID or device ID, with evidence.",
     z.strictObject({
       projectId: uuid,
       targetProjectId: uuid.nullable(),
@@ -137,7 +138,7 @@ export function registerDossierTools(
   );
   define(
     "set_task_continuation",
-    "Configure off, verify-and-report, or continuation within an already-authorized objective. Compare expectedPolicyRecordId. This stores the policy only: a native host subscription must exist separately before starting the real job.",
+    "Set a bounded continuation policy; does not create a host subscription.",
     z.strictObject({
       ...scope,
       ...write,
@@ -152,7 +153,7 @@ export function registerDossierTools(
   );
   define(
     "claim_continuation",
-    "Claim one terminal run revision before processing execution.finished. Stale events, duplicate claims, disabled policies and closed tasks do not run again. Expired claims require explicit reconciliation, never replay of the executor job.",
+    "Claim one terminal run revision. Never replay duplicate or stale jobs.",
     z.strictObject({
       ...scope,
       ...write,
@@ -166,7 +167,7 @@ export function registerDossierTools(
   );
   define(
     "finish_continuation",
-    "Complete a claimed continuation using same-task evidence and a separately verified result, or record that owner input is required. Does not close the task or accept knowledge.",
+    "Finish from verified same-task evidence; does not close the task.",
     z.strictObject({
       ...scope,
       ...write,
@@ -178,6 +179,22 @@ export function registerDossierTools(
     }),
     false,
     (i) => finishContinuation(deps, i),
+    result,
+  );
+  define(
+    "reconcile_continuation",
+    "Resolve an expired claim with fresh evidence and a fence; no job replay.",
+    z.strictObject({
+      ...scope,
+      ...write,
+      runId: uuid,
+      runRevision: z.number().int().min(1),
+      expectedClaimUpdatedAt: z.string().datetime(),
+      resultRecordId: uuid,
+      result: z.enum(["reported", "needs_owner"]),
+    }),
+    false,
+    (i) => reconcileContinuation(deps, i),
     result,
   );
 }

@@ -69,6 +69,7 @@ function requiredTablesForVersion(schemaVersion: number): string[] {
   if (schemaVersion >= 14) required.push("ck_records_fts");
   if (schemaVersion >= 15) required.push("context_cursor_snapshots", "context_delta_sessions");
   if (schemaVersion >= 17) required.push("workflow_task_records", "workflow_runs", "workflow_observations", "workflow_subscriptions", "workflow_events", "workflow_deliveries");
+  if (schemaVersion >= 18) required.push("workflow_continuations");
   return required;
 }
 

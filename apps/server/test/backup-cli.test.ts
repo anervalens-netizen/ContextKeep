@@ -11,7 +11,7 @@ import { SERVER_SCHEMA_VERSION } from "../src/db/schema-version.js";
 
 describe("M3.4 safety: backup CLI is non-migrating", () => {
   it("backs up an older compatible store without stamping or creating newer schema objects", () => {
-    expect(SERVER_SCHEMA_VERSION).toBe(17);
+    expect(SERVER_SCHEMA_VERSION).toBe(18);
     const dataDir = mkdtempSync(path.join(tmpdir(), "ck-backup-cli-data-"));
     const backupDir = mkdtempSync(path.join(tmpdir(), "ck-backup-cli-out-"));
     try {

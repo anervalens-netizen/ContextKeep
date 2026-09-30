@@ -38,3 +38,10 @@ Public contracts are summarized in [architecture and invariants](docs/ARCHITECTU
 [synthetic operations/configuration](docs/OPERATIONS.md), and the
 [HTTP/MCP recovery contract](docs/RECOVERY_CONTRACT.md). Operational profiles,
 endpoints, data and deployment evidence remain private.
+
+## Current-state dossier and task continuity
+
+Read [Operational dossier](docs/OPERATIONAL_DOSSIER.md) for outcome-first project/task
+reads, read-only resume, operational progress, cross-project relationships, changes
+digests and bounded event continuation. Current task state is shared by MCP, PWA
+and the host panel; it does not silently promote reports to accepted knowledge.

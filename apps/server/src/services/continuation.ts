@@ -248,3 +248,69 @@ export function finishContinuation(
     };
   })();
 }
+
+/** Reconcile an abandoned claim after a fresh inspection; never reacquire or replay effects. */
+export function reconcileContinuation(
+  deps: ServiceDeps,
+  input: Scope & {
+    runId: string;
+    runRevision: number;
+    expectedClaimUpdatedAt: string;
+    resultRecordId: string;
+    result: "reported" | "needs_owner";
+  },
+) {
+  return deps.sqlite.transaction(() => {
+    getRun(deps, input.projectId, input.taskId, input.runId);
+    const claim = deps.sqlite
+      .prepare(
+        `SELECT token,status,lease_until AS leaseUntil,updated_at AS updatedAt
+      FROM workflow_continuations WHERE run_id=? AND run_revision=? AND task_id=?`,
+      )
+      .get(input.runId, input.runRevision, input.taskId) as
+      | {
+          token: string;
+          status: string;
+          leaseUntil: string;
+          updatedAt: string;
+        }
+      | undefined;
+    if (!claim || claim.updatedAt !== input.expectedClaimUpdatedAt)
+      throw new ApiError(
+        409,
+        "continuation_recovery_conflict",
+        "Read the current continuation before reconciliation.",
+      );
+    if (
+      claim.status !== "claimed" ||
+      claim.leaseUntil > new Date().toISOString()
+    )
+      throw new ApiError(
+        409,
+        "continuation_recovery_not_abandoned",
+        "Do not replace an active or already completed continuation.",
+      );
+    const proof = deps.sqlite
+      .prepare(
+        `SELECT r.recorded_at AS recordedAt FROM records r
+      JOIN workflow_task_records tr ON tr.record_id=r.id
+      WHERE r.id=? AND tr.task_id=? AND r.review_status IN ('accepted','proposed')`,
+      )
+      .get(input.resultRecordId, input.taskId) as
+      { recordedAt: string } | undefined;
+    if (!proof || proof.recordedAt < claim.leaseUntil)
+      throw new ApiError(
+        409,
+        "continuation_recovery_requires_fresh_evidence",
+        "Inspect the retained result again and capture fresh same-task evidence.",
+      );
+    const result = finishContinuation(deps, { ...input, token: claim.token });
+    return {
+      ...result,
+      reconciled: true,
+      executionStarted: false,
+      semantics:
+        "An abandoned claim was resolved from fresh evidence; its external job was not replayed.",
+    };
+  })();
+}

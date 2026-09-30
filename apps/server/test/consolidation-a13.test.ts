@@ -55,9 +55,9 @@ describe("CK-A13 common runtime metadata and bounded MCP diagnostics", () => {
     expect(meta.runtime).toEqual({
       buildSha: BUILD_SHA,
       applicationVersion: "0.1.0",
-      mcpVersion: "2.11.0",
+      mcpVersion: "2.12.0",
       mcpContractVersion: "mcp-first-v1",
-      schemaVersion: 17,
+      schemaVersion: 18,
       protocols: {
         latest: "2026-07-28",
         supported: expect.arrayContaining(["2025-11-25", "2025-06-18", "2025-03-26"]),
@@ -115,7 +115,7 @@ describe("CK-A13 SDK compatibility probe", () => {
         await client.connect(new StreamableHTTPClientTransport(endpoint, {
           requestInit: { headers: { authorization: `Bearer ${TOKEN}` } },
         }));
-        expect((await client.listTools()).tools).toHaveLength(43);
+        expect((await client.listTools()).tools).toHaveLength(55);
         const ok = await client.callTool({ name: "get_project", arguments: { projectId: project.id } });
         expect(ok.isError).not.toBe(true);
         const bad = await client.callTool({ name: "get_project", arguments: { projectId: crypto.randomUUID() } });

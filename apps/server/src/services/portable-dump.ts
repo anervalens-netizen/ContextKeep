@@ -45,6 +45,8 @@ export const PORTABLE_DUMP_EXCLUDED = [
   "agentMessages",
   "agentRuns",
   "runtime/provider state",
+  "workflow task correlations and run observations",
+  "workflow subscriptions, deliveries and continuation claims",
 ] as const;
 
 export interface PortableDumpV3 {

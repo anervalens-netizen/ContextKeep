@@ -11,6 +11,8 @@ import { isQueued, notifyError, reportQueued } from "../lib/hooks.js";
 import { partitionProjectVisibility } from "../lib/project-visibility.js";
 import { readCosmeticPreference, writeCosmeticPreference } from "../lib/cosmetic-preferences.js";
 
+import { stateLabel, type PortfolioPage } from "../components/OperationalDossier.js";
+
 export const LAST_PROJECT_KEY = "ck:last-project";
 
 function later(a: string | null, b: string | null): string | null {
@@ -84,6 +86,15 @@ export default function Projects(): ReactNode {
       }
     },
   });
+
+  const portfolioQuery = useQuery({
+    queryKey: ["operational-portfolio"],
+    queryFn: () => apiFetch<PortfolioPage>("/api/portfolio?limit=50"),
+    retry: false,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  });
+  const operationalProjects = new Map((portfolioQuery.data?.items ?? []).map(p => [p.id, p]));
 
   const reconciliationQuery = useQuery({
     queryKey: ["workspace-reconciliation"],
@@ -165,6 +176,11 @@ export default function Projects(): ReactNode {
   };
 
   const sorted = [...projects].sort((a, b) => {
+    const aTask = operationalProjects.get(a.id)?.tasks[0]?.lastActivityAt;
+    const bTask = operationalProjects.get(b.id)?.tasks[0]?.lastActivityAt;
+    if (aTask && bTask && aTask !== bTask) return Date.parse(bTask) - Date.parse(aTask);
+    if (aTask && !bTask) return -1;
+    if (!aTask && bTask) return 1;
     const aSignal = signalsFor(a.id);
     const bSignal = signalsFor(b.id);
     if (aSignal.sessionLatest && bSignal.sessionLatest && aSignal.sessionLatest !== bSignal.sessionLatest) {
@@ -185,6 +201,7 @@ export default function Projects(): ReactNode {
 
   const projectCard = (p: ProjectDto): ReactNode => {
     const signal = signalsFor(p.id);
+    const latestTask = operationalProjects.get(p.id)?.tasks[0];
     const primaryActivity = signal.sessionLatest ?? signal.repoLatest;
     const hasAgentHistory = signal.sessions > 0 || signal.summaries > 0;
     const activityLabel = signal.sessionLatest ? `Worked ${relativeTime(signal.sessionLatest)}` : signal.repoLatest ? `Repo activity ${relativeTime(signal.repoLatest)}` : "No activity yet";
@@ -207,7 +224,12 @@ export default function Projects(): ReactNode {
                 <LifecycleBadge state={p.lifecycle} />
               </div>
               {p.aliases.length > 0 ? <p className="mt-1 truncate text-[11px] text-ck-muted">Aliases: {p.aliases.join(", ")}</p> : null}
-              {p.description ? <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ck-muted">{p.description}</p> : null}
+              {latestTask ? <div className="mt-2 space-y-1">
+                <p className="text-[11px] font-semibold text-ck-teal">Ultima lucrare: {stateLabel(latestTask.state)}</p>
+                <p className="line-clamp-3 text-xs leading-relaxed text-ck-ink">{latestTask.summary ?? latestTask.title}</p>
+                {latestTask.ownerAction ? <p className="text-xs text-ck-amber">De la tine: {latestTask.ownerAction}</p> : null}
+                <p className="text-[10px] text-ck-muted">Raport operațional · {relativeTime(latestTask.lastActivityAt)}</p>
+              </div> : p.description ? <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ck-muted">{p.description}</p> : null}
               {!p.description && hasAgentHistory ? (
                 <p className="mt-1 text-xs text-ck-muted">Work history detected from mapped agent history.</p>
               ) : null}
@@ -289,10 +311,12 @@ export default function Projects(): ReactNode {
       {projectsQuery.isLoading ? <p className="rounded-2xl border border-ck-line bg-ck-surface p-4 text-sm text-ck-muted">Loading your workspace…</p> : null}
       {projectsQuery.isError ? <p className="rounded-2xl border border-ck-red/30 bg-ck-red/5 p-4 text-sm text-ck-red">Could not load projects and no cached copy exists. Reconnect and retry.</p> : null}
 
+      {portfolioQuery.isError ? <p className="text-xs text-ck-amber">Starea operațională nu poate fi actualizată; metadatele proiectelor rămân disponibile.</p> : null}
+      {portfolioQuery.data?.nextOffset !== null && portfolioQuery.data ? <p className="text-xs text-ck-muted">Rezumatul operațional acoperă primele {portfolioQuery.data.items.length} din {portfolioQuery.data.total} proiecte. Deschide proiectul pentru toate lucrările.</p> : null}
       {active.length > 0 ? (
         <section>
           <div className="mb-2 flex items-end justify-between gap-2">
-            <div><h2 className="text-sm font-semibold text-ck-ink">Active projects</h2><p className="mt-0.5 text-xs text-ck-muted">Sorted by your most recent mapped agent session, then repo activity.</p></div>
+            <div><h2 className="text-sm font-semibold text-ck-ink">Active projects</h2><p className="mt-0.5 text-xs text-ck-muted">Current task reports first, then mapped sessions and repository activity. Reports do not change accepted project knowledge.</p></div>
           </div>
           <ul className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">{active.map(projectCard)}</ul>
         </section>
