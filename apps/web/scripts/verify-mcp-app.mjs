@@ -4,6 +4,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { z } from "zod";
+import { registerWorkflowTools } from "../../server/dist/mcp/workflow-tools.js";
+
+// Consume the server's actual published contracts. Zod parsing alone would
+// insert defaults and hide arguments missing at the host validation boundary.
+const taskInputs = {};
+registerWorkflowTools((name, _description, schema) => {
+  if (["list_tasks", "get_task"].includes(name))
+    taskInputs[name] = z.toJSONSchema(schema, { target: "draft-7" });
+}, {});
 
 const dist = process.env.CK_MCP_DIST
   ? new URL("file://" + process.env.CK_MCP_DIST.replace(/\/$/, "") + "/")
@@ -37,7 +47,7 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setContent("<!doctype html><html><body></body></html>");
     await page.evaluate(
-      ({ html, mode }) => {
+      ({ html, mode, taskInputs }) => {
         const frame = document.createElement("iframe");
         frame.id = "app";
         frame.setAttribute("sandbox", "allow-scripts");
@@ -92,6 +102,20 @@ try {
           } else if (message.method === "tools/call") {
             const { name, arguments: args } = message.params;
             window.calls.push({ name, args });
+            const missing = (taskInputs[name]?.required ?? []).filter(
+              (key) => !Object.hasOwn(args, key),
+            );
+            if (missing.length) {
+              send({
+                id: message.id,
+                error: {
+                  code: -32602,
+                  message:
+                    "Missing required tool arguments: " + missing.join(", "),
+                },
+              });
+              return;
+            }
             const task = {
               id: "demo-task",
               subject: "Synthetic task",
@@ -130,7 +154,7 @@ try {
         document.body.appendChild(frame);
         frame.srcdoc = html;
       },
-      { html, mode },
+      { html, mode, taskInputs },
     );
     const app = page.frameLocator("#app");
     try {

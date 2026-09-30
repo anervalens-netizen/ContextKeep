@@ -51,3 +51,11 @@ Release dependency maintenance:
 - The dependency audit detected vulnerable transitive URI/address parsing and
   brace expansion releases. Exact same-major patch overrides replace only the
   affected versions. The audit threshold and release-age policy are unchanged.
+
+Host tool-call contract regression:
+- The MCP App now supplies every published required pagination argument to task
+  list and detail calls. Backend defaults must not mask host schema validation.
+- The compiled browser check derives required workflow arguments from the server
+  definitions and rejects missing fields before returning synthetic results.
+- A failed task-list request no longer displays a contradictory empty-project
+  message; successful empty responses remain distinct from loading and errors.

@@ -48,13 +48,16 @@ const transport: TaskTransport = {
     return projects;
   },
   tasks: async (projectId, offset = 0) =>
-    (await call("list_tasks", { projectId, offset })) as Awaited<
+    (await call("list_tasks", { projectId, offset, limit: 50 })) as Awaited<
       ReturnType<TaskTransport["tasks"]>
     >,
   task: async (projectId, taskId, offset = 0) =>
-    (await call("get_task", { projectId, taskId, offset })) as Awaited<
-      ReturnType<TaskTransport["task"]>
-    >,
+    (await call("get_task", {
+      projectId,
+      taskId,
+      offset,
+      limit: 20,
+    })) as Awaited<ReturnType<TaskTransport["task"]>>,
 };
 function render() {
   root.render(

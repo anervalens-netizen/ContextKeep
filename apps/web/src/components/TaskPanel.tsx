@@ -71,6 +71,9 @@ export function TaskPanel({
     [view, setView] = useState<TaskView | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
+  const [tasksStatus, setTasksStatus] = useState<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
   const currentProject = useRef(projectId);
   currentProject.current = projectId;
   const serial = useRef(0),
@@ -109,6 +112,8 @@ export function TaskPanel({
     setTasks([]);
     setNextTasks(null);
     setView(null);
+    setError("");
+    setTasksStatus(projectId ? "loading" : "idle");
     if (projectId)
       transport
         .tasks(projectId)
@@ -116,10 +121,14 @@ export function TaskPanel({
           if (active) {
             setTasks(r.items);
             setNextTasks(r.nextOffset);
+            setTasksStatus("loaded");
           }
         })
         .catch(() => {
-          if (active) setError("Could not load tasks.");
+          if (active) {
+            setTasksStatus("error");
+            setError("Could not load tasks.");
+          }
         });
     return () => {
       active = false;
@@ -222,13 +231,15 @@ export function TaskPanel({
         )}
       </div>
       {error && <p role="alert">{error}</p>}
-      {!view && (
+      {!view && tasksStatus !== "error" && (
         <p className="ck-task-muted">
-          {loading
-            ? "Loading task…"
-            : projectId && tasks.length === 0
-              ? "No current action records in this project."
-              : "Choose a task to inspect its state."}
+          {tasksStatus === "loading"
+            ? "Loading tasks…"
+            : loading
+              ? "Loading task…"
+              : tasksStatus === "loaded" && tasks.length === 0
+                ? "No current action records in this project."
+                : "Choose a task to inspect its state."}
         </p>
       )}
       {view && (
