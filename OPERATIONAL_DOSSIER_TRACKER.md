@@ -1,8 +1,9 @@
 # Operational dossier and continuity
 
-Status: software deployed and verified. Host-native operational subscription and
-fresh actual-host UI acceptance remain pending. Exact operational identities,
-source synchronization and deployment receipts are kept in private project memory.
+Status: software deployed and verified. The expanded host catalog is now
+discovered and the first task-scoped native operational subscription is active.
+Native event-triggered continuation is independently verified. Only actual-host
+visual UI acceptance remains pending. Exact identities and receipts are kept in private project memory.
 
 ## Delivered
 - [x] D1 Evidence-backed operational task progress, separate from accepted knowledge.
@@ -14,11 +15,14 @@ source synchronization and deployment receipts are kept in private project memor
 - [x] D7 Documentation, current task checkpoint and dated deployment/recovery evidence.
 
 ## Remaining host integration
-- [ ] Refresh the installed connection metadata so the host discovers the expanded tool catalog and v4 resource; verify actual-host dossier rendering.
-- [ ] Create the first operational native subscription before its real job, then independently verify event-triggered continuation.
+- [x] Discover all 55 tools in the actual host; read the project dossier and resume the selected task without starting an execution.
+- [ ] Verify actual-host v4 dossier rendering; successful selection alone is insufficient.
+- [x] Discover the native event schema and register the first task-scoped operational subscription before its useful read-only job.
+- [x] Independently verify event-triggered host continuation, exact receipt readback, same-task evidence, run verdict and completed continuation claim.
 
-The current conversation exposes the older connection catalog and no native
-webhook-discovery/subscription-creation API. This is not a failing application
+The current host exposes native webhook discovery and subscription creation.
+Registration and the read-only job succeeded. The separately accessible browser
+is unauthenticated, so visual acceptance is still unverified. This is not a failing application
 release. Do not mark these items complete based on compiled browser tests, a
 stored policy, an HTTP delivery receipt or a scheduled digest. Do not reactivate
 the closed qualification pilot or replace native continuation with polling.
@@ -52,3 +56,20 @@ A concise scheduled owner changes digest is configured separately from native
 execution continuation. It does not resume jobs or mutate project progress.
 The existing extension/events qualification remains closed, not a requirement
 to repeat its successful test.
+
+## Host integration observation — 2026-09-30
+
+The native catalog exposes all 55 application tools. Dossier and read-only
+resume calls succeed; resume explicitly reports that it starts no execution.
+One task-scoped native subscription was created without a schedule and read
+back as active before reservation and launch of the new job. Its bounded
+verification policy is separate from subscription state. The useful read-only
+job checked deployed runtime identity, source revision, active service, v4
+resource declaration and installed operational module hashes; it returned PASS.
+The actual host subsequently delivered the native event and ran the continuation.
+It acquired the terminal revision claim, reread the exact existing receipt and
+both output streams, and persisted event-linked evidence in the same task.
+Separate readback confirms the run verdict passed and the continuation completed
+as reported. No second job was started. This establishes one bounded operational
+workflow, not automatic recovery from every possible host interruption.
+The existing scheduled digest and closed historical pilot were left unchanged.
