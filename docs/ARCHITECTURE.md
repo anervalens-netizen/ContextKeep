@@ -32,13 +32,11 @@ allowed, but a restore must stop or fence the writer and verify the target
 before invoking the restore CLI. Standby copies remain recovery material, not a
 second writable primary.
 
-## Accepted versus proposed protocol details
+## Implemented idempotency protocol
 
-The accepted implementation already preserves canonical/proposed provenance,
-revision-bound writes, independent cursors, stable idempotency claims and
-indeterminate outcomes. The result-compaction rule below is the agreed R13
-target contract; it is marked proposed until the server implementation and
-regressions expose the exact tombstone response.
+The implementation preserves canonical/proposed provenance, revision-bound
+writes, independent cursors, stable idempotency claims and indeterminate
+outcomes. The result-compaction rule below is implemented and regression-tested.
 
 When a completed response body is compacted, the durable idempotency row keeps
 the key, request fingerprint and a result hash/tombstone. A retry receives
@@ -54,3 +52,21 @@ Current source references: [durable idempotency](../apps/server/src/services/ide
 [cursor journal](../apps/server/src/services/context-journal.ts),
 [HTTP idempotency hooks](../apps/server/src/app.ts), and
 [MCP safety](../apps/server/src/mcp/safety.ts).
+
+## Task and execution lifecycle
+
+A nullable next action is read from the newer authoritative progress/checkpoint.
+An explicitly cleared action is not replaced by an old instruction. Blocker
+resolution reports inherit only their originating checkpoint's task identity;
+legacy unscoped history is not guessed into a task.
+
+Event response effects are fenced by subscription generation. An old failed
+response cannot revoke a renewed subscription; the stable event can retry using
+its current credentials. Shutdown stops admission, drains deliveries before the
+SQLite close boundary, and cancels unfinished transport at a bounded deadline.
+Cancellation returns a recoverable pending delivery without consuming a receiver
+retry; a late transport response cannot write after the drain completes.
+
+[Execution evidence](VERIFICATION_EVIDENCE.md) is explicitly correlated and its
+current validity is separate from historical verification. The dossier's state
+token reflects evidence and delivery health as well as task/run revisions.

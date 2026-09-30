@@ -28,6 +28,9 @@ export interface TaskDossier {
     id: string;
     status: string;
     verification: string;
+    evidenceValidity?: {
+      status: "pending" | "valid" | "changed" | "retracted" | "legacy_unbound";
+    };
     updatedAt: string;
   } | null;
   blockers: { activeCount: number };
@@ -35,6 +38,19 @@ export interface TaskDossier {
     policy: { mode: string; objective: string } | null;
     activeSubscriptions: number;
     ready: boolean;
+    health?: {
+      pendingDeliveries: number;
+      failedDeliveries: number;
+      oldestPendingAt: string | null;
+      reconciliationNeeded: number;
+      lastDelivery: {
+        status: string;
+        attempts: number;
+        httpStatus: number | null;
+        eventCreatedAt: string;
+        nextAttemptAt: string | null;
+      } | null;
+    };
   };
   warnings: string[];
   stateToken: string;
@@ -114,6 +130,22 @@ export function stateLabel(state: string): string {
   };
   return labels[state] ?? state;
 }
+const evidenceLabel = (status: string) =>
+  ({
+    valid: "Dovadă actuală, legată de execuție",
+    changed: "Dovadă modificată — reverificare necesară",
+    retracted: "Dovadă retrasă — verdict doar istoric",
+    legacy_unbound: "Verificare istorică fără legătură explicită",
+    pending: "Dovadă încă neverificată",
+  })[status] ?? "Validitate necunoscută";
+const deliveryLabel = (status: string) =>
+  ({
+    delivered: "livrat",
+    pending: "în așteptare",
+    sending: "în curs",
+    failed: "eșuat",
+    revoked: "anulat",
+  })[status] ?? "necunoscut";
 const time = (value: string) => new Date(value).toLocaleString();
 export function TaskNow({ dossier }: { dossier: TaskDossier }) {
   return (
@@ -150,6 +182,12 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
             </dd>
           </div>
         )}
+        {dossier.execution?.evidenceValidity && (
+          <div>
+            <dt>Validitatea dovezii</dt>
+            <dd>{evidenceLabel(dossier.execution.evidenceValidity.status)}</dd>
+          </div>
+        )}
         <div>
           <dt>Continuare pe evenimente</dt>
           <dd>
@@ -161,6 +199,34 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
                 : "Oprită pentru această lucrare"}
           </dd>
         </div>
+        {dossier.continuation.health && (
+          <div>
+            <dt>Livrarea evenimentelor</dt>
+            <dd>
+              {dossier.continuation.health.lastDelivery
+                ? `Ultimul eveniment: ${deliveryLabel(dossier.continuation.health.lastDelivery.status)} · ${dossier.continuation.health.lastDelivery.attempts} încercări`
+                : "Nicio livrare înregistrată; funcționarea nu este încă demonstrată."}
+            </dd>
+            {dossier.continuation.health.pendingDeliveries > 0 && (
+              <dd>
+                {dossier.continuation.health.pendingDeliveries} livrări în
+                așteptare
+              </dd>
+            )}
+            {dossier.continuation.health.failedDeliveries > 0 && (
+              <dd role="status">
+                {dossier.continuation.health.failedDeliveries} livrări eșuate în
+                istoric
+              </dd>
+            )}
+            {dossier.continuation.health.reconciliationNeeded > 0 && (
+              <dd role="status">
+                {dossier.continuation.health.reconciliationNeeded} continuări
+                necesită reconciliere
+              </dd>
+            )}
+          </div>
+        )}
       </dl>
       {dossier.lastReported && (
         <small>
@@ -198,23 +264,46 @@ export function ProjectNow({
   const [moreBusy, setMoreBusy] = useState(false),
     [filter, setFilter] = useState("active");
   const generation = useRef(0),
-    expanded = useRef(false);
+    loadedPages = useRef(1),
+    pending = useRef(false),
+    reload = useRef<((pages?: number) => Promise<void>) | null>(null);
   useEffect(() => {
     const g = ++generation.current;
-    let stopped = false,
-      pending = false;
-    expanded.current = false;
+    let stopped = false;
+    loadedPages.current = 1;
+    pending.current = false;
     setMoreBusy(false);
     setData(null);
     setError("");
     setFilter("active");
-    async function refresh() {
-      if (pending || stopped) return;
-      pending = true;
+    async function refresh(targetPages = loadedPages.current) {
+      if (pending.current || stopped) return;
+      pending.current = true;
+      setMoreBusy(true);
       try {
-        const next = await load(projectId);
+        // Re-read the visible prefix rather than append to obsolete page boundaries.
+        const first = await load(projectId, 0);
+        let last = first,
+          pages = 1,
+          previousOffset = 0;
+        const tasks = new Map(first.tasks.map((task) => [task.taskId, task]));
+        while (pages < targetPages && last.pagination.nextOffset !== null) {
+          if (stopped || generation.current !== g) return;
+          const offset = last.pagination.nextOffset;
+          if (offset <= previousOffset)
+            throw new Error("Non-advancing task page");
+          last = await load(projectId, offset);
+          for (const task of last.tasks) tasks.set(task.taskId, task);
+          previousOffset = offset;
+          pages++;
+        }
         if (!stopped && generation.current === g) {
-          setData(next);
+          loadedPages.current = pages;
+          setData({
+            ...first,
+            tasks: [...tasks.values()],
+            pagination: last.pagination,
+          });
           setError("");
         }
       } catch {
@@ -223,46 +312,26 @@ export function ProjectNow({
             "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
           );
       } finally {
-        pending = false;
+        if (!stopped && generation.current === g) {
+          pending.current = false;
+          setMoreBusy(false);
+        }
       }
     }
+    reload.current = refresh;
     void refresh();
     const timer = setInterval(() => {
-      if (document.visibilityState !== "hidden" && !expanded.current)
-        void refresh();
+      if (document.visibilityState !== "hidden") void refresh();
     }, 15_000);
     return () => {
       stopped = true;
+      reload.current = null;
       clearInterval(timer);
     };
   }, [projectId, load]);
   async function more() {
-    if (!data || data.pagination.nextOffset === null || moreBusy) return;
-    const g = generation.current;
-    expanded.current = true;
-    setMoreBusy(true);
-    try {
-      const next = await load(projectId, data.pagination.nextOffset);
-      if (generation.current === g)
-        setData((d) =>
-          d
-            ? {
-                ...next,
-                tasks: [
-                  ...d.tasks,
-                  ...next.tasks.filter(
-                    (t) => !d.tasks.some((old) => old.taskId === t.taskId),
-                  ),
-                ],
-              }
-            : next,
-        );
-    } catch {
-      if (generation.current === g)
-        setError("Nu s-au putut încărca celelalte lucrări.");
-    } finally {
-      if (generation.current === g) setMoreBusy(false);
-    }
+    if (!data || data.pagination.nextOffset === null || pending.current) return;
+    await reload.current?.(loadedPages.current + 1);
   }
   const tasks =
     data?.tasks.filter(

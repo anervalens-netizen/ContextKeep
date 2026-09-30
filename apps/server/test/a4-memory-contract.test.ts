@@ -352,7 +352,7 @@ describe("A4 AI-first memory contract", () => {
     expect(legacyTarget.app.ck.deps.db.select().from(records).all()).toHaveLength(1);
 
     const backup = await createBackup(target.app.ck.handle, target.app.ck.deps, target.config.backupDir, 2, { actor: "test:a4" });
-    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 18 });
+    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 19 });
   });
 
   it("advertises core MCP contracts and current Remote Control naming", async () => {

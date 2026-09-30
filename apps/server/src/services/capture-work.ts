@@ -17,9 +17,11 @@ import { editRecord } from "./review.js";
 import { sourceBelongsToProject } from "./source-membership.js";
 
 import { requireTaskScope } from "./task-scope.js";
+import { validateRunEvidence, bindRunEvidence, type RunEvidenceInput } from "./run-evidence.js";
 
 export interface CaptureWorkInput {
   taskId?: string;
+  runEvidence?: RunEvidenceInput;
   projectId: string;
   outcome: string;
   evidenceText: string | null;
@@ -60,6 +62,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
   return deps.sqlite.transaction(() => {
     requireProject(deps, input.projectId);
     if (input.taskId) requireTaskScope(deps, input.projectId, input.taskId);
+    const runBinding = input.runEvidence ? validateRunEvidence(deps, input.projectId, input.taskId, input.runEvidence) : null;
     const rawEvidence = input.evidenceText ?? input.outcome;
     const normalized = normalizeText(rawEvidence);
     if (!normalized) throw new ApiError(400, "empty_after_normalization", "Evidence is empty after normalization.");
@@ -148,9 +151,10 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
         : input.structuredValueJson === undefined || input.structuredValueJson === null
           ? null
           : JSON.stringify(input.structuredValueJson),
-      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}`,
+      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
     }, ctx);
     const outcomeRecord = requireRecord(deps, created.record.id);
+    if (runBinding) bindRunEvidence(deps, outcomeRecord.id, runBinding);
     if (input.taskId) deps.sqlite.prepare("INSERT OR IGNORE INTO workflow_task_records(task_id,record_id) VALUES (?,?)").run(input.taskId, outcomeRecord.id);
     if (outcomeRecord.reviewStatus !== "proposed" || outcomeRecord.evidenceBasis !== "agent_report") {
       throw new ApiError(409, "capture_working_identity_conflict", "Working capture identity resolved to a non-working record.");

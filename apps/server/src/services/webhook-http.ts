@@ -54,9 +54,15 @@ export type WebhookPost = (
   url: string,
   headers: Record<string, string>,
   body: string,
+  signal?: AbortSignal,
 ) => Promise<{ status: number; body: string }>;
 /** DNS validation happens inside connection lookup. No second DNS lookup, redirects or unbounded bodies. */
-export const webhookPost: WebhookPost = async (value, headers, body) => {
+export const webhookPost: WebhookPost = async (
+  value,
+  headers,
+  body,
+  signal,
+) => {
   const url = callbackUrl(value);
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -67,7 +73,9 @@ export const webhookPost: WebhookPost = async (value, headers, body) => {
           ...headers,
           "content-length": String(Buffer.byteLength(body)),
         },
-        signal: AbortSignal.timeout(10000),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
+          : AbortSignal.timeout(10000),
         lookup: (hostname, options, callback) => {
           dns.lookup(hostname, { all: true }, (error, addresses) => {
             if (error) {

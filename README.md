@@ -45,3 +45,21 @@ Read [Operational dossier](docs/OPERATIONAL_DOSSIER.md) for outcome-first projec
 reads, read-only resume, operational progress, cross-project relationships, changes
 digests and bounded event continuation. Current task state is shared by MCP, PWA
 and the host panel; it does not silently promote reports to accepted knowledge.
+
+## Reliable task continuity
+
+MCP 2.13 / schema 19 adds explicit execution-evidence correlation and immutable
+verification receipts. A historical pass and a currently valid proof are different
+states. Read [Execution evidence](docs/VERIFICATION_EVIDENCE.md) for the optional
+`runEvidence` capture field and the required correlation for new verification.
+Ordinary working-memory captures remain compatible and proposal-only.
+
+The shared task view preserves explicitly cleared next steps, includes task-scoped
+blocker-resolution history, and distinguishes subscription configuration from real
+delivery status. Project cards keep loaded pages current after pagination errors.
+Event delivery supports generation-safe renewal and bounded graceful shutdown.
+The host widget advertises v5 while retaining reads of installed v2/v3/v4 resources.
+
+Private monitoring can use authenticated `GET /api/health`. It reports a real
+SQLite read, not merely successful delivery of the application's HTML. Production
+qualification still requires the release gate and independent recovery evidence.

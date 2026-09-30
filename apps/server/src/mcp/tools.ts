@@ -26,7 +26,7 @@ import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-me
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
 
 // The host caches resources by URI. Bump this when shipped UI behavior changes.
-const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v4.html";
+const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v5.html";
 const LEGACY_TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks";
 
 type McpMetricErrorClass =
@@ -437,7 +437,9 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     artifactRefs: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
   });
   define("capture_working_memory", "Capture useful agent working memory immediately when the owner has configured delegation for this MCP endpoint. Proposal-only: persists agent-authored evidence and an unreviewed agent_report; optional checkpoint metadata is stored in the existing structured valueJson field; never changes accepted task progress or canonical truth. On a shared endpoint, optional clientId selects stable per-agent attribution; otherwise the configured default client is used.",
-    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), outcome: z.string().trim().min(1).max(8000),
+    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
+      runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
+      outcome: z.string().trim().min(1).max(8000),
       evidenceText: z.string().trim().min(1).max(64000).nullable().default(null), title: z.string().max(400).nullable().default(null),
       eventAt: z.string().datetime().nullable().default(null), recordType: RecordType.default("fact"),
       subject: z.string().trim().min(1).max(400).default("working-memory"), checkpoint: CheckpointInput.optional(), clientId: ClientId.optional(), sessionId: SessionId.optional(), idempotencyKey: WriteKey }), false, (input) => {
@@ -452,8 +454,10 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         clientId: delegatedClientId, sessionId: input.sessionId ?? "delegated-working-memory", idempotencyKey: input.idempotencyKey,
       }));
     }, CaptureResult);
-  define("capture_work", "Atomically capture one agent work outcome: persist supplied evidence as an agent-authored source, create an evidence-linked proposed outcome record, optionally persist structured checkpoint metadata (summary/outcome, nextAction, blockers, artifactRefs), and optionally update explicit accepted action progress. The outcome is never auto-accepted.",
-    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), outcome: z.string().trim().min(1).max(8000),
+  define("capture_work", "Atomically capture one agent work outcome: persist supplied evidence as an agent-authored source, create an evidence-linked proposed outcome record, optionally persist structured checkpoint metadata (summary/outcome, nextAction, blockers, artifactRefs), and optionally update explicit accepted action progress. For execution verification, supply runEvidence with the current runId, runRevision and exact externalJobId after inspecting its receipt. The outcome is never auto-accepted.",
+    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
+      runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
+      outcome: z.string().trim().min(1).max(8000),
       evidenceText: z.string().trim().min(1).max(64000).nullable().default(null), title: z.string().max(400).nullable().default(null),
       eventAt: z.string().datetime().nullable().default(null), recordType: RecordType.default("fact"),
       subject: z.string().trim().min(1).max(400).default("work-capture"),
@@ -525,7 +529,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   });
   server.setRequestHandler("resources/list",async()=>({resources:[{uri:TASK_PANEL_RESOURCE_URI,name:"ContextKeep task dossier",mimeType:"text/html;profile=mcp-app"}]}));
   server.setRequestHandler("resources/read",async request=>{
-    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html")throw new ProtocolError(-32602,"Unknown UI resource.");
+    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html" && request.params.uri!=="ui://contextkeep/tasks/v4.html")throw new ProtocolError(-32602,"Unknown UI resource.");
     const root=options.webDist??path.resolve(import.meta.dirname,"../../../web/dist");
     const js=fs.readFileSync(path.join(root,"mcp/widget.js"),"utf8");
     const css=fs.readFileSync(path.join(root,"mcp/widget.css"),"utf8");

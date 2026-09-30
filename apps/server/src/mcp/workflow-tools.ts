@@ -111,7 +111,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps) {
   );
   define(
     "verify_run",
-    "Record an agent verification verdict backed by an evidence-linked report captured in the same task. Does not complete the task or accept knowledge.",
+    "Record an agent verification verdict backed by a same-task report captured with runEvidence for this exact terminal run revision and executor receipt. Read current evidence validity separately; this does not complete the task or accept knowledge.",
     z.strictObject({
       ...run,
       ...write,

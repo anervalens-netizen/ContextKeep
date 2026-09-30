@@ -22,7 +22,12 @@ export function registerMcpRoutes(app: FastifyInstance): void {
   let pumping: Promise<unknown> | undefined;
   const timer = workflowEvents ? setInterval(()=>{ if(!pumping) pumping=workflowEvents.pump().catch(()=>app.log.error("Workflow delivery failed; details omitted.")).finally(()=>{pumping=undefined;}); },2000) : undefined;
   timer?.unref();
-  app.addHook("onClose",async()=>{if(timer)clearInterval(timer);await pumping;});
+  // preClose is deliberately before the root SQLite onClose ownership boundary.
+  app.addHook("preClose", async () => {
+    if (timer) clearInterval(timer);
+    await workflowEvents?.stopAndDrain();
+    await pumping;
+  });
   const factory: McpServerFactory = () => createContextKeepMcpServer(deps, [token!, config.sessionSecret], {
     defaultClientId: config.mcpDefaultClientId,
     delegateWorkingMemory: config.mcpDelegateWorkingMemory,

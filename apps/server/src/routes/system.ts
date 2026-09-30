@@ -8,6 +8,16 @@ import { runtimeMetadata } from "../mcp/runtime-metadata.js";
 export function registerSystemRoutes(app: FastifyInstance): void {
   const { deps, config } = app.ck;
 
+  app.get("/api/health", async (_request,reply) => {
+    reply.header("cache-control","no-store");
+    try {
+      deps.sqlite.prepare("SELECT 1 AS reachable").get();
+      return {status:"ready",database:"reachable",schemaVersion:SERVER_SCHEMA_VERSION};
+    } catch {
+      return reply.code(503).send({status:"not_ready",database:"unavailable"});
+    }
+  });
+
   app.get("/api/meta", async () => ({
     appVersion: APP_VERSION,
     schemaVersion: SERVER_SCHEMA_VERSION,

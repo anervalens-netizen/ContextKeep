@@ -1,3 +1,4 @@
+import { currentEvidenceValidity } from "./run-evidence.js";
 import { randomUUID } from "node:crypto";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { requireTaskScope } from "./task-scope.js";
@@ -213,7 +214,7 @@ export function finishContinuation(
         "continuation_evidence_missing",
         "Capture evidence in this task before completing continuation.",
       );
-    if (input.result === "reported" && run.verification === "pending")
+    if (input.result === "reported" && (run.verification === "pending" || currentEvidenceValidity(deps,run).status !== "valid"))
       throw new ApiError(
         409,
         "continuation_verification_pending",

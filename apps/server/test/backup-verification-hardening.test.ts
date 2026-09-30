@@ -227,7 +227,7 @@ it("rejects a schema-18 recovery copy missing durable continuation claims", asyn
   try {
     const dir = path.join(t.dataDir, "continuation-backups");
     const source = await createBackup(t.app.ck.handle, t.app.ck.deps, dir, 10, { actor: "test:continuity" });
-    expect(verifyBackup(source.file).schemaVersion).toBe(18);
+    expect(verifyBackup(source.file).schemaVersion).toBe(19);
     const broken = path.join(dir, "missing-continuations.sqlite");
     fs.copyFileSync(source.file, broken);
     const db = new Database(broken);

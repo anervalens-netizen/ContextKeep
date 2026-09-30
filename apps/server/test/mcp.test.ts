@@ -696,9 +696,9 @@ describe("MCP complete memory workflow", () => {
     expect(result.structuredContent.error.issues[0].message).toContain("15");
     const cap=await ok(t,"get_capabilities",{});
     expect(cap.tools).toHaveLength(55);
-    expect(cap.version).toBe("2.12.0");
+    expect(cap.version).toBe("2.13.0");
     expect(cap.applicationVersion).toBe("0.1.0");
-    expect(cap.schemaVersion).toBe(18);
+    expect(cap.schemaVersion).toBe(19);
     expect(cap.contractVersion).toBe("mcp-first-v1");
     expect(cap.protocols.latest).toBe("2026-07-28");
     expect(cap.protocols.supported).toEqual(expect.arrayContaining(["2026-07-28","2025-11-25","2025-06-18","2025-03-26"]));

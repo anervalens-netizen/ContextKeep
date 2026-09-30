@@ -1,3 +1,5 @@
+import { workflowHealth } from "./workflow-health.js";
+import { currentEvidenceValidity } from "./run-evidence.js";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { captureWork } from "./capture-work.js";
 import { requireProject } from "./memory-management.js";
@@ -107,11 +109,11 @@ export function reportTaskProgress(
     }
     if (input.status === "done") {
       const latest = latestRun(deps, input.taskId);
-      if (latest && latest.verification !== "passed")
+      if (latest && (latest.verification !== "passed" || latest.evidenceValidity.status !== "valid"))
         throw new ApiError(
           409,
           "task_verification_required",
-          "Verify the latest execution before reporting successful task completion.",
+          "Verify the latest execution with current, correlated evidence before reporting successful task completion.",
         );
     }
     const value: ProgressValue = {
@@ -174,7 +176,7 @@ function latestRun(deps: ServiceDeps, taskId: string) {
     .get(taskId) as LatestRun | undefined;
   if (!row) return null;
   const { criteriaJson, ...run } = row;
-  return { ...run, criteria: JSON.parse(criteriaJson) as string[] };
+  return { ...run, criteria: JSON.parse(criteriaJson) as string[], evidenceValidity: currentEvidenceValidity(deps,run) };
 }
 export function taskDossier(
   deps: ServiceDeps,
@@ -214,7 +216,7 @@ export function taskDossier(
     !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
   const nextAction = newerCheckpoint
     ? (cp?.nextAction ?? null)
-    : (progress?.nextAction ?? cp?.nextAction ?? null);
+    : progress ? progress.nextAction : (cp?.nextAction ?? null);
   const summary = newerCheckpoint
     ? (cp?.summary ?? cp?.outcome ?? latest?.text)
     : (progress?.summary ?? cp?.summary ?? latest?.text);
@@ -242,6 +244,7 @@ export function taskDossier(
         updatedAt: string;
       }
     | undefined;
+  const health = workflowHealth(deps,taskId);
   const state = progress?.status ?? task.taskStatus ?? "unknown";
   const stateToken = [
     task.revision,
@@ -249,12 +252,17 @@ export function taskDossier(
     checkpoint?.recordId ?? "",
     run?.id ?? "",
     run?.revision ?? 0,
+    run?.evidenceValidity.status ?? "",
+    run?.evidenceValidity.currentRecordRevision ?? 0,
     latest?.recordId ?? "",
     policy?.recordId ?? "",
     pendingClaim?.updatedAt ?? "",
     subscription.n,
+    JSON.stringify(health),
   ].join(":");
   const warnings: string[] = [];
+  if (run && !["pending","valid"].includes(run.evidenceValidity.status))
+    warnings.push(`Historical verification is ${run.verification}, but its current evidence is ${run.evidenceValidity.status}. Capture correlated evidence and re-verify; historical task state is unchanged.`);
   if (!progress && !task.taskStatus)
     warnings.push(
       "No structured task progress has been recorded; free text is not a completion signal.",
@@ -320,6 +328,7 @@ export function taskDossier(
           }
         : null,
       lastClaim: pendingClaim ?? null,
+      health,
       activeSubscriptions: subscription.n,
       ready:
         subscription.n > 0 &&
