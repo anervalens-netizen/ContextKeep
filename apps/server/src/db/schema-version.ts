@@ -8,4 +8,4 @@
  * CI asserts parity, but server boot/migrate/backup safety uses this local
  * constant only.
  */
-export const SERVER_SCHEMA_VERSION = 18;
+export const SERVER_SCHEMA_VERSION = 19;

@@ -82,7 +82,53 @@ function secretValid(secret: string) {
     b.toString("base64").replace(/=+$/, "") === s.replace(/=+$/, "")
   );
 }
+class DeliveryShutdownError extends Error {}
 export class WorkflowEvents {
+  private stopping = false;
+  private readonly pumps = new Set<Promise<{ processed: number }>>();
+  private readonly deliveryControllers = new Set<AbortController>();
+
+  /** Stop admission, drain the current delivery, then cancel it at a bounded deadline.
+   * Cancellation also settles non-cooperating transports; late responses cannot touch SQLite.
+   */
+  async stopAndDrain(timeoutMs = 5000): Promise<void> {
+    this.stopping = true;
+    const timer = setTimeout(() => {
+      for (const controller of this.deliveryControllers) controller.abort();
+    }, timeoutMs);
+    try {
+      await Promise.allSettled([...this.pumps]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async deliver(
+    url: string,
+    headers: Record<string, string>,
+    body: string,
+  ) {
+    const controller = new AbortController();
+    this.deliveryControllers.add(controller);
+    let onAbort: (() => void) | undefined;
+    try {
+      return await new Promise<{ status: number; body: string }>(
+        (resolve, reject) => {
+          onAbort = () =>
+            reject(new DeliveryShutdownError("delivery_shutdown"));
+          controller.signal.addEventListener("abort", onAbort, { once: true });
+          this.post(url, headers, body, controller.signal).then(
+            resolve,
+            reject,
+          );
+        },
+      );
+    } finally {
+      if (onAbort) controller.signal.removeEventListener("abort", onAbort);
+      this.deliveryControllers.delete(controller);
+    }
+  }
+
   private key: Buffer;
   constructor(
     private deps: ServiceDeps,
@@ -261,9 +307,16 @@ export class WorkflowEvents {
       .run(id);
     return {};
   }
-  async pump(limit = 20) {
+  pump(limit = 20): Promise<{ processed: number }> {
+    if (this.stopping) return Promise.resolve({ processed: 0 });
+    const operation = this.pumpBatch(limit);
+    this.pumps.add(operation);
+    void operation.finally(() => this.pumps.delete(operation)).catch(() => {});
+    return operation;
+  }
+  private async pumpBatch(limit: number) {
     let processed = 0;
-    while (processed < limit) {
+    while (processed < limit && !this.stopping) {
       const now = new Date().toISOString(),
         lease = randomUUID();
       const row = this.deps.sqlite.transaction(() => {
@@ -314,6 +367,7 @@ export class WorkflowEvents {
         continue;
       }
       let status = 0;
+      let shutdownAborted = false;
       try {
         const s = sub!;
         const old =
@@ -321,7 +375,7 @@ export class WorkflowEvents {
             ? this.unseal(s.old_secret)
             : null;
         status = (
-          await this.post(
+          await this.deliver(
             s.url,
             this.headers(
               s.id,
@@ -333,8 +387,41 @@ export class WorkflowEvents {
             row.payload,
           )
         ).status;
-      } catch {
+      } catch (error) {
+        shutdownAborted = error instanceof DeliveryShutdownError;
         /* bounded retry; never persist secret-bearing exception text */
+      }
+      const currentSubscription = this.deps.sqlite
+        .prepare(
+          "SELECT generation,active FROM workflow_subscriptions WHERE id=?",
+        )
+        .get(sub!.id) as { generation: number; active: number } | undefined;
+      // A failure for old credentials is not a failure of a renewed subscription.
+      // Keep the stable event identity and retry once with its current credentials.
+      if (
+        currentSubscription?.active &&
+        currentSubscription.generation !== sub!.generation &&
+        !(status >= 200 && status < 300)
+      ) {
+        this.deps.sqlite
+          .prepare(
+            `UPDATE workflow_deliveries SET status='pending',http_status=NULL,
+          next_at=?,lease_token=NULL,lease_until=NULL,attempts=MAX(0,attempts-1)
+          WHERE id=? AND lease_token=? AND status='sending'`,
+          )
+          .run(new Date(Date.now() + 1000).toISOString(), row.id, lease);
+        continue;
+      }
+      if (shutdownAborted) {
+        // A shutdown cancellation is not a failed receiver attempt.
+        this.deps.sqlite
+          .prepare(
+            `UPDATE workflow_deliveries SET status='pending',http_status=NULL,
+          next_at=?,lease_token=NULL,lease_until=NULL,attempts=MAX(0,attempts-1)
+          WHERE id=? AND lease_token=? AND status='sending'`,
+          )
+          .run(new Date().toISOString(), row.id, lease);
+        continue;
       }
       const attempts = (
         this.deps.sqlite
@@ -345,7 +432,7 @@ export class WorkflowEvents {
         permanent =
           [410, 413].includes(status) ||
           (status >= 400 && status < 500 && ![408, 429].includes(status));
-      this.deps.sqlite
+      const transition = this.deps.sqlite
         .prepare(
           `UPDATE workflow_deliveries SET status=?,http_status=?,next_at=?,lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=? AND status='sending'`,
         )
@@ -362,12 +449,13 @@ export class WorkflowEvents {
           row.id,
           lease,
         );
-      if (status === 410)
+      // A stale lease may not revoke a subscription owned by a replacement delivery.
+      if (status === 410 && transition.changes === 1)
         this.deps.sqlite
           .prepare(
-            "UPDATE workflow_subscriptions SET active=0,secret='',old_secret=NULL,generation=generation+1 WHERE id=?",
+            "UPDATE workflow_subscriptions SET active=0,secret='',old_secret=NULL,generation=generation+1 WHERE id=? AND generation=?",
           )
-          .run(sub!.id);
+          .run(sub!.id, sub!.generation);
     }
     return { processed };
   }

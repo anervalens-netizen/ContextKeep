@@ -57,3 +57,19 @@ Runtime identity remains explicit: the source revision, release directory,
 interpreter, `CK_DATA_DIR` and open database inode must agree. Backup/restore
 does not promote a standby, delete an old kit, or silently select a different
 runtime.
+
+## Passive backup versus takeover readiness
+
+A hash-verified snapshot and matching runtime kit establish recoverability, not
+that a standby's existing service symlink is current. A restored application
+started with the bundled matching runtime is stronger evidence than copying the
+archive. Physical failover and upstream authentication/routing remain separate
+checks. Never start a passive standby just to make its status green while the
+primary remains writable.
+
+Before a schema upgrade retain the pre-upgrade snapshot and runtime kit. After
+qualification deploy the exact immutable artifacts, verify schema/runtime identity
+and authenticated readiness, then create new matching recovery copies. A binary
+rollback alone cannot downgrade a migrated database. Operational profiles and
+restore/deploy receipts remain private; these instructions do not authorize
+replacing an installed profile with a repository template.

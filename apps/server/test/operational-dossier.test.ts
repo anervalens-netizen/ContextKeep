@@ -486,6 +486,7 @@ describe("bounded continuation", () => {
       projectId,
       taskId,
       outcome: "Synthetic artifact verified",
+      runEvidence: { runId: run.runId, runRevision: run.runRevision, externalJobId: `job-${run.runId}` },
       ...identity(),
     });
     finish.resultRecordId = proof.outcome.recordId;

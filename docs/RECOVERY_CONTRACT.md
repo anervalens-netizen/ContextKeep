@@ -65,3 +65,28 @@ to volatile storage or receive replacement event keys.
 Migration, seed and non-dry-run portable import share the server runtime lease.
 Stop the application before invoking these writers. Online backup readers and
 portable-import dry-run validation remain supported.
+
+## Workflow and evidence recovery
+
+Webhook renewal is generation-fenced: a permanent error from the old generation
+cannot invalidate the new subscription. A stale failed delivery retries with the
+same event identity and current credentials. Real permanent errors still stop
+retrying; unsubscribe still revokes pending deliveries.
+
+The event pump drains before the SQLite ownership boundary. An unfinished
+transport is cancelled after the bounded shutdown grace period and leaves a
+recoverable pending row; its late completion cannot modify the closed store.
+Recovery reuses the retained event identity rather than starting another executor.
+
+Schema-19 verification receipts preserve historical decisions and identify
+changed, retracted or legacy-unbound support. See
+[Execution evidence](VERIFICATION_EVIDENCE.md) before closing work or finishing
+an event continuation after recovery. Do not fabricate bindings for old records.
+
+The authenticated `/api/health` endpoint performs a live database read. It is a
+minimal application-readiness check, not a backup, restore or host-delivery test.
+
+Schema-19 backup verification requires both execution-evidence tables, their
+required columns (including the captured proof fingerprint), and the associated
+lookup indexes. SQLite integrity alone cannot certify a copy missing these
+objects. Historical schema copies remain validated against their own version.

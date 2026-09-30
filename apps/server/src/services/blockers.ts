@@ -302,6 +302,7 @@ export function resolveBlocker(
     };
     const captured = captureWork(deps, {
       projectId: input.projectId,
+      ...(checkpoint.taskId ? { taskId: checkpoint.taskId } : {}),
       outcome: input.resolution,
       evidenceText: `Blocker ${input.blockerId} resolution evidence:\n${input.evidenceText ?? input.resolution}`,
       title: `Blocker resolution: ${checkpoint.blockers[parsed.index]!.slice(0, 120)}`,

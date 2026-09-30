@@ -342,7 +342,7 @@ describe("A4 AI-first memory contract", () => {
     expect(restored.workingMemoryVersion).toBe(1);
     const columns = target.app.ck.handle.sqlite.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
     expect(columns.some((column) => column.name === "working_memory_version")).toBe(true);
-    expect((target.app.ck.handle.sqlite.prepare("SELECT MAX(version) AS v FROM schema_version").get() as { v: number }).v).toBe(18);
+    expect((target.app.ck.handle.sqlite.prepare("SELECT MAX(version) AS v FROM schema_version").get() as { v: number }).v).toBe(19);
     expect(target.app.ck.deps.db.select().from(records).all()).toHaveLength(1);
 
     const legacyV2 = { ...dump, version: 2 };
@@ -352,7 +352,7 @@ describe("A4 AI-first memory contract", () => {
     expect(legacyTarget.app.ck.deps.db.select().from(records).all()).toHaveLength(1);
 
     const backup = await createBackup(target.app.ck.handle, target.app.ck.deps, target.config.backupDir, 2, { actor: "test:a4" });
-    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 18 });
+    expect(verifyBackup(backup.file)).toMatchObject({ ok: true, schemaVersion: 19 });
   });
 
   it("advertises core MCP contracts and current Remote Control naming", async () => {

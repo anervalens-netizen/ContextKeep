@@ -56,7 +56,7 @@ describe("task-scoped workflow integration",()=>{
   expect(observeRun(deps,{...input,eventKey:"older",status:"lost",exitCode:null,observedAt:"2026-01-01T00:00:00.000Z"}).run.status).toBe("completed");
   const wrong=await call(t,"capture_work",{projectId,taskId:otherTaskId,outcome:"Artifact missing",...identity()});
   expect(()=>verifyRun(deps,{...scope,revision:done.run.revision,recordId:wrong.outcome.recordId,verdict:"passed"})).toThrow(expect.objectContaining({code:"verification_evidence_missing"}));
-  const evidence=await call(t,"capture_work",{projectId,taskId,outcome:"Artifact missing",...identity()});
+  const evidence=await call(t,"capture_work",{projectId,taskId,outcome:"Artifact missing",runEvidence:{runId:scope.runId,runRevision:done.run.revision,externalJobId:"job-fixture"},...identity()});
   const verified=verifyRun(deps,{...scope,revision:done.run.revision,recordId:evidence.outcome.recordId,verdict:"failed"});
   expect(verified.run.verification).toBe("failed");expect(verified.taskUpdated).toBe(false);
   expect(getTaskView(deps,scope).task.taskStatus).not.toBe("done");

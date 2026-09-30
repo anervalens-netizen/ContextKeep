@@ -70,6 +70,7 @@ function requiredTablesForVersion(schemaVersion: number): string[] {
   if (schemaVersion >= 15) required.push("context_cursor_snapshots", "context_delta_sessions");
   if (schemaVersion >= 17) required.push("workflow_task_records", "workflow_runs", "workflow_observations", "workflow_subscriptions", "workflow_events", "workflow_deliveries");
   if (schemaVersion >= 18) required.push("workflow_continuations");
+  if (schemaVersion >= 19) required.push("workflow_run_evidence", "workflow_verification_receipts");
   return required;
 }
 
@@ -136,6 +137,12 @@ function assertVersionedSchemaShape(db: Database.Database, schemaVersion: number
         { schemaVersion, presentRetiredTables },
       );
     }
+  }
+
+  if (schemaVersion >= 19) {
+    assertRequiredColumns(db, "workflow_run_evidence", ["record_id", "run_id", "run_revision", "external_job_id", "observation_hash", "captured_evidence_hash", "captured_at"], schemaVersion);
+    assertRequiredColumns(db, "workflow_verification_receipts", ["run_id", "run_revision", "record_id", "record_revision", "evidence_hash", "observation_hash", "verdict", "verified_at"], schemaVersion);
+    assertRequiredNamedObjects(db, "index", ["workflow_run_evidence_run", "workflow_events_task_sequence"], schemaVersion);
   }
 
   if (schemaVersion >= 2) assertRequiredColumns(db, "records", ["volatile", "review_due_at"], schemaVersion);

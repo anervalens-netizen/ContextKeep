@@ -55,9 +55,9 @@ describe("CK-A13 common runtime metadata and bounded MCP diagnostics", () => {
     expect(meta.runtime).toEqual({
       buildSha: BUILD_SHA,
       applicationVersion: "0.1.0",
-      mcpVersion: "2.12.0",
+      mcpVersion: "2.13.0",
       mcpContractVersion: "mcp-first-v1",
-      schemaVersion: 18,
+      schemaVersion: 19,
       protocols: {
         latest: "2026-07-28",
         supported: expect.arrayContaining(["2025-11-25", "2025-06-18", "2025-03-26"]),

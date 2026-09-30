@@ -7,6 +7,7 @@ import { latestCheckpointFor } from "./checkpoint-context.js";
 import { getBlockerState } from "./blockers.js";
 import { ApiError } from "../lib/errors.js";
 import { sha256 } from "../lib/hash.js";
+import { verificationProof, currentEvidenceValidity } from "./run-evidence.js";
 
 export interface WorkflowRun {
   id: string;
@@ -330,13 +331,19 @@ export function verifyRun(
         "verification_evidence_missing",
         "Capture verification evidence in this same task first.",
       );
+    const proof = verificationProof(deps, run.id, input.recordId);
+    const verifiedAt = new Date().toISOString();
     deps.sqlite
       .prepare(
         "UPDATE workflow_runs SET verification=?,verification_record_id=?,revision=revision+1,updated_at=? WHERE id=?",
       )
-      .run(input.verdict, input.recordId, new Date().toISOString(), run.id);
+      .run(input.verdict, input.recordId, verifiedAt, run.id);
+    deps.sqlite.prepare(`INSERT INTO workflow_verification_receipts
+      (run_id,run_revision,record_id,record_revision,evidence_hash,observation_hash,verdict,verified_at) VALUES(?,?,?,?,?,?,?,?)`)
+      .run(run.id,run.revision+1,input.recordId,proof.recordRevision,proof.evidenceHash,proof.observationHash,input.verdict,verifiedAt);
     return {
-      run: publicRun(getRun(deps, input.projectId, input.taskId, run.id)),
+      run: { ...publicRun(getRun(deps, input.projectId, input.taskId, run.id)),
+        evidenceValidity: currentEvidenceValidity(deps, getRun(deps, input.projectId, input.taskId, run.id)) },
       taskUpdated: false,
     };
   })();
@@ -359,7 +366,7 @@ export function getTaskView(
         `SELECT ${columns} FROM workflow_runs WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`,
       )
       .all(input.taskId, limit, offset) as WorkflowRun[]
-  ).map(publicRun);
+  ).map(run => ({...publicRun(run),evidenceValidity:currentEvidenceValidity(deps,run)}));
   const records = deps.sqlite
     .prepare(
       `SELECT r.id,r.text,r.subject,r.review_status AS reviewStatus,r.evidence_basis AS evidenceBasis,r.recorded_at AS recordedAt,r.revision

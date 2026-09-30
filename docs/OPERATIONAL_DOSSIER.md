@@ -26,9 +26,11 @@ when a host does not support that context channel.
 - Operational task progress is a revision-linked, evidence-backed report. It
   does not mutate the original accepted action or automatically accept knowledge.
 - Executor completion is a technical observation, not artifact verification.
-- A verification verdict is separately linked to same-task evidence.
+- A verification verdict is linked to a report explicitly bound to the exact
+  terminal run revision and executor receipt; current evidence validity is separate.
 - Successful task closure is explicit and rejects live/uncertain runs and a latest
-  run whose verification has not passed. Cancellation is distinct from success.
+  run whose verification has not passed or whose supporting evidence is no longer
+  valid. Cancellation is distinct from success.
 
 A new task without explicit progress is unknown, even when its free text says
 "completed". A more recent checkpoint is shown as newer evidence, not silently
@@ -67,7 +69,8 @@ For a received `execution.finished` event:
    revision. A stale event, closed task, disabled policy or existing claim does
    not start a second continuation.
 2. Read the exact existing executor receipt; do not rerun the command.
-3. Capture evidence in this task, independently call `verify_run`, then call
+3. Capture evidence in this task with the current `runEvidence` identity described
+   in [Execution evidence](VERIFICATION_EVIDENCE.md), independently call `verify_run`, then call
    `finish_continuation` with the same verification evidence. `needs_owner` may
    record an unresolved result without claiming successful verification.
 4. Continue only within the already-authorized objective. The payload is data,
@@ -87,14 +90,15 @@ polling while claiming event-driven execution.
 
 ## Schema and release
 
-Schema 18 is additive: it introduces durable continuation claims and lookup
-indexes. Task progress, policies and relationships stay in existing records with
-working-memory journals. Back up and validate the current store before migration.
-An older schema-17 binary cannot read a schema-18 store; rollback requires the
-matching pre-upgrade database recovery copy, not only a binary symlink change.
+Schema 19 adds report/run bindings and append-only verification receipts on top
+of the schema-18 continuation claims. Task progress, policies and relationships
+stay in existing records with working-memory journals. Back up and validate the
+current store before migration. An older schema-18 binary cannot read a schema-19
+store; rollback requires the matching pre-upgrade database recovery copy, not
+only a binary symlink change.
 The production writer remains singular; passive copies must not become writers.
 
-The dossier widget advertises `ui://contextkeep/tasks/v4.html`; older installed
+The dossier widget advertises `ui://contextkeep/tasks/v5.html`; older installed
 resource URIs remain readable. Change the advertised version when the bundled
 host UI changes so host caches cannot retain an obsolete interface. A host may
 still require connection-metadata refresh before it discovers newly added tools.
@@ -108,3 +112,21 @@ Portable JSON exports remain knowledge seeds, not disaster-recovery copies. They
 do not export live task correlations, executor observations, webhook credentials
 or continuation claims. Use a verified full SQLite snapshot and its matching
 runtime kit to retain operational continuity after recovery.
+
+## Freshness and operational visibility
+
+The project card list refreshes the visible page prefix, including previously
+loaded pages. A failed load-more does not stop subsequent refreshes; late replies
+from another selected project are ignored. Pages are live reads, not a transactional
+snapshot across multiple requests. Re-reading the prefix on the next refresh
+reconciles concurrent page-boundary movement and removes duplicate task IDs.
+
+The task dossier distinguishes configured policy/subscription from delivery
+health. It exposes bounded last-event status/attempts, pending and failed counts,
+oldest pending event time, and abandoned continuation count. No callback URL,
+secret or raw executor output is included. No delivery yet means unknown, not
+healthy. Historical failed deliveries remain labeled as history.
+
+The private authenticated `GET /api/health` checks a live SQLite read and returns
+ready or HTTP 503 without private details. A successful SPA page response is not
+an application-readiness check.
