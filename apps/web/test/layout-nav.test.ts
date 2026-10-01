@@ -81,8 +81,11 @@ const reconciliation: WorkspaceReconciliationDto = {
 };
 
 
-function renderShell(): ReturnType<typeof render> {
+function renderShell(withReconciliationCache = false): ReturnType<typeof render> {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // A project overview defers a cold reconciliation read to its page observer.
+  // Cached history should nevertheless stay visible in the production shell.
+  if (withReconciliationCache) client.setQueryData(["workspace-reconciliation"], reconciliation);
   return render(
     React.createElement(
       QueryClientProvider,
@@ -124,8 +127,8 @@ describe("M4.3 production application shell", () => {
     expect(isActiveNav("/inbox/thread", "/inbox")).toBe(true);
   });
 
-  it("renders the production navigation and center without an AI pane", async () => {
-    renderShell();
+  it("renders the production navigation and cached history without an AI pane", async () => {
+    renderShell(true);
     const shell = document.querySelector('[data-shell="app"]') as HTMLElement;
     const navigation = document.querySelector('[data-pane="navigation"]') as HTMLElement;
     const center = document.querySelector('[data-pane="center"]') as HTMLElement;
@@ -149,6 +152,7 @@ describe("M4.3 production application shell", () => {
     expect(within(projectLink).getByText("unihub-retail")).toBeTruthy();
     expect(within(projectLink).getByText(/363 sessions/)).toBeTruthy();
     expect(projectLink.getAttribute("aria-current")).toBe("page");
+    expect(apiFetchMock.mock.calls.some(([url]) => url === "/api/workspaces/reconciliation")).toBe(false);
   });
 
   it("never calls chat APIs and removes only retired chat layout preferences", async () => {

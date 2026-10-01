@@ -86,13 +86,25 @@ describe("import project context", () => {
     });
   });
 
-  it("falls back to unassigned when the route project id is not present", async () => {
+  it("preserves unavailable route scope until the user explicitly changes it", async () => {
     searchProjectId = "missing-project";
     mount();
 
     await waitFor(() => {
       const select = screen.getAllByRole("combobox")[0] as HTMLSelectElement;
-      expect(select.value).toBe("");
+      expect(select.value).toBe("missing-project");
+      expect(select.selectedOptions[0]?.textContent).toBe("Unavailable project (missing-project)");
     });
+    fireEvent.change(screen.getByPlaceholderText(/Paste Markdown or plain text/), {
+      target: { value: "fact: preserve explicit scope" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    await waitFor(() => {
+      const call = apiFetchMock.mock.calls.find((entry) => entry[0] === "/api/imports/text");
+      expect(call?.[1].body.projectId).toBe("missing-project");
+    });
+    const select = screen.getByRole("combobox", { name: "Import project" }) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "" } });
+    expect(select.value).toBe("");
   });
 });
