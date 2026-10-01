@@ -13,14 +13,19 @@ function projectIdFromPath(path: string): string | null {
 export function useShellData() {
   const location = useLocation();
   const projectsQuery = useQuery(projectsQueryOptions());
+  const activeProjectId = projectIdFromPath(location.pathname);
+  const tab = (location.search as { tab?: string } | undefined)?.tab;
+  const projectOverview = activeProjectId !== null && tab !== "timeline" && tab !== "export";
   const recon = useQuery({
     queryKey: ["workspace-reconciliation"],
     queryFn: () =>
       apiFetch<WorkspaceReconciliationDto>("/api/workspaces/reconciliation"),
+    // The overview owns this shared read and enables it after its brief.
+    // A shell observer must not start the same request ahead of that gate.
+    enabled: !projectOverview,
     retry: false,
     staleTime: 15000,
   });
-  const activeProjectId = projectIdFromPath(location.pathname);
   const signals = useMemo(() => {
     const out = new Map<string, ProjectSignal>();
     for (const item of recon.data?.items ?? []) {

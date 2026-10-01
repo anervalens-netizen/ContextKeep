@@ -314,12 +314,15 @@ describe("shared project query and durable scoped search", () => {
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/imports/text")).toBe(false);
   });
 
-  it("allows an authoritative network list to invalidate an unknown import project", async () => {
+  it("only makes an unavailable scoped import unassigned after an explicit user selection", async () => {
     availableProjects = [projects[0]!];
     const { client, router } = await mount(["/import?projectId=beta"]);
     await waitFor(() => expect(client.getQueryData(["projects"])).toMatchObject({ provenance: { source: "network", fetchedAt } }));
     const select = screen.getByRole("combobox", { name: "Import project" }) as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe(""));
+    expect(select.value).toBe("beta");
+    expect(select.selectedOptions[0]?.textContent).toBe("Unavailable project (beta)");
+    fireEvent.change(select, { target: { value: "" } });
+    expect(select.value).toBe("");
     expect(select.selectedOptions[0]?.textContent).toBe("Unassigned (no project)");
     onlineManager.setOnline(false);
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
@@ -334,6 +337,26 @@ describe("shared project query and durable scoped search", () => {
     expect(queued.inFlightOwner).toBeUndefined();
     await waitFor(() => expect((screen.getByRole("button", { name: "Import" }) as HTMLButtonElement).disabled).toBe(false));
     expect(router.state.location.href).toBe("/import?projectId=beta");
+  });
+
+  it("preserves a newly created project absent from a still-fresh shared network list", async () => {
+    availableProjects = [projects[0]!];
+    const { client, router } = await mount(["/search"]);
+    await waitFor(() => expect(client.getQueryData(["projects"])).toMatchObject({ data: [projects[0]], provenance: { source: "network" } }));
+    availableProjects = [...projects]; // Another client creates beta after this list read.
+    await act(async () => { await router.navigate({ to: "/import", search: { projectId: "beta" } }); });
+    const select = screen.getByRole("combobox", { name: "Import project" }) as HTMLSelectElement;
+    expect(select.value).toBe("beta");
+    expect(select.selectedOptions[0]?.textContent).toBe("Unavailable project (beta)");
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/projects")).toHaveLength(1);
+    onlineManager.setOnline(false);
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    fireEvent.change(screen.getByPlaceholderText(/Paste Markdown or plain text/), { target: { value: "fact: synthetic scoped import" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    const db = await offlineDb();
+    await waitFor(async () => expect(await db.getAll("mutations")).toMatchObject([
+      { method: "POST", url: "/api/imports/text", body: { projectId: "beta", text: "fact: synthetic scoped import" } },
+    ]));
   });
 
   it.each(["/search", "/"])("deduplicates Shell and %s and keeps a compatible value on other pages", async (path) => {

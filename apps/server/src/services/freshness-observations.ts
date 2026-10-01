@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type Database from "better-sqlite3";
 import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
+import { readWithDatabaseGeneration } from "../db/cache-generation.js";
 import { instantKey } from "./instant.js";
 import {
   foldMemoryText,
@@ -310,19 +311,20 @@ export function loadFreshnessObservations(
   if (!targets.some((row) => row.projectId && isCurrentStateClaim(row)))
     return new Map();
   const client = (db as Db & { $client?: Database.Database }).$client;
-  const canCache = Boolean(client && !client.inTransaction);
   // Versions and observations must come from the same read snapshot, including
   // when another connection commits while a cold index is being built.
-  const read = () => loadSnapshot(db, targets, client, canCache);
-  return canCache ? client!.transaction(read)() : read();
+  return readWithDatabaseGeneration(db, (generation) =>
+    loadSnapshot(db, targets, client, generation),
+  );
 }
 
 function loadSnapshot(
   db: Db,
   targets: FreshnessRecord[],
   client: Database.Database | undefined,
-  canCache: boolean,
+  generation: string | null,
 ): Map<string, FreshnessPreloadSignals> {
+  const canCache = generation !== null;
   const result = new Map<string, FreshnessPreloadSignals>();
   const byProject = new Map<string, FreshnessRecord[]>();
   for (const target of targets) {
@@ -343,7 +345,7 @@ function loadSnapshot(
     }>(sql`
       SELECT content_version AS contentVersion, working_memory_version AS workingMemoryVersion,
              created_at AS createdAt FROM projects WHERE id = ${projectId}`);
-    const version = JSON.stringify(state);
+    const version = JSON.stringify([generation, state]);
     let entry = cache.get(projectId);
     if (!entry || entry.version !== version) {
       entry = { version, index: null, signals: new Map(), signalBytes: 0 };

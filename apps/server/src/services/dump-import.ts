@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import type { Db } from "../db/client.js";
+import { advanceDatabaseGeneration } from "../db/cache-generation.js";
 import {
   projects,
   sources,
@@ -244,6 +245,10 @@ export function applyDump(deps: ServiceDeps, input: DumpImportInput, ctx: ActorC
       );
     }
   })();
+
+  // Exact reseeds can restore every project version unchanged. Invalidate only
+  // after success; a later outer rollback may harmlessly discard old caches.
+  if (input.mode === "reset") advanceDatabaseGeneration(deps.db);
 
   writeAudit(deps.db, {
     actor: ctx.actor,

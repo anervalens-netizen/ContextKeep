@@ -173,11 +173,9 @@ export default function Import(): ReactNode {
 
   const projects = projectsQuery.data?.data ?? [];
 
-  useEffect(() => {
-    // A cached list cannot establish that an explicitly requested project is gone.
-    if (!projectsQuery.isSuccess || projectsQuery.data.provenance.source !== "network" || !projectId) return;
-    if (!projects.some((project) => project.id === projectId)) setProjectId("");
-  }, [projectId, projects, projectsQuery.isSuccess, projectsQuery.data?.provenance.source]);
+  // A shared list may predate another client's project creation even when its
+  // provenance is network. Preserve explicit scope; only the user's selection
+  // may make an import unassigned. The mutation endpoint validates the ID.
 
   return (
     <div>

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { ContextDiagnosticReason, EvidenceDto } from "@contextkeep/shared";
 import { handoffs, projects, records } from "../db/schema.js";
 import { workspaceBindings } from "../db/workspace-schema.js";
+import { readWithDatabaseGeneration } from "../db/cache-generation.js";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps } from "./import.js";
 import { loadRecordFreshnessContext, loadEvidenceFor, loadEvidenceRefsFor, parseJson, toProjectDto, type EvidenceRefDto } from "./mappers.js";
@@ -34,16 +35,17 @@ const MAX_TEXT_CHARS = 2_000;
 const MAX_EVIDENCE_TEXT_CHARS = 1_200;
 
 type WorkContextTaskCache = {
+  generation: string;
   matches: Map<string, RetrievedRecordMatch[]>;
   relations: Map<string, ReturnType<typeof searchRelations>>;
 };
 
 const WORK_CONTEXT_TASK_CACHE = new WeakMap<ServiceDeps, WorkContextTaskCache>();
 
-function workContextTaskCache(deps: ServiceDeps): WorkContextTaskCache {
+function workContextTaskCache(deps: ServiceDeps, generation: string): WorkContextTaskCache {
   const cached = WORK_CONTEXT_TASK_CACHE.get(deps);
-  if (cached) return cached;
-  const created: WorkContextTaskCache = { matches: new Map(), relations: new Map() };
+  if (cached?.generation === generation) return cached;
+  const created: WorkContextTaskCache = { generation, matches: new Map(), relations: new Map() };
   WORK_CONTEXT_TASK_CACHE.set(deps, created);
   return created;
 }
@@ -220,6 +222,16 @@ export class ContextKeepMemoryService {
     context: MemoryToolRunContext,
     input: { projectId?: string; taskId?: string; limitPerSection?: number; task?: string; totalContextBudgetChars?: number; diagnostics?: boolean; permanentConstraintIds?: string[] },
   ): Record<string, unknown> {
+    return readWithDatabaseGeneration(this.deps.db, (generation) =>
+      this.getWorkContextSnapshot(context, input, generation),
+    );
+  }
+
+  private getWorkContextSnapshot(
+    context: MemoryToolRunContext,
+    input: Parameters<ContextKeepMemoryService["getWorkContext"]>[1],
+    generation: string | null,
+  ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
     const project = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
     if (!project) throw new ApiError(404, "project_not_found", "Project not found.");
@@ -234,7 +246,7 @@ export class ContextKeepMemoryService {
     const diagnosticsRequested = input.diagnostics === true;
     const canonicalTaskMatchIds = new Set<string>();
     const workingTaskMatchIds = new Set<string>();
-    const taskCache = task ? workContextTaskCache(this.deps) : null;
+    const taskCache = task && generation !== null ? workContextTaskCache(this.deps, generation) : null;
     const taskCachePrefix = task
       ? [project.id, project.revision, project.contentVersion, project.workingMemoryVersion, task, fetchLimit].join(":")
       : "";
@@ -514,11 +526,12 @@ export class ContextKeepMemoryService {
 
     const taskRelations = task
       ? (() => {
+          if (!taskCache) return searchRelations(this.deps, { projectId, q: task, scope: "all", limit: 5 });
           const key = `${taskCachePrefix}:relations`;
-          const cached = taskCache!.relations.get(key);
+          const cached = taskCache.relations.get(key);
           if (cached) return cached;
           return rememberBounded(
-            taskCache!.relations,
+            taskCache.relations,
             key,
             searchRelations(this.deps, { projectId, q: task, scope: "all", limit: 5 }),
           );

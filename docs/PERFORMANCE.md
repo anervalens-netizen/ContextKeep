@@ -18,8 +18,11 @@ Cache admission is an optimization, not a retrieval cutoff. If a prepared index
 exceeds its retained-size budget, every observation still contributes to the
 requested signals. Reference samples are bounded and their total counts and
 truncation flags remain explicit. Eviction triggers recomputation, not omission.
-Transaction reads do not publish reusable snapshots; separate database handles
-never share private observations. Cold reads after a version change still have
+Caller-owned transactions do not publish reusable snapshots; separate database
+handles never share private observations. Reset imports also change a local cache
+generation independent of imported project versions. External connection commits
+are detected through SQLite's data version; all dependent reads share one read
+snapshot so reset imports cannot retain old context or serialized briefs. Cold reads after a version change still have
 to examine the relevant data and should be measured separately from warm reads.
 
 ## Search
@@ -27,6 +30,9 @@ to examine the relevant data and should be measured separately from warm reads.
 The project list has one shared query key and one provenanced value shape across
 consumers. Its durable mirror is available offline. A missing project label must
 be displayed as unavailable, not replaced by an incorrect all-projects scope.
+Import scope is explicit user intent: even a network-provenanced shared list can
+predate a project created by another client. Only an explicit user selection may
+make a scoped import unassigned; the mutation endpoint validates its project.
 
 Typing uses a short debounce. Filter-only navigation must preserve an uncommitted
 draft, while explicit navigation and history restoration remain authoritative.
@@ -48,7 +54,9 @@ never satisfy a filtered request.
 ## Initial rendering
 
 Public route modules may load alongside session bootstrap. Their private queries
-must not run before the authenticated shell mounts the page. Delaying secondary
+must not run before the authenticated shell mounts the page. Both shell and
+project observers must respect the overview's brief-first reconciliation gate;
+disabling just one observer does not defer a shared request. Delaying secondary
 work or rendering records progressively is distinct from paginating an HTTP
 payload; do not report one as evidence of the other.
 

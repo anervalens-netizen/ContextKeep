@@ -7,14 +7,20 @@ import type { BriefDto, RecordDto } from "@contextkeep/shared";
 const { api, route } = vi.hoisted(() => ({ api: vi.fn(), route: { projectId: "alpha" } }));
 vi.mock("../src/lib/api.js", () => ({ apiFetch: api, ApiError: class extends Error {}, isNetworkUnavailableError: () => false }));
 vi.mock("../src/lib/offline/mirror.js", () => ({ briefKey: (id: string) => `brief:${id}`, readCache: vi.fn(), saveToCacheBestEffort: vi.fn().mockResolvedValue(true) }));
+vi.mock("../src/lib/provenance-query.js", () => ({ projectsQueryOptions: () => ({
+  queryKey: ["projects"], queryFn: async () => ({ data: [], provenance: { source: "network", fetchedAt: "2026-09-01T00:00:00.000Z" } }),
+}) }));
 vi.mock("../src/components/PwaTaskPanel.js", () => ({ PwaTaskPanel: () => null }));
 vi.mock("../src/components/ProjectMemoryDashboard.js", () => ({ ProjectMemoryDashboard: () => null }));
 vi.mock("../src/components/ProjectHistoryBackfill.js", () => ({ ProjectHistoryBackfill: () => null }));
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => route, useSearch: () => ({}), useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: `/projects/${route.projectId}`, search: {} }),
   Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 import ProjectDetail from "../src/pages/ProjectDetail.js";
+import { useShellData } from "../src/components/useShellData.js";
+function ShellAndPage() { useShellData(); return <ProjectDetail />; }
 
 const date = "2026-09-01T00:00:00.000Z";
 function brief(projectId = "alpha"): BriefDto {
@@ -45,7 +51,7 @@ function serve(url: string) {
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   clients.push(client);
-  return { client, ...render(<QueryClientProvider client={client}><ProjectDetail /></QueryClientProvider>) };
+  return { client, ...render(<QueryClientProvider client={client}><ShellAndPage /></QueryClientProvider>) };
 }
 beforeEach(() => { route.projectId = "alpha"; api.mockReset().mockImplementation(serve); });
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); });
@@ -82,14 +88,14 @@ describe("large accepted overview render prioritization", () => {
     await screen.findByText("alpha fact 10");
     fireEvent.click(section("Current facts").getByRole("button", { name: "Show all 80 current facts" }));
     route.projectId = "beta";
-    view.rerender(<QueryClientProvider client={view.client}><ProjectDetail /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={view.client}><ShellAndPage /></QueryClientProvider>);
     await screen.findByText("beta fact 10");
     expect(screen.queryByText("beta fact 11")).toBeNull();
     expect(screen.queryByText("alpha fact 80")).toBeNull();
     expect(screen.getByText("Showing 10 of 80 current facts")).toBeTruthy();
   });
 
-  it("starts secondary workspace reconciliation only after the full brief is ready and labels pending counts", async () => {
+  it("gates both shell and page reconciliation until the full brief is ready and labels pending counts", async () => {
     let releaseBrief!: (data: BriefDto) => void;
     let releaseWorkspace!: (data: typeof workspaceData) => void;
     api.mockImplementation((url: string) => {

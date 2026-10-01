@@ -14,6 +14,8 @@ import {
   type TimelineEntryDto,
 } from "@contextkeep/shared";
 import { projects, records, supersessions } from "../db/schema.js";
+import type { Db } from "../db/client.js";
+import { readWithDatabaseGeneration } from "../db/cache-generation.js";
 import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
 import {
@@ -77,6 +79,7 @@ interface RawEvidenceRow {
  * captured only when rebuilding the brief.
  */
 interface BriefCacheEntry {
+  generation: string | null;
   revision: number;
   contentVersion: number;
   updatedAt: string;
@@ -84,7 +87,7 @@ interface BriefCacheEntry {
   json: string;
   payload: Buffer;
 }
-const briefCache = new Map<string, BriefCacheEntry>();
+const briefCaches = new WeakMap<Db, Map<string, BriefCacheEntry>>();
 
 function projectCacheState(
   deps: ServiceDeps,
@@ -122,6 +125,16 @@ function briefCacheEntry(
   deps: ServiceDeps,
   projectId: string,
 ): BriefCacheEntry {
+  return readWithDatabaseGeneration(deps.db, (generation) =>
+    briefCacheSnapshot(deps, projectId, generation),
+  );
+}
+
+function briefCacheSnapshot(
+  deps: ServiceDeps,
+  projectId: string,
+  generation: string | null,
+): BriefCacheEntry {
   const state = projectCacheState(deps, projectId);
   if (state === null)
     throw new ApiError(
@@ -130,9 +143,14 @@ function briefCacheEntry(
       `Project ${projectId} not found.`,
     );
   const now = nowIso();
+  const briefCache = generation === null
+    ? new Map<string, BriefCacheEntry>()
+    : (briefCaches.get(deps.db) ?? new Map<string, BriefCacheEntry>());
+  if (generation !== null) briefCaches.set(deps.db, briefCache);
   const cached = briefCache.get(projectId);
   if (
     cached &&
+    cached.generation === generation &&
     cached.revision === state.revision &&
     cached.contentVersion === state.contentVersion &&
     cached.updatedAt === state.updatedAt &&
@@ -142,6 +160,7 @@ function briefCacheEntry(
   }
   const json = JSON.stringify(buildBrief(deps, projectId));
   const entry: BriefCacheEntry = {
+    generation,
     ...state,
     nextReviewDueAt: nextVolatileReviewDueAt(deps, projectId, now),
     json,
