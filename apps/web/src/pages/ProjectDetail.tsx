@@ -246,6 +246,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
   const reconciliationQuery = useQuery({
     queryKey: ["workspace-reconciliation"],
     queryFn: () => apiFetch<WorkspaceReconciliationDto>("/api/workspaces/reconciliation"),
+    enabled: briefQuery.isSuccess,
     retry: false,
   });
 
@@ -297,7 +298,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
               </div>
               {brief.description ? <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ck-muted">{brief.description}</p> : null}
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ck-muted">
-                <span className="inline-flex items-center gap-1.5"><Icon name="clock" className="h-3.5 w-3.5" />{latestSessionActivity ? `Worked ${relativeTime(latestSessionActivity)}` : latestRepoActivity ? `Repo activity ${relativeTime(latestRepoActivity)}` : "No activity yet"}</span>
+                <span className="inline-flex items-center gap-1.5"><Icon name="clock" className="h-3.5 w-3.5" />{!reconciliationQuery.data ? (reconciliationQuery.isError ? "Workspace activity unavailable" : "Loading workspace activity…") : latestSessionActivity ? `Worked ${relativeTime(latestSessionActivity)}` : latestRepoActivity ? `Repo activity ${relativeTime(latestRepoActivity)}` : "No activity yet"}</span>
                 {workspaceItems[0]?.workspace.gitBranch ? <span className="inline-flex items-center gap-1.5"><Icon name="branch" className="h-3.5 w-3.5" />{workspaceItems[0].workspace.gitBranch}</span> : null}
                 {workspaceItems.length > 0 ? <span>{workspaceItems.length} linked workspace{workspaceItems.length === 1 ? "" : "s"}</span> : null}
               </div>
@@ -315,7 +316,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
           <Metric value={knowledgeCount} label="Known" />
           <Metric value={brief.decisions.length} label="Decisions" />
           <Metric value={openCount} label="Open items" />
-          <Metric value={sessionCount} label="Agent sessions" highlight={sessionCount > 0 && !hasKnowledge} />
+          <Metric value={reconciliationQuery.data ? sessionCount : reconciliationQuery.isError ? "Unavailable" : "Loading…"} label="Agent sessions" highlight={sessionCount > 0 && !hasKnowledge} />
         </div>
       </section>
 
@@ -354,7 +355,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
             {sections.filter((section) => section.items.length > 0).map((section) => (
-              <KnowledgeSection key={section.title} title={section.title} icon={section.icon} items={section.items} />
+              <KnowledgeSection key={`${projectId}:${section.title}`} title={section.title} icon={section.icon} items={section.items} />
             ))}
           </div>
           <WorkspaceContext
@@ -382,7 +383,7 @@ function OverviewTab({ projectId }: { projectId: string }): ReactNode {
   );
 }
 
-function Metric({ value, label, highlight = false }: { value: number; label: string; highlight?: boolean }): ReactNode {
+function Metric({ value, label, highlight = false }: { value: number | string; label: string; highlight?: boolean }): ReactNode {
   return (
     <div className="border-r border-ck-line px-4 py-3 last:border-r-0 odd:border-b odd:sm:border-b-0 even:border-b even:sm:border-b-0">
       <p className={`text-xl font-semibold tracking-tight ${highlight ? "text-ck-teal" : "text-ck-ink"}`}>{value}</p>
@@ -392,6 +393,8 @@ function Metric({ value, label, highlight = false }: { value: number; label: str
 }
 
 function KnowledgeSection({ title, icon, items }: { title: string; icon: IconName; items: BriefDto["facts"] }): ReactNode {
+  const [visibleCount, setVisibleCount] = useState(10);
+  const remaining = items.length - visibleCount;
   return (
     <section className="overflow-hidden rounded-3xl border border-ck-line bg-ck-surface shadow-xs">
       <div className="flex items-center gap-2 border-b border-ck-line px-4 py-3">
@@ -399,7 +402,15 @@ function KnowledgeSection({ title, icon, items }: { title: string; icon: IconNam
         <h2 className="text-sm font-semibold text-ck-ink">{title}</h2>
         <span className="ml-auto text-xs font-medium text-ck-muted">{items.length}</span>
       </div>
-      <div className="divide-y divide-ck-line">{items.map((s) => <RecordCard key={s.record.id} record={s.record} />)}</div>
+      <div className="divide-y divide-ck-line">{items.slice(0, visibleCount).map((s) => <RecordCard key={s.record.id} record={s.record} />)}</div>
+      {items.length > 10 ? <div className="flex flex-wrap items-center gap-3 border-t border-ck-line px-4 py-3 text-xs">
+        <span>Showing {Math.min(visibleCount, items.length)} of {items.length} {title.toLowerCase()}</span>
+        {remaining > 0 ? <>
+          <button type="button" className="text-ck-teal underline" onClick={() => setVisibleCount(count => count + 10)} aria-label={`Show ${Math.min(10, remaining)} more ${title.toLowerCase()}`}>Show {Math.min(10, remaining)} more</button>
+          <button type="button" className="text-ck-teal underline" onClick={() => setVisibleCount(items.length)} aria-label={`Show all ${items.length} ${title.toLowerCase()}`}>Show all {items.length}</button>
+        </> : null}
+        {visibleCount > 10 ? <button type="button" className="text-ck-teal underline" onClick={() => setVisibleCount(10)} aria-label={`Show fewer ${title.toLowerCase()}`}>Show fewer</button> : null}
+      </div> : null}
     </section>
   );
 }

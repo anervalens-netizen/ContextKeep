@@ -91,7 +91,7 @@ it("RC10 shell keeps loading, cached and unavailable states distinct", async () 
   const c=client();
   const view=render(<QueryClientProvider client={c}><ShellReadStatus/></QueryClientProvider>);
   expect(screen.getByRole('status').textContent).toBe('Loading projects…');
-  c.setQueryData(['projects','shell-provenance'],{data:[],provenance:{source:'cache',fetchedAt:null}});
+  c.setQueryData(['projects'],{data:[],provenance:{source:'cache',fetchedAt:null}});
   await waitFor(()=>expect(screen.getByRole('status').textContent).toMatch(/Cached projects.*fetch time unknown/));
   view.unmount();
   const failed=client();

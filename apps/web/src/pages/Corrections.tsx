@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CorrectionPreviewDto, ProjectDto, RecordDto, SearchResultDto } from "@contextkeep/shared";
+import type { CorrectionPreviewDto, RecordDto, SearchResultDto } from "@contextkeep/shared";
 import { apiFetch, ApiError } from "../lib/api.js";
+import { projectsQueryOptions } from "../lib/provenance-query.js";
 import { RecordCard } from "../components/RecordCard.js";
 import { debounce } from "../lib/debounce.js";
 import { isQueued, notifyError, reportQueued } from "../lib/hooks.js";
@@ -39,8 +40,8 @@ export default function Corrections(): ReactNode {
   const [confirmResult, setConfirmResult] = useState<ConfirmResult | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
 
-  const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch<ProjectDto[]>("/api/projects") });
-  const projects = projectsQuery.data ?? [];
+  const projectsQuery = useQuery(projectsQueryOptions());
+  const projects = projectsQuery.data?.data ?? [];
 
   useEffect(() => {
     if (isLocalDataAccessPaused()) return;

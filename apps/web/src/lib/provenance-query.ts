@@ -1,5 +1,7 @@
 import type { McpWorkContextResult, ProjectDto } from "@contextkeep/shared";
+import { queryOptions } from "@tanstack/react-query";
 import { apiFetch, isNetworkUnavailableError } from "./api.js";
+import { CallerAbortedError } from "./transport.js";
 import {
   META_DASHBOARD_KEY,
   PROJECTS_KEY,
@@ -7,7 +9,7 @@ import {
   saveToCacheBestEffort,
   workContextKey,
 } from "./offline/mirror.js";
-import { cacheScopes } from "./query-contracts.js";
+import { cacheScopes, queryKeys } from "./query-contracts.js";
 
 export type ProvenancedRead<T> = {
   data: T;
@@ -36,15 +38,18 @@ async function read<T>(
   key: string,
   scope: string,
   cursor?: (data: T) => unknown,
+  signal?: AbortSignal,
 ): Promise<ProvenancedRead<T>> {
   try {
     let fetchedAt: string | undefined;
     const data = await apiFetch<T>(url, {
       noQueue: true,
+      signal,
       onDataProvenance: (meta) => {
         fetchedAt = meta.fetchedAt;
       },
     });
+    if (signal?.aborted) throw new CallerAbortedError(signal.reason);
     void saveToCacheBestEffort(key, data, {
       fetchedAt,
       scope,
@@ -55,8 +60,10 @@ async function read<T>(
       provenance: { source: "network", fetchedAt: fetchedAt ?? null },
     };
   } catch (error) {
+    if (signal?.aborted) throw new CallerAbortedError(signal.reason);
     if (!isNetworkUnavailableError(error)) throw error;
     const cached = await readCache<T>(key, scope);
+    if (signal?.aborted) throw new CallerAbortedError(signal.reason);
     if (!cached) throw error;
     return {
       data: cached.value,
@@ -81,5 +88,20 @@ export const readWorkContext = (
     (data) => data.freshness,
   );
 
-export const readShellProjects = (): Promise<ProvenancedRead<ProjectDto[]>> =>
-  read("/api/projects", PROJECTS_KEY, cacheScopes.projects);
+// Every project-list consumer shares both the key and the provenanced value.
+// Run this read offline too so the durable mirror remains reachable.
+export const projectsQueryOptions = () =>
+  queryOptions({
+    queryKey: queryKeys.projects,
+    queryFn: ({ signal }) =>
+      read<ProjectDto[]>(
+        "/api/projects",
+        PROJECTS_KEY,
+        cacheScopes.projects,
+        undefined,
+        signal,
+      ),
+    staleTime: 15_000,
+    retry: false,
+    networkMode: "always",
+  });

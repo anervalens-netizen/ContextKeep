@@ -586,14 +586,25 @@ export type SearchMatch = z.infer<typeof SearchMatch>;
 export const SearchScope = z.enum(["canonical", "working", "all"]);
 export type SearchScope = z.infer<typeof SearchScope>;
 
+/**
+ * Type/date filters scope search to records (canonical and/or working).
+ * Discovery project/source buckets are empty while any of these filters is active.
+ */
 export const SearchQuery = z.object({
   q: z.string().min(1).max(500),
   mode: SearchMode.default("discovery"),
   match: SearchMatch.default("terms"),
   scope: SearchScope.default("canonical"),
   projectId: z.string().nullable().default(null),
+  recordType: RecordType.optional(),
+  /** Inclusive UTC calendar days on recordedAt, not source/effective dates. */
+  recordedFrom: z.iso.date().optional(),
+  recordedTo: z.iso.date().optional(),
   includeHistorical: z.union([z.boolean(), z.enum(["true", "false"]).transform((v) => v === "true")]).default(false),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+}).refine(({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo, {
+  message: "recordedFrom must be on or before recordedTo",
+  path: ["recordedTo"],
 });
 export type SearchQuery = z.infer<typeof SearchQuery>;
 

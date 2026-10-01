@@ -20,6 +20,7 @@ vi.mock("../src/lib/api.js", () => ({
   isNetworkUnavailableError: (error: unknown) => error instanceof TypeError,
 }));
 vi.mock("../src/lib/offline/mirror.js", () => ({
+  PROJECTS_KEY: "projects:last",
   SEARCH_LAST_KEY: "search:last",
   legacyCanonicalSearchKey: (input: any) => `legacy:${JSON.stringify(input)}`,
   searchKey: (input: any) => `search:${JSON.stringify(input)}`,
@@ -30,6 +31,7 @@ vi.mock("@tanstack/react-router", async () => {
   const ReactModule = await import("react");
   return {
     Link: ({ children, to, ...props }: any) => ReactModule.createElement("a", { href: to, ...props }, children),
+    useRouter: () => ({ history: { subscribe: () => () => {} }, subscribe: () => () => {} }),
     useNavigate: () => navigateMock,
     useSearch: () => routeState.current,
   };

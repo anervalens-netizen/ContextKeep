@@ -1,14 +1,17 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import type { ProjectDto, SearchResultDto } from "@contextkeep/shared";
+import type { SearchResultDto } from "@contextkeep/shared";
 import { apiFetch, isNetworkUnavailableError } from "../lib/api.js";
+import { projectsQueryOptions } from "../lib/provenance-query.js";
+import { CallerAbortedError } from "../lib/transport.js";
 import { legacyCanonicalSearchKey, readCache, saveToCacheBestEffort, searchKey, SEARCH_LAST_KEY } from "../lib/offline/mirror.js";
 import { RecordCard } from "../components/RecordCard.js";
 import { VirtualList } from "../components/VirtualList.js";
 import { LifecycleBadge } from "../components/Badge.js";
 import { debounce } from "../lib/debounce.js";
 import { describeCacheAge, describeReadError } from "../lib/presentation.js";
+import { isDefaultSearchWindow, isRecordedDate, recordTypes, searchCacheScope, searchFilterError } from "../lib/search-filters.js";
 
 type SearchScope = "canonical" | "working" | "all";
 type SearchRead = {
@@ -23,59 +26,112 @@ function validScope(value: unknown): SearchScope {
 export default function Search(): ReactNode {
   const routeSearch = useSearch({ from: "/search" });
   const navigate = useNavigate({ from: "/search" });
+  const router = useRouter();
   const [q, setQ] = useState(routeSearch.q ?? "");
-  const [debouncedQ, setDebouncedQ] = useState(routeSearch.q ?? "");
+  const debouncedQ = routeSearch.q ?? "";
+  const [observedQ, setObservedQ] = useState(routeSearch.q ?? "");
   const includeHistorical = routeSearch.includeHistorical ?? false;
   const projectId = routeSearch.projectId ?? "";
   const scope = validScope(routeSearch.scope);
+  const recordType = routeSearch.recordType ?? "";
+  const recordedFrom = routeSearch.recordedFrom ?? "";
+  const recordedTo = routeSearch.recordedTo ?? "";
+  const filterError = searchFilterError(routeSearch);
+  const limit = typeof routeSearch.limit === "number" ? routeSearch.limit : 50;
+  const ownCommit = useRef<string | null>(null);
+
+  const urlQ = routeSearch.q ?? "";
+  if (observedQ !== urlQ) {
+    // Synchronize before committing a render: an effect would briefly start
+    // a request combining the previous query with the new URL's filters.
+    setObservedQ(urlQ);
+    // A delayed acknowledgement of our own URL update must not replace a
+    // newer draft. Filter-only navigations leave the draft untouched.
+    if (ownCommit.current !== urlQ) {
+      setQ(urlQ);
+    }
+    ownCommit.current = null;
+  }
 
   useEffect(() => {
-    setQ(routeSearch.q ?? "");
-  }, [routeSearch.q, routeSearch.includeHistorical, routeSearch.projectId, routeSearch.scope]);
+    const restoreQuery = (query: unknown) => {
+      const value = typeof query === "string" ? query : "";
+      ownCommit.current = null;
+      setQ(value);
+    };
+    const unsubscribeHistory = router.history.subscribe(({ location, action }) => {
+      const restore = action.type === "BACK" || action.type === "FORWARD" || action.type === "GO";
+      if (!restore || location.pathname !== "/search") return;
+      // History can restore the same committed q while an unsaved draft is
+      // pending. Explicit same-URL resets must discard that draft as well.
+      const search = router.options.parseSearch!(location.search);
+      restoreQuery(search.q);
+    });
+    // TanStack can reload an identical URL without writing a history entry.
+    const unsubscribeNavigation = router.subscribe("onBeforeNavigate", ({ fromLocation, toLocation }) => {
+      if (toLocation.pathname === "/search" && fromLocation?.href === toLocation.href) restoreQuery(router.options.parseSearch!(toLocation.searchStr).q);
+    });
+    return () => { unsubscribeHistory(); unsubscribeNavigation(); };
+  }, [router]);
 
   // Handoff §9: search debounce ≤200ms.
   useEffect(() => {
+    if (q.trim() === (routeSearch.q ?? "")) return;
     const d = debounce((value: string) => {
-      setDebouncedQ(value);
+      const query = value.trim();
+      ownCommit.current = query;
       void navigate({
-        search: (previous) => ({ ...previous, q: value.trim() || undefined }),
+        search: (previous) => ({ ...previous, q: query || undefined, limit: undefined }),
         replace: true,
       });
     }, 200);
     d(q);
     return () => d.cancel();
-  }, [q]);
+  }, [q, routeSearch.q, navigate]);
 
-  const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch<ProjectDto[]>("/api/projects") });
+  const projectsQuery = useQuery(projectsQueryOptions());
+  const projects = projectsQuery.data?.data ?? [];
 
   const searchQuery = useQuery<SearchRead>({
-    queryKey: ["search", debouncedQ, includeHistorical, projectId, scope],
-    queryFn: async () => {
-      const params = new URLSearchParams({ q: debouncedQ, mode: "discovery", includeHistorical: String(includeHistorical), scope });
+    queryKey: ["search", debouncedQ, includeHistorical, projectId, scope, recordType, recordedFrom, recordedTo, routeSearch.limit ?? 50],
+    queryFn: async ({ signal }) => {
+      if (filterError) throw new Error(filterError);
+      const params = new URLSearchParams({ q: debouncedQ, mode: "discovery", includeHistorical: String(includeHistorical), scope, limit: String(limit) });
       if (projectId) params.set("projectId", projectId);
-      const cacheScope = `search:q=${debouncedQ}:historical=${includeHistorical}:project=${projectId || "*"}:scope=${scope}`;
-      const key = searchKey({ query: debouncedQ, includeHistorical, projectId: projectId || null, scope });
+      if (recordType) params.set("recordType", recordType);
+      if (recordedFrom) params.set("recordedFrom", recordedFrom);
+      if (recordedTo) params.set("recordedTo", recordedTo);
+      const identity = { query: debouncedQ, includeHistorical, projectId: projectId || null, scope, recordType, recordedFrom, recordedTo, limit };
+      const cacheScope = searchCacheScope(identity);
+      const key = searchKey(identity);
       try {
         let fetchedAt: string | undefined;
         const data = await apiFetch<SearchResultDto>(`/api/search?${params.toString()}`, {
+          signal,
           onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
         });
+        if (signal.aborted) throw new CallerAbortedError(signal.reason);
         void saveToCacheBestEffort(key, data, { fetchedAt, scope: cacheScope, cursor: null });
         return { data, provenance: { source: "network", fetchedAt: fetchedAt ?? null } };
       } catch (e) {
+        if (signal.aborted) throw new CallerAbortedError(signal.reason);
         if (!isNetworkUnavailableError(e)) throw e;
         const cached = await readCache<SearchResultDto>(key, cacheScope);
+        if (signal.aborted) throw new CallerAbortedError(signal.reason);
         if (cached) {
           return { data: cached.value, provenance: { source: "cache", fetchedAt: cached.provenance.fetchedAt } };
         }
+        if (!isDefaultSearchWindow(identity) || scope !== "canonical") throw e;
         // One release of legacy compatibility: use the pre-A04 single search
         // row only when its embedded query/scope matches exactly. It remains
         // provenance=legacy-cache with unknown original freshness.
         const legacy = await readCache<{ query: string; includeHistorical: boolean; projectId: string | null; data: SearchResultDto }>(SEARCH_LAST_KEY);
+        if (signal.aborted) throw new CallerAbortedError(signal.reason);
         if (scope === "canonical") {
           const oldKey = legacyCanonicalSearchKey({ query: debouncedQ, includeHistorical, projectId: projectId || null });
           const oldScope = `search:q=${debouncedQ}:historical=${includeHistorical}:project=${projectId || "*"}`;
           const old = await readCache<SearchResultDto>(oldKey, oldScope);
+          if (signal.aborted) throw new CallerAbortedError(signal.reason);
           if (old) return { data: old.value, provenance: { source: "cache", fetchedAt: old.provenance.fetchedAt } };
         }
         if (scope === "canonical" && legacy && legacy.value.query === debouncedQ && legacy.value.includeHistorical === includeHistorical && legacy.value.projectId === (projectId || null)) {
@@ -84,13 +140,20 @@ export default function Search(): ReactNode {
         throw e;
       }
     },
-    enabled: debouncedQ.length >= 2,
+    enabled: debouncedQ.length >= 2 && !filterError,
+    // Only mirror-backed reads run offline; global/auth query policy is unchanged.
+    networkMode: "always",
+    retry: false,
   });
 
-  const read = searchQuery.data;
+  const read = !filterError && debouncedQ.length >= 2 ? searchQuery.data : undefined;
   const result = read?.data;
   const fromCache = read ? read.provenance.source !== "network" : false;
   const cachedAt = read?.provenance.fetchedAt ?? null;
+  const moreRecords = Boolean(result?.completeness && (
+    (scope !== "working" && result.completeness.records.mayHaveMore) ||
+    (scope !== "canonical" && result.completeness.workingRecords.mayHaveMore)
+  ));
 
   return (
     <div>
@@ -108,7 +171,7 @@ export default function Search(): ReactNode {
           <input
             type="checkbox"
             checked={includeHistorical}
-          onChange={(e) => void navigate({ search: (previous) => ({ ...previous, includeHistorical: e.target.checked || undefined }) })}
+            onChange={(e) => void navigate({ search: (previous) => ({ ...previous, includeHistorical: e.target.checked || undefined, limit: undefined }) })}
             className="h-4 w-4 accent-ck-teal"
           />
           Include historical (superseded)
@@ -116,11 +179,12 @@ export default function Search(): ReactNode {
         <select
           aria-label="Filter by project"
           value={projectId}
-          onChange={(e) => void navigate({ search: (previous) => ({ ...previous, projectId: e.target.value || undefined }) })}
+          onChange={(e) => void navigate({ search: (previous) => ({ ...previous, projectId: e.target.value || undefined, limit: undefined }) })}
           className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1"
         >
           <option value="">All projects</option>
-          {(projectsQuery.data ?? []).map((p) => (
+          {projectId && !projects.some((p) => p.id === projectId) ? <option value={projectId}>Unavailable project ({projectId})</option> : null}
+          {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
@@ -128,21 +192,45 @@ export default function Search(): ReactNode {
         </select>
         <label className="flex items-center gap-1.5 text-ck-muted">
           <span>Memory scope</span>
-          <select value={scope} onChange={(e) => void navigate({ search: (previous) => ({ ...previous, scope: e.target.value === "canonical" ? undefined : e.target.value as SearchScope }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" aria-label="Memory scope">
+          <select value={routeSearch.scope ?? "canonical"} onChange={(e) => void navigate({ search: (previous) => ({ ...previous, scope: e.target.value === "canonical" ? undefined : e.target.value, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" aria-label="Memory scope">
+            {routeSearch.scope && !["canonical", "working", "all"].includes(routeSearch.scope) ? <option value={routeSearch.scope}>Invalid scope ({routeSearch.scope})</option> : null}
             <option value="canonical">Canonical</option>
             <option value="working">Working proposals</option>
             <option value="all">All (split)</option>
           </select>
         </label>
+        <label className="flex items-center gap-1.5 text-ck-muted">
+          Record type
+          <select value={recordType} onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordType: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1">
+            <option value="">All record types</option>
+            {recordType && !recordTypes.some(type => type === recordType) ? <option value={recordType}>Invalid type ({recordType})</option> : null}
+            {recordTypes.map(type => <option key={type} value={type}>{type[0]!.toUpperCase() + type.slice(1)}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-ck-muted">
+          Recorded from (UTC)
+          <input type="date" value={isRecordedDate(recordedFrom) ? recordedFrom : ""} aria-describedby="recorded-date-help" onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordedFrom: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
+        </label>
+        <label className="flex items-center gap-1.5 text-ck-muted">
+          Recorded to (UTC)
+          <input type="date" value={isRecordedDate(recordedTo) ? recordedTo : ""} aria-describedby="recorded-date-help" onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordedTo: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
+        </label>
         {result ? <span className="ml-auto text-ck-muted">{result.tookMs} ms</span> : null}
       </div>
+      <p id="recorded-date-help" className="mt-2 text-xs text-ck-muted">Inclusive UTC dates when records were recorded, not their effective dates. Type/date filters search records only.</p>
+      {filterError ? <div role="alert" className="mt-2 text-xs text-ck-red">
+        <p>{filterError}</p>
+        <button type="button" className="mt-1 underline" onClick={() => void navigate({ search: (previous) => ({ ...previous, scope: undefined, recordType: undefined, recordedFrom: undefined, recordedTo: undefined, limit: undefined }) })}>Reset invalid filters</button>
+      </div> : null}
 
+      {projectsQuery.data?.provenance.source === "cache" ? <p className="mt-2 text-xs text-ck-amber">Cached project list. {describeCacheAge(projectsQuery.data.provenance.fetchedAt)}</p> : null}
+      {projectsQuery.isError ? <p className="mt-2 text-xs text-ck-amber">{describeReadError(projectsQuery.error, "Project list")}</p> : null}
       {fromCache ? (
         <p className="mt-2 text-xs text-ck-amber">
           Offline — showing the last cached search{result ? ` for “${result.query}”` : ""}. {describeCacheAge(cachedAt)}
         </p>
       ) : null}
-      {searchQuery.isError ? (
+      {!filterError && searchQuery.isError && !(searchQuery.error instanceof CallerAbortedError) ? (
         <p className="mt-2 text-xs text-ck-red">{describeReadError(searchQuery.error, "Search")}</p>
       ) : null}
 
@@ -151,6 +239,9 @@ export default function Search(): ReactNode {
       {result ? (
         <div className="mt-3 space-y-4">
           {result.completeness ? <p className="text-xs text-ck-muted">Returned {result.records.length} canonical and {result.workingRecords.length} working records. {Object.values(result.completeness).some((part) => part.mayHaveMore) ? "More matches may exist; narrow the query or project." : "No additional matches indicated."} {Object.values(result.completeness).some((part) => part.candidateLimitReached) ? "Candidate limit reached, including before filtering." : ""}</p> : <p className="text-xs text-ck-muted">Legacy snapshot: completeness unknown.</p>}
+          {moreRecords && limit < 200 ? <button type="button" disabled={searchQuery.isFetching || q.trim() !== debouncedQ} className="rounded-lg border border-ck-line px-3 py-2 text-sm disabled:opacity-50" onClick={() => void navigate({ search: (previous) => ({ ...previous, limit: Math.min(limit + 50, 200) }) })}>Show more results</button> : null}
+          {moreRecords && limit >= 200 ? <p role="status" className="text-xs text-ck-amber">Showing up to 200 per record group; refine search to find other matches.</p> : null}
+          {result.completeness && !recordType && !recordedFrom && !recordedTo ? <p className="text-xs text-ck-muted">Discovery projects: up to {result.completeness.projects.limit}; sources: up to {result.completeness.sources.limit}. {result.completeness.projects.mayHaveMore || result.completeness.sources.mayHaveMore ? "More discovery matches may exist; refine search." : ""} These are bounded search windows, not exhaustive pagination.</p> : null}
           {result.projects.length > 0 ? (
             <section>
               <h2 className="text-xs font-semibold uppercase tracking-wide text-ck-muted">

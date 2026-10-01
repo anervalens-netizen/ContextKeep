@@ -4,6 +4,7 @@ import type {
   ReviewStatus,
   TaskStatus,
 } from "@contextkeep/shared";
+import { compareInstants } from "./instant.js";
 
 export type FreshnessReason = "review_overdue" | "newer_observation" | "explicit_conflict";
 
@@ -123,17 +124,39 @@ function operationalIdentifiers(value: string): Set<string> {
   return new Set(patterns.flatMap((pattern) => folded.match(pattern) ?? []));
 }
 
-function intersectionSize(a: Set<string>, b: Set<string>): number {
+function intersectionSize(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
   let count = 0;
   for (const item of a) if (b.has(item)) count += 1;
   return count;
 }
 
-function predicatesCompatible(
-  a: Pick<FreshnessRecord, "predicate">,
-  b: Pick<FreshnessRecord, "predicate">,
-): boolean {
-  return !(a.predicate && b.predicate && foldMemoryText(a.predicate) !== foldMemoryText(b.predicate));
+export type PreparedState = {
+  projectId: string | null;
+  predicate: string | null;
+  subject: string;
+  dimension: string | null;
+  identifiers: ReadonlySet<string>;
+  significant: ReadonlySet<string>;
+  content: ReadonlySet<string>;
+  broad: ReadonlySet<string>;
+};
+
+/** Normalize once per observation, without retaining report bodies/valueJson. */
+export function prepareState(
+  row: Pick<FreshnessRecord, "projectId" | "subject" | "predicate" | "text">,
+): PreparedState {
+  const text = `${row.subject} ${row.text}`;
+  const broad = new Set(memoryTokens(text));
+  return {
+    projectId: row.projectId,
+    predicate: row.predicate ? foldMemoryText(row.predicate) : null,
+    subject: normalizeSubject(row.subject),
+    dimension: stateDimensionPrefix(row.text),
+    identifiers: operationalIdentifiers(text),
+    significant: new Set(identityTokens(row.subject)),
+    content: new Set([...broad].filter((token) => !IDENTITY_STOPWORDS.has(token))),
+    broad,
+  };
 }
 
 /**
@@ -146,38 +169,25 @@ export function stateRelationship(
   accepted: Pick<FreshnessRecord, "projectId" | "subject" | "predicate" | "text">,
   working: Pick<FreshnessRecord, "projectId" | "subject" | "predicate" | "text">,
 ): FreshnessRelationship {
-  if (accepted.projectId && working.projectId && accepted.projectId !== working.projectId) return "unrelated";
-  if (!predicatesCompatible(accepted, working)) return "unrelated";
+  return preparedStateRelationship(prepareState(accepted), prepareState(working));
+}
 
-  const subjectA = normalizeSubject(accepted.subject);
-  const subjectB = normalizeSubject(working.subject);
-  if (subjectA && subjectA === subjectB) return "same_entity";
+export function preparedStateRelationship(a: PreparedState, b: PreparedState): FreshnessRelationship {
+  if (a.projectId && b.projectId && a.projectId !== b.projectId) return "unrelated";
+  if (a.predicate !== null && b.predicate !== null && a.predicate !== b.predicate) return "unrelated";
+  if (a.subject && a.subject === b.subject) return "same_entity";
+  if (a.dimension && a.dimension === b.dimension) return "same_entity";
+  if (intersectionSize(a.identifiers, b.identifiers) > 0) return "same_entity";
 
-  const dimensionA = stateDimensionPrefix(accepted.text);
-  const dimensionB = stateDimensionPrefix(working.text);
-  if (dimensionA && dimensionA === dimensionB) return "same_entity";
-
-  const identifiersA = operationalIdentifiers(`${accepted.subject} ${accepted.text}`);
-  const identifiersB = operationalIdentifiers(`${working.subject} ${working.text}`);
-  if (intersectionSize(identifiersA, identifiersB) > 0) return "same_entity";
-
-  const significantA = new Set(identityTokens(accepted.subject));
-  const significantB = new Set(identityTokens(working.subject));
-  const significantOverlap = intersectionSize(significantA, significantB);
-  const smallerSubject = Math.max(1, Math.min(significantA.size, significantB.size));
+  const significantOverlap = intersectionSize(a.significant, b.significant);
+  const smallerSubject = Math.max(1, Math.min(a.significant.size, b.significant.size));
   if (significantOverlap >= 2 || (significantOverlap >= 1 && significantOverlap / smallerSubject >= 0.5)) {
     return "same_entity";
   }
-
-  const contentA = new Set(identityTokens(`${accepted.subject} ${accepted.text}`));
-  const contentB = new Set(identityTokens(`${working.subject} ${working.text}`));
-  const contentOverlap = intersectionSize(contentA, contentB);
-  const smallerContent = Math.max(1, Math.min(contentA.size, contentB.size));
+  const contentOverlap = intersectionSize(a.content, b.content);
+  const smallerContent = Math.max(1, Math.min(a.content.size, b.content.size));
   if (contentOverlap >= 3 && contentOverlap / smallerContent >= 0.4) return "same_entity";
-
-  const broadA = new Set(memoryTokens(`${accepted.subject} ${accepted.text}`));
-  const broadB = new Set(memoryTokens(`${working.subject} ${working.text}`));
-  const broadOverlap = intersectionSize(broadA, broadB);
+  const broadOverlap = intersectionSize(a.broad, b.broad);
   if (significantOverlap > 0 || contentOverlap > 0 || broadOverlap >= 2) return "possibly_related";
   return "unrelated";
 }
@@ -223,7 +233,7 @@ export function reviewOverdue(
   row: Pick<LegacyStateRow, "volatile" | "reviewDueAt">,
   nowIso: string,
 ): boolean {
-  return (row.volatile === 1 || row.volatile === true) && row.reviewDueAt !== null && row.reviewDueAt <= nowIso;
+  return (row.volatile === 1 || row.volatile === true) && row.reviewDueAt !== null && compareInstants(row.reviewDueAt, nowIso) <= 0;
 }
 
 function observationTime(row: Pick<FreshnessRecord, "sourceEventAt" | "effectiveFrom" | "recordedAt">): {
@@ -324,7 +334,7 @@ export function classifyRecordFreshness(
     });
   }
 
-  if (row.effectiveFrom && row.effectiveFrom > context.nowIso) {
+  if (row.effectiveFrom && compareInstants(row.effectiveFrom, context.nowIso) > 0) {
     reasons.push("effective_not_started");
     return withReferenceSummary(row, context, {
       authority,
@@ -338,7 +348,7 @@ export function classifyRecordFreshness(
       possiblyRelatedRecordIds,
     });
   }
-  if (row.effectiveTo && row.effectiveTo <= context.nowIso) {
+  if (row.effectiveTo && compareInstants(row.effectiveTo, context.nowIso) <= 0) {
     reasons.push("effective_ended");
     return withReferenceSummary(row, context, {
       authority,
@@ -398,7 +408,7 @@ export function classifyRecordFreshness(
         continue;
       }
       const workingTime = observationTime(working);
-      if (workingTime.value <= acceptedTime.value) continue;
+      if (compareInstants(workingTime.value, acceptedTime.value) <= 0) continue;
       const relationship = stateRelationship(row, working);
       if (relationship === "same_entity") {
         // A capture timestamp says when ContextKeep saw a claim, not when the

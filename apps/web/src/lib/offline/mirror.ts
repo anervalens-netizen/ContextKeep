@@ -1,4 +1,5 @@
 import { offlineDb, type CacheEntry } from "./db.js";
+import { isDefaultSearchWindow, searchIdentityParts, type SearchIdentity } from "../search-filters.js";
 
 /**
  * CK-A04 explicit last-known-good mirror.
@@ -35,12 +36,8 @@ export function inboxKey(input: { projectId: string | null; page: number; limit:
 }
 export const SEARCH_LAST_KEY = "search:last";
 
-export function searchKey(input: {
-  query: string;
-  includeHistorical: boolean;
-  projectId: string | null;
-  scope?: "canonical" | "working" | "all";
-}): string {
+export function searchKey(input: SearchIdentity): string {
+  if (!isDefaultSearchWindow(input)) return `search:v3:${JSON.stringify(searchIdentityParts(input))}`;
   return `search:v2:${JSON.stringify([
     input.query,
     input.includeHistorical,

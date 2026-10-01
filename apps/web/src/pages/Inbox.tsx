@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { InboxPageDto, ProjectDto, ReviewResultDto } from "@contextkeep/shared";
+import type { InboxPageDto, ReviewResultDto } from "@contextkeep/shared";
 import { ApiError, apiFetch, isNetworkUnavailableError } from "../lib/api.js";
 import { inboxKey, readCache, saveToCacheBestEffort } from "../lib/offline/mirror.js";
 import { cacheScopes, queryKeys, queryRoots } from "../lib/query-contracts.js";
+import { projectsQueryOptions } from "../lib/provenance-query.js";
 import { RecordCard } from "../components/RecordCard.js";
 import { VirtualList } from "../components/VirtualList.js";
 import { isQueued, notifyError, reportQueued } from "../lib/hooks.js";
@@ -52,10 +53,7 @@ export default function Inbox(): ReactNode {
       }
     },
   });
-  const projectsQuery = useQuery({
-    queryKey: queryKeys.projects,
-    queryFn: () => apiFetch<ProjectDto[]>("/api/projects"),
-  });
+  const projectsQuery = useQuery(projectsQueryOptions());
 
   const candidates = inboxQuery.data?.data.candidates ?? [];
   const total = inboxQuery.data?.data.total ?? 0;
@@ -77,7 +75,7 @@ export default function Inbox(): ReactNode {
   }, [inboxQuery.data, navigate, page, pageCount, projectId]);
 
   const retiredIds = useMemo(
-    () => new Set((projectsQuery.data ?? []).filter((p) => p.lifecycle === "retired").map((p) => p.id)),
+    () => new Set((projectsQuery.data?.data ?? []).filter((p) => p.lifecycle === "retired").map((p) => p.id)),
     [projectsQuery.data],
   );
   const touchesRetired = candidates.some((c) => c.projectId !== null && retiredIds.has(c.projectId));
@@ -179,7 +177,7 @@ export default function Inbox(): ReactNode {
             className="rounded-lg border border-ck-line bg-ck-bg px-2 py-1.5 text-xs text-ck-ink"
           >
             <option value="">All projects</option>
-            {(projectsQuery.data ?? []).map((project) => (
+            {(projectsQuery.data?.data ?? []).map((project) => (
               <option key={project.id} value={project.id}>{project.name}</option>
             ))}
           </select>

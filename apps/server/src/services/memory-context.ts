@@ -1,10 +1,10 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { ContextDiagnosticReason, EvidenceDto } from "@contextkeep/shared";
-import { conflicts, handoffs, projects, records } from "../db/schema.js";
+import { handoffs, projects, records } from "../db/schema.js";
 import { workspaceBindings } from "../db/workspace-schema.js";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps } from "./import.js";
-import { loadEvidenceFor, loadEvidenceRefsFor, parseJson, toProjectDto, type EvidenceRefDto } from "./mappers.js";
+import { loadRecordFreshnessContext, loadEvidenceFor, loadEvidenceRefsFor, parseJson, toProjectDto, type EvidenceRefDto } from "./mappers.js";
 import { retrieveRecordMatches, search, type RetrievedRecordMatch } from "./search.js";
 import { searchRelations } from "./relations.js";
 import { synthesize } from "./synthesis.js";
@@ -19,7 +19,6 @@ import {
   isCurrentStateClaim,
   memoryTokens,
   type FreshnessRecord,
-  type RecordFreshnessContext,
 } from "./memory-freshness.js";
 import type { MemoryScope } from "./memory-scope.js";
 
@@ -229,46 +228,9 @@ export class ContextKeepMemoryService {
     const task = input.task?.trim() || undefined;
     const fetchLimit = task ? Math.min(50, Math.max(limit * 5, 25)) : limit;
     const contextNow = new Date().toISOString();
-    // CK-A05: preload freshness signals once. The pure classifier below does
-    // not query the database per record.
-    const freshnessWorkingRecords = this.deps.db
-      .select({
-        id: records.id,
-        projectId: records.projectId,
-        type: records.type,
-        subject: records.subject,
-        predicate: records.predicate,
-        valueJson: records.valueJson,
-        text: records.text,
-        reviewStatus: records.reviewStatus,
-        evidenceBasis: records.evidenceBasis,
-        taskStatus: records.taskStatus,
-        recordedAt: records.recordedAt,
-        sourceEventAt: records.sourceEventAt,
-        effectiveFrom: records.effectiveFrom,
-        effectiveTo: records.effectiveTo,
-        reviewDueAt: records.reviewDueAt,
-        volatile: records.volatile,
-      })
-      .from(records)
-      .where(and(
-        eq(records.projectId, projectId),
-        eq(records.reviewStatus, "proposed"),
-        eq(records.evidenceBasis, "agent_report"),
-        eq(records.type, "fact"),
-      ))
-      .all() as FreshnessRecord[];
-    const freshnessConflicts = this.deps.db
-      .select({ recordIdsJson: conflicts.recordIdsJson })
-      .from(conflicts)
-      .where(and(eq(conflicts.projectId, projectId), eq(conflicts.status, "unresolved")))
-      .all()
-      .map((row) => ({ recordIds: parseJson<string[]>(row.recordIdsJson, []) }));
-    const recordFreshnessContext: RecordFreshnessContext = {
-      nowIso: contextNow,
-      workingRecords: freshnessWorkingRecords,
-      conflicts: freshnessConflicts,
-    };
+    // Share bounded, versioned evidence with brief/search reads. Only selected
+    // canonical rows need signals; temporal verdicts are recomputed each call.
+    const freshContext = (rows: RecordRow[]) => loadRecordFreshnessContext(this.deps.db, rows, contextNow);
     const diagnosticsRequested = input.diagnostics === true;
     const canonicalTaskMatchIds = new Set<string>();
     const workingTaskMatchIds = new Set<string>();
@@ -327,6 +289,7 @@ export class ContextKeepMemoryService {
       const rows = [...coreRows, ...selectedRows.filter((row) => !coreRows.some((core) => core.id === row.id))].slice(0, limit);
       const evidence = loadEvidenceRefsFor(this.deps.db, rows.map((row) => row.id));
       const total = Number(this.deps.db.select({ n: sql.raw("count(*)") }).from(records).where(where).get()!.n);
+      const recordFreshnessContext = freshContext(rows);
       return {
         total,
         ...(requestedCore.length ? { permanentCore: {
@@ -399,6 +362,7 @@ export class ContextKeepMemoryService {
     }
     const factTotal = Number(this.deps.db.select({ n: sql.raw("count(*)") }).from(records).where(factWhere).get()!.n);
     const factEvidence = loadEvidenceRefsFor(this.deps.db, factRows.map((row) => row.id));
+    const recordFreshnessContext = freshContext(factRows);
     const mapFact = (row: RecordRow) => {
       const refs = factEvidence.get(row.id) ?? [];
       const attention = classifyRecordFreshness(row as FreshnessRecord, recordFreshnessContext);

@@ -86,7 +86,8 @@ describe("bounded freshness preloads preserve complete evidence semantics", () =
       [canonical],
       now,
     );
-    expect(reads.mock.results.length).toBeGreaterThanOrEqual(4);
+    // Only live conflict counts/samples use .all(); proposal bodies stream once.
+    expect(reads.mock.results.length).toBe(2);
     for (const result of reads.mock.results)
       if (result.type === "return")
         expect(result.value.length).toBeLessThanOrEqual(128);

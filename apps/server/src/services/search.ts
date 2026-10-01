@@ -57,6 +57,19 @@ const BROAD_SYNTHESIS_CONCEPTS = new Set([
 
 type RecordRow = typeof records.$inferSelect;
 
+interface RecordedDateFilters {
+  recordedFrom?: string;
+  recordedTo?: string;
+}
+
+/** Validated date-only bounds; SQLite date() compares UTC calendar days. */
+function recordedDateConditions(args: RecordedDateFilters) {
+  return [
+    args.recordedFrom ? sql`date(${records.recordedAt}) >= ${args.recordedFrom}` : undefined,
+    args.recordedTo ? sql`date(${records.recordedAt}) <= ${args.recordedTo}` : undefined,
+  ];
+}
+
 export interface RetrievedRecordMatch {
   row: RecordRow;
   bm25: number;
@@ -262,7 +275,7 @@ export function isMeaningfulSynthesisMatch(
  */
 export function retrieveRecordMatches(
   db: Db,
-  args: {
+  args: RecordedDateFilters & {
     q: string;
     projectId?: string | null;
     type?: string | null;
@@ -301,7 +314,7 @@ export function retrieveRecordMatches(
     })
     .from(records)
     .innerJoin(sql`ck_records_fts`, sql`ck_records_fts.record_id = ${records.id}`)
-    .where(and(...filters))
+    .where(and(...filters, ...recordedDateConditions(args)))
     .orderBy(sql`bm25(ck_records_fts)`, records.id)
     .limit(Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40)))
     .all();
@@ -345,7 +358,7 @@ export function retrieveRecordMatches(
         )`,
       })
       .from(records)
-      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, fallbackCondition))
+      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition))
       .orderBy(desc(records.recordedAt), records.id)
       .limit(Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40)))
       .all();
@@ -375,7 +388,7 @@ export function retrieveRecordMatches(
 
 export function search(
   deps: ServiceDeps,
-  input: {
+  input: RecordedDateFilters & {
     q: string;
     projectId?: string | null;
     type?: string | null;
@@ -395,6 +408,10 @@ export function search(
   const match = input.match ?? "terms";
   const scope = input.scope ?? "canonical";
   const q = (input.q ?? "").trim();
+  const recordFilters = { type: input.type, recordedFrom: input.recordedFrom, recordedTo: input.recordedTo };
+  // Record filters do not imply that a project's metadata or raw source text matches.
+  const includeDiscovery = mode === "discovery" && scope !== "working" &&
+    !input.type && !input.recordedFrom && !input.recordedTo;
 
   const canonicalCompleteness = { candidateLimitReached: false, mayHaveMore: false };
   const workingCompleteness = { candidateLimitReached: false, mayHaveMore: false };
@@ -403,7 +420,7 @@ export function search(
     : retrieveRecordMatches(db, {
         q,
         projectId: input.projectId,
-        type: input.type,
+        ...recordFilters,
         basis: input.basis,
         statuses: includeHistorical ? ["accepted", "superseded"] : ["accepted"],
         match,
@@ -413,21 +430,21 @@ export function search(
   const workingMatches = scope === "canonical"
     ? []
     : q
-      ? retrieveRecordMatches(db, { q, projectId: input.projectId, basis: "agent_report", statuses: ["proposed"], match, limit, completeness: workingCompleteness })
+      ? retrieveRecordMatches(db, { q, projectId: input.projectId, ...recordFilters, basis: "agent_report", statuses: ["proposed"], match, limit, completeness: workingCompleteness })
       : [];
   const recordRows = scope === "working"
     ? []
     : q
       ? canonicalMatches.map((match) => match.row)
-      : listOnlyRecords(db, { projectId: input.projectId, type: input.type, basis: input.basis, includeHistorical, limit });
+      : listOnlyRecords(db, { projectId: input.projectId, ...recordFilters, basis: input.basis, includeHistorical, limit });
   const workingRows = scope === "canonical"
     ? []
     : q
       ? workingMatches.map((match) => match.row)
-      : listOnlyWorkingRecords(db, { projectId: input.projectId, limit });
+      : listOnlyWorkingRecords(db, { projectId: input.projectId, ...recordFilters, limit });
 
-  const projectRows = mode === "discovery" && scope !== "working" ? projectRowsForQuery(db, q, limit, input.projectId ?? null) : [];
-  const sourcesOut = mode === "discovery" && scope !== "working" ? sourcesForQuery(db, q, 20, input.projectId ?? null) : [];
+  const projectRows = includeDiscovery ? projectRowsForQuery(db, q, limit, input.projectId ?? null) : [];
+  const sourcesOut = includeDiscovery ? sourcesForQuery(db, q, 20, input.projectId ?? null) : [];
 
   const evidenceMap = q
     ? new Map(canonicalMatches.map((item) => [item.row.id, item.evidence] as const))
@@ -460,7 +477,7 @@ export function search(
 
 function listOnlyRecords(
   db: Db,
-  args: { projectId: string | null | undefined; type: string | null | undefined; basis: string | null | undefined; includeHistorical: boolean; limit: number },
+  args: RecordedDateFilters & { projectId: string | null | undefined; type: string | null | undefined; basis: string | null | undefined; includeHistorical: boolean; limit: number },
 ): Array<typeof records.$inferSelect> {
   const allowedStatuses = args.includeHistorical ? ["accepted", "superseded"] : ["accepted"];
   const conds = [
@@ -472,7 +489,7 @@ function listOnlyRecords(
   return db
     .select()
     .from(records)
-    .where(and(...conds))
+    .where(and(...conds, ...recordedDateConditions(args)))
     .orderBy(desc(records.recordedAt), records.id)
     .limit(args.limit)
     .all();
@@ -480,7 +497,7 @@ function listOnlyRecords(
 
 function listOnlyWorkingRecords(
   db: Db,
-  args: { projectId: string | null | undefined; limit: number },
+  args: RecordedDateFilters & { projectId: string | null | undefined; type?: string | null; limit: number },
 ): Array<typeof records.$inferSelect> {
   return db
     .select()
@@ -489,6 +506,8 @@ function listOnlyWorkingRecords(
       eq(records.reviewStatus, "proposed"),
       eq(records.evidenceBasis, "agent_report"),
       args.projectId ? eq(records.projectId, args.projectId) : undefined,
+      args.type ? eq(records.type, args.type) : undefined,
+      ...recordedDateConditions(args),
     ))
     .orderBy(desc(records.recordedAt), desc(records.id))
     .limit(args.limit)

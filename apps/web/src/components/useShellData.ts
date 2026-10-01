@@ -3,7 +3,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { WorkspaceReconciliationDto } from "@contextkeep/shared";
 import { apiFetch } from "../lib/api.js";
-import { readShellProjects } from "../lib/provenance-query.js";
+import { projectsQueryOptions } from "../lib/provenance-query.js";
 import { sessionCounts, type ProjectSignal } from "./ShellPrimitives.js";
 
 function projectIdFromPath(path: string): string | null {
@@ -12,12 +12,7 @@ function projectIdFromPath(path: string): string | null {
 }
 export function useShellData() {
   const location = useLocation();
-  const projectsQuery = useQuery({
-    queryKey: ["projects", "shell-provenance"],
-    queryFn: readShellProjects,
-    staleTime: 15000,
-    retry: false,
-  });
+  const projectsQuery = useQuery(projectsQueryOptions());
   const recon = useQuery({
     queryKey: ["workspace-reconciliation"],
     queryFn: () =>

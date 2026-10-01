@@ -1,9 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   classifyRecordFreshness,
-  isCurrentStateClaim,
   reviewOverdue,
-  stateRelationship,
   type FreshnessRecord,
   type FreshnessPreloadSignals,
   type RecordFreshnessContext,
@@ -22,6 +20,7 @@ import type {
   RecordType,
 } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
+import { emptyFreshnessSignals, loadFreshnessObservations } from "./freshness-observations.js";
 import {
   projects,
   recordEvidence,
@@ -292,123 +291,23 @@ export function loadRecordFreshnessContext(
   rows: RecordRow[],
   nowIso = new Date().toISOString(),
 ): RecordFreshnessContext {
-  const BATCH_SIZE = 128;
   const REFERENCE_SAMPLE_SIZE = 20;
-  const projectIds = [
-    ...new Set(
-      rows.map((r) => r.projectId).filter((p): p is string => p !== null),
-    ),
-  ];
-  if (projectIds.length === 0)
-    return { nowIso, workingRecords: [], conflicts: [] };
-
-  const freshnessTargets = rows.filter(
-    (row) =>
-      row.reviewStatus === "accepted" &&
-      isCurrentStateClaim(row as FreshnessRecord),
-  ) as FreshnessRecord[];
   const acceptedRows = rows.filter(
     (row) => row.reviewStatus === "accepted" && row.projectId !== null,
   ) as FreshnessRecord[];
-  const targetByProject = new Map<string, FreshnessRecord[]>();
-  for (const target of freshnessTargets) {
-    if (!target.projectId) continue;
-    const projectTargets = targetByProject.get(target.projectId) ?? [];
-    projectTargets.push(target);
-    targetByProject.set(target.projectId, projectTargets);
+  const projectIds = [...new Set(acceptedRows.map((row) => row.projectId!))];
+  const signals = loadFreshnessObservations(db, acceptedRows);
+  for (const row of acceptedRows) {
+    if (!signals.has(row.id)) signals.set(row.id, emptyFreshnessSignals());
   }
-
-  const cutoffs = [...targetByProject.entries()].map(
-    ([projectId, targets]) => ({
-      projectId,
-      after: targets
-        .map(
-          (target) =>
-            target.sourceEventAt || target.effectiveFrom || target.recordedAt,
-        )
-        .sort()[0]!,
-    }),
-  );
-  const workingRecords: FreshnessRecord[] = [];
-  type MutableSignals = FreshnessPreloadSignals;
-  const signals = new Map<string, MutableSignals>();
-  const emptySignals = (): MutableSignals => ({
-    explicitConflict: false,
-    conflictSupportRecordIds: [],
-    conflictSupportCount: 0,
-    conflictReferencesTruncated: false,
-    supportRecordIds: [],
-    supportCount: 0,
-    supportReferencesTruncated: false,
-    possiblyRelatedRecordIds: [],
-    possiblyRelatedCount: 0,
-    possiblyRelatedReferencesTruncated: false,
-  });
-  for (const target of acceptedRows) signals.set(target.id, emptySignals());
   const rememberId = (list: string[], id: string): void => {
     if (list.includes(id)) return;
     list.push(id);
     list.sort();
     if (list.length > REFERENCE_SAMPLE_SIZE) list.pop();
   };
-  if (cutoffs.length > 0) {
-    // SQL applies exact structural/time restrictions. Stream candidates rather
-    // than materializing a project backlog, then reuse the canonical classifier
-    // semantics. Approximate SQL word/Unicode filters can hide valid evidence.
-    // Keyset batches preserve compatibility with transaction handles.
-    const cutoffJson = JSON.stringify(cutoffs);
-    let afterId = "";
-    while (true) {
-      const page = db.all<FreshnessRecord>(sql`
-      SELECT id, project_id AS projectId, type, subject, predicate,
-             value_json AS valueJson, text, review_status AS reviewStatus,
-             evidence_basis AS evidenceBasis, task_status AS taskStatus,
-             recorded_at AS recordedAt, source_event_at AS sourceEventAt,
-             effective_from AS effectiveFrom, effective_to AS effectiveTo,
-             review_due_at AS reviewDueAt, volatile
-      FROM records
-      WHERE review_status = 'proposed' AND evidence_basis = 'agent_report'
-        AND type = 'fact' AND id > ${afterId}
-        AND EXISTS (
-          SELECT 1 FROM json_each(${cutoffJson}) AS target
-          WHERE project_id = json_extract(target.value, '$.projectId')
-            AND coalesce(nullif(source_event_at, ''), nullif(effective_from, ''), recorded_at)
-                > json_extract(target.value, '$.after')
-        )
-      ORDER BY id LIMIT ${BATCH_SIZE}
-    `);
-      for (const working of page) {
-        if (!isCurrentStateClaim(working)) continue;
-        const workingTime =
-          working.sourceEventAt || working.effectiveFrom || working.recordedAt;
-        const targets = targetByProject.get(working.projectId!) ?? [];
-        let relevantToPage = false;
-        for (const target of targets) {
-          const targetTime = target.sourceEventAt || target.effectiveFrom || target.recordedAt;
-          if (workingTime <= targetTime) continue;
-          const relationship = stateRelationship(target, working);
-          if (relationship === "unrelated") continue;
-          relevantToPage = true;
-          const signal = signals.get(target.id)!;
-          if (relationship === "same_entity" && (working.sourceEventAt || working.effectiveFrom)) {
-            signal.supportCount += 1;
-            rememberId(signal.supportRecordIds, working.id);
-          } else {
-            signal.possiblyRelatedCount += 1;
-            rememberId(signal.possiblyRelatedRecordIds, working.id);
-          }
-        }
-        if (relevantToPage && workingRecords.length < BATCH_SIZE) workingRecords.push(working);
-      }
-      if (page.length < BATCH_SIZE) break;
-      afterId = page[page.length - 1]!.id;
-    }
-  }
-  for (const signal of signals.values()) {
-    signal.supportReferencesTruncated = signal.supportCount > REFERENCE_SAMPLE_SIZE;
-    signal.possiblyRelatedReferencesTruncated = signal.possiblyRelatedCount > REFERENCE_SAMPLE_SIZE;
-  }
-
+  // Conflicts are deliberately live: creation/resolution need not advance the
+  // observation versions. Cached signals contain no conflicts or time verdicts.
   const conflictRecordIds = acceptedRows.map((row) => row.id);
   if (conflictRecordIds.length > 0) {
     const projectIdsJson = JSON.stringify(projectIds);
@@ -460,7 +359,7 @@ export function loadRecordFreshnessContext(
   for (const [recordId, signal] of signals) preloadedSignals.set(recordId, signal);
   return {
     nowIso,
-    workingRecords,
+    workingRecords: [],
     conflicts: [],
     preloadedSignals,
   };

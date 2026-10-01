@@ -29,6 +29,7 @@ vi.mock("../src/lib/hooks.js", () => ({
   reportQueued: vi.fn(async () => undefined),
 }));
 vi.mock("../src/lib/offline/mirror.js", () => ({
+  PROJECTS_KEY: "projects:last",
   inboxKey: ({ projectId, page, limit }: any) => `inbox:${projectId ?? "*"}:${page}:${limit}`,
   readCache: vi.fn(async () => null),
   saveToCacheBestEffort: vi.fn(async () => undefined),

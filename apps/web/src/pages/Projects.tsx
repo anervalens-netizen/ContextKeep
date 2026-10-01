@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ProjectDto, WorkspaceReconciliationDto, WorkspaceReconciliationItemDto } from "@contextkeep/shared";
-import { apiFetch, ApiError, isNetworkUnavailableError } from "../lib/api.js";
-import { PROJECTS_KEY, readCache, saveToCacheBestEffort } from "../lib/offline/mirror.js";
+import { apiFetch, ApiError } from "../lib/api.js";
+import { projectsQueryOptions } from "../lib/provenance-query.js";
+import { describeCacheAge, describeReadError } from "../lib/presentation.js";
 import { LifecycleBadge } from "../components/Badge.js";
 import { WorkspaceRegistry } from "../components/WorkspaceRegistry.js";
 import { Icon } from "../components/Icon.js";
@@ -62,30 +63,8 @@ export default function Projects(): ReactNode {
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [fromCache, setFromCache] = useState(false);
-
-  const projectsQuery = useQuery({
-    queryKey: ["projects"],
-    queryFn: async () => {
-      try {
-        let fetchedAt: string | undefined;
-        const data = await apiFetch<ProjectDto[]>("/api/projects", {
-          onDataProvenance: (meta) => { fetchedAt = meta.fetchedAt; },
-        });
-        void saveToCacheBestEffort(PROJECTS_KEY, data, { fetchedAt, scope: "projects:list", cursor: null });
-        setFromCache(false);
-        return data;
-      } catch (e) {
-        if (!isNetworkUnavailableError(e)) throw e;
-        const cached = await readCache<ProjectDto[]>(PROJECTS_KEY, "projects:list");
-        if (cached) {
-          setFromCache(true);
-          return cached.value;
-        }
-        throw e;
-      }
-    },
-  });
+  const projectsQuery = useQuery(projectsQueryOptions());
+  const fromCache = projectsQuery.data?.provenance.source === "cache";
 
   const portfolioQuery = useQuery({
     queryKey: ["operational-portfolio"],
@@ -134,7 +113,7 @@ export default function Projects(): ReactNode {
     }
   };
 
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.data ?? [];
   const reconciliation = reconciliationQuery.data;
 
   const itemsByProject = useMemo(() => {
@@ -276,7 +255,7 @@ export default function Projects(): ReactNode {
           </button>
         </div>
 
-        {fromCache ? <p className="mt-2 text-xs text-ck-amber">Offline — showing the last loaded project list.</p> : null}
+        {fromCache ? <p className="mt-2 text-xs text-ck-amber">Offline — showing the last loaded project list. {describeCacheAge(projectsQuery.data?.provenance.fetchedAt ?? null)}</p> : null}
 
         <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
           <div className="rounded-2xl border border-ck-line bg-ck-surface px-3 py-3 shadow-xs">
@@ -309,7 +288,7 @@ export default function Projects(): ReactNode {
       ) : null}
 
       {projectsQuery.isLoading ? <p className="rounded-2xl border border-ck-line bg-ck-surface p-4 text-sm text-ck-muted">Loading your workspace…</p> : null}
-      {projectsQuery.isError ? <p className="rounded-2xl border border-ck-red/30 bg-ck-red/5 p-4 text-sm text-ck-red">Could not load projects and no cached copy exists. Reconnect and retry.</p> : null}
+      {projectsQuery.isError ? <p className="rounded-2xl border border-ck-red/30 bg-ck-red/5 p-4 text-sm text-ck-red">{describeReadError(projectsQuery.error, "Projects")} {projectsQuery.data ? "Showing the previously loaded project list." : "No project list is available."}</p> : null}
 
       {portfolioQuery.isError ? <p className="text-xs text-ck-amber">Starea operațională nu poate fi actualizată; metadatele proiectelor rămân disponibile.</p> : null}
       {portfolioQuery.data?.nextOffset !== null && portfolioQuery.data ? <p className="text-xs text-ck-muted">Rezumatul operațional acoperă primele {portfolioQuery.data.items.length} din {portfolioQuery.data.total} proiecte. Deschide proiectul pentru toate lucrările.</p> : null}

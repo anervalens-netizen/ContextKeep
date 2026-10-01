@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ImportPreviewDto, ProjectDto } from "@contextkeep/shared";
+import type { ImportPreviewDto } from "@contextkeep/shared";
 import { apiFetch, ApiError } from "../lib/api.js";
-import { readMeta } from "../lib/provenance-query.js";
+import { projectsQueryOptions, readMeta } from "../lib/provenance-query.js";
 import { queryKeys } from "../lib/query-contracts.js";
 import type { ConflictEntry } from "../lib/offline/db.js";
 import * as offlineQueue from "../lib/offline/queue.js";
@@ -34,7 +34,7 @@ export default function Import(): ReactNode {
   const [previewLines, setPreviewLines] = useState(0);
 
   const meta = useQuery({ queryKey: queryKeys.meta, queryFn: readMeta });
-  const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: () => apiFetch<ProjectDto[]>("/api/projects") });
+  const projectsQuery = useQuery(projectsQueryOptions());
 
   useEffect(() => {
     if (isLocalDataAccessPaused()) return;
@@ -171,7 +171,7 @@ export default function Import(): ReactNode {
     }
   };
 
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.data ?? [];
 
   useEffect(() => {
     if (!projectsQuery.isSuccess || !projectId) return;
