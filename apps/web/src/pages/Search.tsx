@@ -104,6 +104,8 @@ export default function Search(): ReactNode {
   const projectsQuery = useQuery(projectsQueryOptions());
   const projects = projectsQuery.data?.data ?? [];
 
+  const draftPending = q.trim() !== debouncedQ;
+  const searchReady = debouncedQ.length >= 2 && !filterError && !draftPending;
   const searchQuery = useQuery<SearchRead>({
     queryKey: ["search", debouncedQ, includeHistorical, projectId, scope, recordType, recordedFrom, recordedTo, routeSearch.limit ?? 50],
     queryFn: async ({ signal }) => {
@@ -152,13 +154,15 @@ export default function Search(): ReactNode {
         throw e;
       }
     },
-    enabled: debouncedQ.length >= 2 && !filterError,
+    enabled: searchReady,
     // Only mirror-backed reads run offline; global/auth query policy is unchanged.
     networkMode: "always",
     retry: false,
   });
 
-  const read = !filterError && debouncedQ.length >= 2 ? searchQuery.data : undefined;
+  // A filter change must not expose an old query's cached or in-flight result
+  // while the visible draft is still waiting for its URL commit.
+  const read = searchReady ? searchQuery.data : undefined;
   const result = read?.data;
   const fromCache = read ? read.provenance.source !== "network" : false;
   const cachedAt = read?.provenance.fetchedAt ?? null;
@@ -242,11 +246,11 @@ export default function Search(): ReactNode {
           Offline — showing the last cached search{result ? ` for “${result.query}”` : ""}. {describeCacheAge(cachedAt)}
         </p>
       ) : null}
-      {!filterError && searchQuery.isError && !(searchQuery.error instanceof CallerAbortedError) ? (
+      {searchReady && searchQuery.isError && !(searchQuery.error instanceof CallerAbortedError) ? (
         <p className="mt-2 text-xs text-ck-red">{describeReadError(searchQuery.error, "Search")}</p>
       ) : null}
 
-      {searchQuery.isFetching ? <p role="status" className="mt-2 text-xs text-ck-muted">Searching…</p> : null}
+      {!filterError && (searchQuery.isFetching || (draftPending && q.trim().length >= 2)) ? <p role="status" className="mt-2 text-xs text-ck-muted">Searching…</p> : null}
       <p className="mt-2 text-xs text-ck-muted">Try a distinctive subject, phrase, or artifact identifier.</p>
       {result ? (
         <div className="mt-3 space-y-4">

@@ -158,6 +158,32 @@ describe("search drafts and router navigation", () => {
     if (!q) expect(searchRequests()).toHaveLength(0);
   });
 
+  it.each([false, true])("does not request or render the old query with a new filter while typing (cached=%s)", async (cached) => {
+    const { client } = await mount(["/search?q=release&projectId=alpha"]);
+    await screen.findByText("alpha: release accepted evidence");
+    if (cached) {
+      client.setQueryData(["search", "release", false, "beta", "canonical", "", "", "", 50], {
+        data: result("release", "beta"), provenance: { source: "cache", fetchedAt },
+      });
+    }
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.change(input(), { target: { value: "updated" } });
+    fireEvent.change(selection(), { target: { value: "beta" } });
+    await advance(50);
+    expect(input().value).toBe("updated");
+    expect(selection().value).toBe("beta");
+    expect(searchRequests()).toHaveLength(1);
+    expect(screen.queryByText("alpha: release accepted evidence")).toBeNull();
+    expect(screen.queryByText("beta: release accepted evidence")).toBeNull();
+    expect(screen.queryByText(/Offline — showing the last cached search/)).toBeNull();
+    await advance(250);
+    expect(searchRequests()).toHaveLength(2);
+    const params = new URLSearchParams(String(searchRequests()[1]![0]).split("?")[1]);
+    expect(params.get("q")).toBe("updated");
+    expect(params.get("projectId")).toBe("beta");
+    expect(screen.getByText("beta: updated accepted evidence")).toBeTruthy();
+  });
+
   it("preserves a newer draft when an earlier debounce URL commit arrives late", async () => {
     const { router } = await mount(["/search?projectId=alpha"]);
     const navigate = router.navigate.bind(router);
