@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { SearchResultDto } from "@contextkeep/shared";
@@ -11,7 +11,7 @@ import { VirtualList } from "../components/VirtualList.js";
 import { LifecycleBadge } from "../components/Badge.js";
 import { debounce } from "../lib/debounce.js";
 import { describeCacheAge, describeReadError } from "../lib/presentation.js";
-import { isDefaultSearchWindow, isRecordedDate, recordTypes, searchCacheScope, searchFilterError } from "../lib/search-filters.js";
+import { isDefaultSearchWindow, isRecordedDate, recordTypes, searchCacheScope, searchFilterError, type SearchFilters } from "../lib/search-filters.js";
 
 type SearchScope = "canonical" | "working" | "all";
 type SearchRead = {
@@ -39,6 +39,17 @@ export default function Search(): ReactNode {
   const filterError = searchFilterError(routeSearch);
   const limit = typeof routeSearch.limit === "number" ? routeSearch.limit : 50;
   const ownCommit = useRef<string | null>(null);
+  const ownNavigations = useRef(new Set<string>());
+  const navigateSearch = useCallback((search: (previous: SearchFilters) => SearchFilters, replace = false) => {
+    const navigationId = crypto.randomUUID();
+    const pending = ownNavigations.current;
+    pending.add(navigationId);
+    void navigate({
+      search,
+      replace,
+      state: (previous) => ({ ...previous, searchNavigationId: navigationId }),
+    }).finally(() => pending.delete(navigationId));
+  }, [navigate]);
 
   const urlQ = routeSearch.q ?? "";
   if (observedQ !== urlQ) {
@@ -46,7 +57,7 @@ export default function Search(): ReactNode {
     // a request combining the previous query with the new URL's filters.
     setObservedQ(urlQ);
     // A delayed acknowledgement of our own URL update must not replace a
-    // newer draft. Filter-only navigations leave the draft untouched.
+    // newer draft. Our filter controls preserve drafts via tagged navigation.
     if (ownCommit.current !== urlQ) {
       setQ(urlQ);
     }
@@ -67,9 +78,13 @@ export default function Search(): ReactNode {
       const search = router.options.parseSearch!(location.search);
       restoreQuery(search.q);
     });
-    // TanStack can reload an identical URL without writing a history entry.
-    const unsubscribeNavigation = router.subscribe("onBeforeNavigate", ({ fromLocation, toLocation }) => {
-      if (toLocation.pathname === "/search" && fromLocation?.href === toLocation.href) restoreQuery(router.options.parseSearch!(toLocation.searchStr).q);
+    const unsubscribeNavigation = router.subscribe("onBeforeNavigate", ({ toLocation }) => {
+      if (toLocation.pathname !== "/search") return;
+      // Only this mounted page's pending controls/debounce preserve the draft.
+      // History entries with old tags and external same-q links still restore it.
+      const navigationId = (toLocation.state as { searchNavigationId?: string }).searchNavigationId;
+      if (navigationId && ownNavigations.current.delete(navigationId)) return;
+      restoreQuery(router.options.parseSearch!(toLocation.searchStr).q);
     });
     return () => { unsubscribeHistory(); unsubscribeNavigation(); };
   }, [router]);
@@ -80,14 +95,11 @@ export default function Search(): ReactNode {
     const d = debounce((value: string) => {
       const query = value.trim();
       ownCommit.current = query;
-      void navigate({
-        search: (previous) => ({ ...previous, q: query || undefined, limit: undefined }),
-        replace: true,
-      });
+      navigateSearch((previous) => ({ ...previous, q: query || undefined, limit: undefined }), true);
     }, 200);
     d(q);
     return () => d.cancel();
-  }, [q, routeSearch.q, navigate]);
+  }, [q, routeSearch.q, navigateSearch]);
 
   const projectsQuery = useQuery(projectsQueryOptions());
   const projects = projectsQuery.data?.data ?? [];
@@ -171,7 +183,7 @@ export default function Search(): ReactNode {
           <input
             type="checkbox"
             checked={includeHistorical}
-            onChange={(e) => void navigate({ search: (previous) => ({ ...previous, includeHistorical: e.target.checked || undefined, limit: undefined }) })}
+            onChange={(e) => navigateSearch((previous) => ({ ...previous, includeHistorical: e.target.checked || undefined, limit: undefined }))}
             className="h-4 w-4 accent-ck-teal"
           />
           Include historical (superseded)
@@ -179,7 +191,7 @@ export default function Search(): ReactNode {
         <select
           aria-label="Filter by project"
           value={projectId}
-          onChange={(e) => void navigate({ search: (previous) => ({ ...previous, projectId: e.target.value || undefined, limit: undefined }) })}
+          onChange={(e) => navigateSearch((previous) => ({ ...previous, projectId: e.target.value || undefined, limit: undefined }))}
           className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1"
         >
           <option value="">All projects</option>
@@ -192,8 +204,8 @@ export default function Search(): ReactNode {
         </select>
         <label className="flex items-center gap-1.5 text-ck-muted">
           <span>Memory scope</span>
-          <select value={routeSearch.scope ?? "canonical"} onChange={(e) => void navigate({ search: (previous) => ({ ...previous, scope: e.target.value === "canonical" ? undefined : e.target.value, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" aria-label="Memory scope">
-            {routeSearch.scope && !["canonical", "working", "all"].includes(routeSearch.scope) ? <option value={routeSearch.scope}>Invalid scope ({routeSearch.scope})</option> : null}
+          <select value={routeSearch.scope ?? "canonical"} onChange={(e) => navigateSearch((previous) => ({ ...previous, scope: e.target.value === "canonical" ? undefined : e.target.value, limit: undefined }))} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" aria-label="Memory scope">
+            {routeSearch.scope !== undefined && !["canonical", "working", "all"].includes(routeSearch.scope) ? <option value={routeSearch.scope}>Invalid scope ({routeSearch.scope})</option> : null}
             <option value="canonical">Canonical</option>
             <option value="working">Working proposals</option>
             <option value="all">All (split)</option>
@@ -201,7 +213,7 @@ export default function Search(): ReactNode {
         </label>
         <label className="flex items-center gap-1.5 text-ck-muted">
           Record type
-          <select value={recordType} onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordType: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1">
+          <select value={recordType} onChange={(e) => navigateSearch((previous) => ({ ...previous, recordType: e.target.value || undefined, limit: undefined }))} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1">
             <option value="">All record types</option>
             {recordType && !recordTypes.some(type => type === recordType) ? <option value={recordType}>Invalid type ({recordType})</option> : null}
             {recordTypes.map(type => <option key={type} value={type}>{type[0]!.toUpperCase() + type.slice(1)}</option>)}
@@ -209,18 +221,18 @@ export default function Search(): ReactNode {
         </label>
         <label className="flex items-center gap-1.5 text-ck-muted">
           Recorded from (UTC)
-          <input type="date" value={isRecordedDate(recordedFrom) ? recordedFrom : ""} aria-describedby="recorded-date-help" onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordedFrom: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
+          <input type="date" value={isRecordedDate(recordedFrom) ? recordedFrom : ""} aria-describedby="recorded-date-help" onChange={(e) => navigateSearch((previous) => ({ ...previous, recordedFrom: e.target.value || undefined, limit: undefined }))} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
         </label>
         <label className="flex items-center gap-1.5 text-ck-muted">
           Recorded to (UTC)
-          <input type="date" value={isRecordedDate(recordedTo) ? recordedTo : ""} aria-describedby="recorded-date-help" onChange={(e) => void navigate({ search: (previous) => ({ ...previous, recordedTo: e.target.value || undefined, limit: undefined }) })} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
+          <input type="date" value={isRecordedDate(recordedTo) ? recordedTo : ""} aria-describedby="recorded-date-help" onChange={(e) => navigateSearch((previous) => ({ ...previous, recordedTo: e.target.value || undefined, limit: undefined }))} className="rounded-lg border border-ck-line bg-ck-surface px-2 py-1" />
         </label>
         {result ? <span className="ml-auto text-ck-muted">{result.tookMs} ms</span> : null}
       </div>
       <p id="recorded-date-help" className="mt-2 text-xs text-ck-muted">Inclusive UTC dates when records were recorded, not their effective dates. Type/date filters search records only.</p>
       {filterError ? <div role="alert" className="mt-2 text-xs text-ck-red">
         <p>{filterError}</p>
-        <button type="button" className="mt-1 underline" onClick={() => void navigate({ search: (previous) => ({ ...previous, scope: undefined, recordType: undefined, recordedFrom: undefined, recordedTo: undefined, limit: undefined }) })}>Reset invalid filters</button>
+        <button type="button" className="mt-1 underline" onClick={() => navigateSearch((previous) => ({ ...previous, scope: undefined, recordType: undefined, recordedFrom: undefined, recordedTo: undefined, limit: undefined }))}>Reset invalid filters</button>
       </div> : null}
 
       {projectsQuery.data?.provenance.source === "cache" ? <p className="mt-2 text-xs text-ck-amber">Cached project list. {describeCacheAge(projectsQuery.data.provenance.fetchedAt)}</p> : null}
@@ -238,8 +250,8 @@ export default function Search(): ReactNode {
       <p className="mt-2 text-xs text-ck-muted">Try a distinctive subject, phrase, or artifact identifier.</p>
       {result ? (
         <div className="mt-3 space-y-4">
-          {result.completeness ? <p className="text-xs text-ck-muted">Returned {result.records.length} canonical and {result.workingRecords.length} working records. {Object.values(result.completeness).some((part) => part.mayHaveMore) ? "More matches may exist; narrow the query or project." : "No additional matches indicated."} {Object.values(result.completeness).some((part) => part.candidateLimitReached) ? "Candidate limit reached, including before filtering." : ""}</p> : <p className="text-xs text-ck-muted">Legacy snapshot: completeness unknown.</p>}
-          {moreRecords && limit < 200 ? <button type="button" disabled={searchQuery.isFetching || q.trim() !== debouncedQ} className="rounded-lg border border-ck-line px-3 py-2 text-sm disabled:opacity-50" onClick={() => void navigate({ search: (previous) => ({ ...previous, limit: Math.min(limit + 50, 200) }) })}>Show more results</button> : null}
+          {result.completeness ? <p className="text-xs text-ck-muted">Returned {result.records.length} canonical and {result.workingRecords.length} working records. {Object.values(result.completeness).some((part) => part.mayHaveMore) ? "More matches may exist; narrow the query or project." : "No additional matches indicated."} {Object.values(result.completeness).some((part) => part.candidateLimitReached) ? "Candidate limit reached; additional matches may exist" : ""}</p> : <p className="text-xs text-ck-muted">Legacy snapshot: completeness unknown.</p>}
+          {moreRecords && limit < 200 ? <button type="button" disabled={searchQuery.isFetching || q.trim() !== debouncedQ} className="rounded-lg border border-ck-line px-3 py-2 text-sm disabled:opacity-50" onClick={() => navigateSearch((previous) => ({ ...previous, limit: Math.min(limit + 50, 200) }))}>Show more results</button> : null}
           {moreRecords && limit >= 200 ? <p role="status" className="text-xs text-ck-amber">Showing up to 200 per record group; refine search to find other matches.</p> : null}
           {result.completeness && !recordType && !recordedFrom && !recordedTo ? <p className="text-xs text-ck-muted">Discovery projects: up to {result.completeness.projects.limit}; sources: up to {result.completeness.sources.limit}. {result.completeness.projects.mayHaveMore || result.completeness.sources.mayHaveMore ? "More discovery matches may exist; refine search." : ""} These are bounded search windows, not exhaustive pagination.</p> : null}
           {result.projects.length > 0 ? (

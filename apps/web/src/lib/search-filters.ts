@@ -3,7 +3,7 @@ export const recordTypes = ["fact", "decision", "action", "constraint", "questio
 // Preserve invalid URL values so the UI can explain them instead of widening
 // a shared search. Date inputs themselves cannot display malformed dates.
 function urlValue(value: unknown): string | undefined {
-  if (value === undefined || value === "") return undefined;
+  if (value === undefined) return undefined;
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
@@ -39,10 +39,10 @@ export function isRecordedDate(value: string): boolean {
 }
 
 export function searchFilterError(search: ReturnType<typeof validateSearchFilters>): string | null {
-  if (search.scope && !["canonical", "working", "all"].includes(search.scope)) return `Invalid memory scope: “${search.scope}”.`;
-  if (search.recordType && !recordTypes.some(type => type === search.recordType)) return `Invalid record type: “${search.recordType}”.`;
+  if (search.scope !== undefined && !["canonical", "working", "all"].includes(search.scope)) return `Invalid memory scope: “${search.scope}”.`;
+  if (search.recordType !== undefined && !recordTypes.some(type => type === search.recordType)) return `Invalid record type: “${search.recordType}”.`;
   for (const [label, value] of [["Recorded from", search.recordedFrom], ["Recorded to", search.recordedTo]]) {
-    if (value && !isRecordedDate(value)) return `${label}: “${value}” is not a valid UTC recorded date (YYYY-MM-DD).`;
+    if (value !== undefined && !isRecordedDate(value)) return `${label}: “${value}” is not a valid UTC recorded date (YYYY-MM-DD).`;
   }
   if (search.recordedFrom && search.recordedTo && search.recordedFrom > search.recordedTo) return `Recorded from (${search.recordedFrom}) must be on or before Recorded to (${search.recordedTo}), in UTC.`;
   const limit = search.limit ?? 50;

@@ -1,7 +1,7 @@
 import React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider } from "@tanstack/react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectDto, RecordDto, SearchResultDto } from "@contextkeep/shared";
 import Search from "../src/pages/Search.js";
@@ -78,7 +78,7 @@ function serve(input: string | URL | Request, init?: RequestInit): Promise<Respo
 }
 function ShellProbe() {
   const shell = useShellData();
-  return <><output data-testid="shell-projects">{shell.projects.map(p => p.name).join(", ")} {shell.projectsStatus}</output><Outlet /></>;
+  return <><nav aria-label="Sidebar"><Link to="/search">Search</Link></nav><output data-testid="shell-projects">{shell.projects.map(p => p.name).join(", ")} {shell.projectsStatus}</output><Outlet /></>;
 }
 async function mount(entries = ["/search?q=release&projectId=alpha"], shell = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 15_000, gcTime: Infinity } } });
@@ -131,6 +131,54 @@ afterEach(async () => {
 });
 
 describe("search drafts and router navigation", () => {
+  it("discards a pending scoped draft when the sidebar Search link clears the filters", async () => {
+    const { router } = await mount(["/search?projectId=alpha"]);
+    await screen.findByRole("option", { name: "Project Alpha" });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.change(input(), { target: { value: "abandoned draft" } });
+    await act(async () => { fireEvent.click(screen.getByRole("link", { name: "Search" })); });
+    expect(input().value).toBe("");
+    expect(selection().value).toBe("");
+    await advance(250);
+    expect(router.state.location.href).toBe("/search");
+    expect(searchRequests()).toHaveLength(0);
+  });
+
+  it.each([undefined, "release"])("restores unchanged committed q=%s on explicit programmatic filter navigation", async (q) => {
+    const { router } = await mount([`/search?projectId=alpha${q ? `&q=${q}` : ""}`]);
+    await screen.findByRole("option", { name: "Project Alpha" });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.change(input(), { target: { value: "abandoned draft" } });
+    await act(async () => { await router.navigate({ to: "/search", search: { q, projectId: "beta", scope: "working" } }); });
+    expect(input().value).toBe(q ?? "");
+    await advance(250);
+    expect(router.state.location.search).toMatchObject({ projectId: "beta", scope: "working" });
+    expect(router.state.location.search.q).toBe(q);
+    expect(searchRequests().some(([url]) => String(url).includes("abandoned"))).toBe(false);
+    if (!q) expect(searchRequests()).toHaveLength(0);
+  });
+
+  it("preserves a newer draft when an earlier debounce URL commit arrives late", async () => {
+    const { router } = await mount(["/search?projectId=alpha"]);
+    const navigate = router.navigate.bind(router);
+    let commit!: () => Promise<void>;
+    vi.spyOn(router, "navigate").mockImplementationOnce(options => new Promise<void>((resolve, reject) => {
+      commit = async () => { await navigate(options).then(resolve, reject); };
+    }));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.change(input(), { target: { value: "first draft" } });
+    await advance(200);
+    expect(commit).toBeDefined();
+    fireEvent.change(input(), { target: { value: "newer draft " } });
+    await act(async () => { await commit(); });
+    expect(router.state.location.search.q).toBe("first draft");
+    expect(input().value).toBe("newer draft ");
+    await advance(210);
+    expect(router.state.location.search.q).toBe("newer draft");
+    expect(input().value).toBe("newer draft ");
+    expect(lastSearchParams().get("q")).toBe("newer draft");
+  });
+
   it.each(["project", "scope", "historical", "combined"])("preserves a draft through rapid %s changes inside the debounce", async (filter) => {
     const { router } = await mount(["/search"]);
     await screen.findByRole("option", { name: "Project Alpha" });
@@ -213,6 +261,55 @@ describe("search drafts and router navigation", () => {
 });
 
 describe("shared project query and durable scoped search", () => {
+  it.each(["direct", "shared"])("preserves the requested import project with a stale offline %s cache and queues its exact ID", async (entry) => {
+    await mirror.saveToCache(mirror.PROJECTS_KEY, [projects[0]!], { fetchedAt, scope: "projects:list" });
+    fetchMock.mockRejectedValue(new TypeError("Synthetic offline"));
+    onlineManager.setOnline(false);
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    const { client, router } = await mount([entry === "shared" ? "/search" : "/import?projectId=beta"]);
+    await waitFor(() => expect(client.getQueryData(["projects"])).toMatchObject({ provenance: { source: "cache", fetchedAt } }));
+    if (entry === "shared") await act(async () => { await router.navigate({ to: "/import", search: { projectId: "beta" } }); });
+    const select = screen.getByRole("combobox", { name: "Import project" }) as HTMLSelectElement;
+    expect(select.value).toBe("beta");
+    expect(select.selectedOptions[0]?.textContent).toBe("Unavailable project (beta)");
+    fireEvent.change(screen.getByPlaceholderText(/Paste Markdown or plain text/), { target: { value: "fact: synthetic offline import" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    const db = await offlineDb();
+    await waitFor(async () => expect(await db.getAll("mutations")).toMatchObject([
+      { method: "POST", url: "/api/imports/text", body: { projectId: "beta", text: "fact: synthetic offline import" }, idempotencyKey: expect.any(String) },
+    ]));
+    const [queued] = await db.getAll("mutations");
+    // Offline rows use an absent deliveryState for queued, without a send lease.
+    expect(queued.deliveryState).toBeUndefined();
+    expect(queued.inFlightOwner).toBeUndefined();
+    await waitFor(() => expect((screen.getByRole("button", { name: "Import" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(router.state.location.href).toBe("/import?projectId=beta");
+    expect(select.value).toBe("beta");
+    expect(fetchMock.mock.calls.some(([url]) => url === "/api/imports/text")).toBe(false);
+  });
+
+  it("allows an authoritative network list to invalidate an unknown import project", async () => {
+    availableProjects = [projects[0]!];
+    const { client, router } = await mount(["/import?projectId=beta"]);
+    await waitFor(() => expect(client.getQueryData(["projects"])).toMatchObject({ provenance: { source: "network", fetchedAt } }));
+    const select = screen.getByRole("combobox", { name: "Import project" }) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe(""));
+    expect(select.selectedOptions[0]?.textContent).toBe("Unassigned (no project)");
+    onlineManager.setOnline(false);
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    fireEvent.change(screen.getByPlaceholderText(/Paste Markdown or plain text/), { target: { value: "fact: synthetic unassigned import" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    const db = await offlineDb();
+    await waitFor(async () => expect(await db.getAll("mutations")).toMatchObject([
+      { method: "POST", url: "/api/imports/text", body: { projectId: null, text: "fact: synthetic unassigned import" }, idempotencyKey: expect.any(String) },
+    ]));
+    const [queued] = await db.getAll("mutations");
+    expect(queued.deliveryState).toBeUndefined();
+    expect(queued.inFlightOwner).toBeUndefined();
+    await waitFor(() => expect((screen.getByRole("button", { name: "Import" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(router.state.location.href).toBe("/import?projectId=beta");
+  });
+
   it.each(["/search", "/"])("deduplicates Shell and %s and keeps a compatible value on other pages", async (path) => {
     const { client, router } = await mount([path]);
     await waitFor(() => expect(screen.getByTestId("shell-projects").textContent).toContain("Project Alpha"));
@@ -468,6 +565,8 @@ describe("record filters and bounded result windows", () => {
     }
     expect(screen.getByText(/Showing up to 200 per record group; refine search/)).toBeTruthy();
     expect(screen.getByText(/Discovery projects: up to 20; sources: up to 10/)).toBeTruthy();
+    expect(screen.getByText(/Candidate limit reached; additional matches may exist/)).toBeTruthy();
+    expect(screen.queryByText(/including before filtering/)).toBeNull();
     expect(screen.queryByText(/No additional matches indicated/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Show more results" })).toBeNull();
     expect(searchRequests()).toHaveLength(4);
@@ -534,6 +633,49 @@ describe("record filters and bounded result windows", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(message);
     expect(searchRequests()).toHaveLength(0);
     expect(screen.queryByText(/Offline — showing the last cached search|alpha: release/)).toBeNull();
+  });
+
+  it.each(["recordType", "recordedFrom", "recordedTo", "scope", "limit"])("rejects raw empty %s without requests or any unfiltered cache fallback", async (field) => {
+    await cacheSearch("alpha", "canonical");
+    await mirror.saveToCache(mirror.legacyCanonicalSearchKey({ query: "release", includeHistorical: false, projectId: "alpha" }), result(), { scope: "search:q=release:historical=false:project=alpha" });
+    await mirror.saveToCache(mirror.SEARCH_LAST_KEY, { query: "release", includeHistorical: false, projectId: "alpha", data: result() });
+    const read = vi.spyOn(mirror, "readCache");
+    fetchMock.mockRejectedValue(new TypeError("Synthetic offline"));
+    const { router } = await mount([`/search?q=release&projectId=alpha&${field}=`]);
+    expect((await screen.findByRole("alert")).textContent).toContain("“”");
+    expect(new URLSearchParams(router.state.location.searchStr).get(field)).toBe("");
+    expect(searchRequests()).toHaveLength(0);
+    expect(read.mock.calls.filter(([key]) => key.startsWith("search:"))).toHaveLength(0);
+    expect(screen.queryByText(/Offline — showing the last cached search|alpha: release/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Reset invalid filters" }));
+    await screen.findByText("alpha: release accepted evidence");
+    expect(new URLSearchParams(router.state.location.searchStr).has(field)).toBe(false);
+    expect(lastSearchParams().has(field)).toBe(field === "scope" || field === "limit");
+    expect(searchRequests()).toHaveLength(1);
+    // The same invalid URL must also hide an already populated query cache.
+    read.mockClear();
+    fetchMock.mockClear();
+    await act(async () => { await router.navigate({ href: `/search?q=release&projectId=alpha&${field}=` }); });
+    expect((await screen.findByRole("alert")).textContent).toContain("“”");
+    expect(screen.queryByText(/Offline — showing the last cached search|alpha: release/)).toBeNull();
+    expect(searchRequests()).toHaveLength(0);
+    expect(read.mock.calls.filter(([key]) => key.startsWith("search:"))).toHaveLength(0);
+  });
+
+  it.each([
+    ["recordType", "Record type", "decision", ""],
+    ["recordedFrom", "Recorded from (UTC)", "2026-09-01", ""],
+    ["recordedTo", "Recorded to (UTC)", "2026-09-30", ""],
+    ["scope", "Memory scope", "working", "canonical"],
+  ])("omits %s when its control is reset and preserves an ordinary unfiltered URL", async (field, label, initial, reset) => {
+    const { router } = await mount([`/search?q=release&${field}=${initial}&limit=100`]);
+    await waitFor(() => expect(searchRequests()).toHaveLength(1));
+    fireEvent.change(screen.getByLabelText(label), { target: { value: reset } });
+    await waitFor(() => expect(router.state.location.href).toBe("/search?q=release"));
+    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(searchRequests()).toHaveLength(2));
+    expect(lastSearchParams().get("scope")).toBe("canonical");
+    expect(lastSearchParams().get("limit")).toBe("50");
   });
 
   it("blocks a reversed date edit, restores valid dates via Back, and supports explicit reset", async () => {

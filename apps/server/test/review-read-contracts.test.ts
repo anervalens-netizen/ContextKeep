@@ -10,7 +10,7 @@ import { decideReview } from "../src/services/review.js";
 import { makeTestApp } from "./helpers.js";
 
 describe("GitHub review read contracts", () => {
-  it("loads only page-relevant freshness observations and conflicts", async () => {
+  it("retains only page-relevant freshness signals and conflict references", async () => {
     const t = await makeTestApp({ adapters: "manual" });
     try {
       const project = await t.post("/api/projects", {
@@ -115,9 +115,19 @@ describe("GitHub review read contracts", () => {
         [acceptedRow],
         "2026-01-04T00:00:00.000Z",
       );
-      expect(freshnessContext.workingRecords.map((row) => row.id)).toEqual([
-        relevant.id,
-      ]);
+      // The optimized preload retains evidence signals, not report bodies.
+      expect(freshnessContext.workingRecords).toEqual([]);
+      expect([...freshnessContext.preloadedSignals!.keys()]).toEqual([accepted.id]);
+      expect(freshnessContext.preloadedSignals!.get(accepted.id)).toMatchObject({
+        supportRecordIds: [relevant.id],
+        supportCount: 1,
+        supportReferencesTruncated: false,
+        possiblyRelatedRecordIds: [],
+        possiblyRelatedCount: 0,
+        explicitConflict: false,
+        conflictSupportRecordIds: [],
+        conflictSupportCount: 0,
+      });
       expect(freshnessContext.conflicts).toEqual([]);
       expect(batchReads.mock.results.length).toBeGreaterThanOrEqual(2);
       for (const result of batchReads.mock.results) {
@@ -132,9 +142,8 @@ describe("GitHub review read contracts", () => {
           "2026-01-04T00:00:00.000Z",
         ),
       );
-      expect(transactionContext.workingRecords.map((row) => row.id)).toEqual([
-        relevant.id,
-      ]);
+      expect(transactionContext.workingRecords).toEqual([]);
+      expect(transactionContext.preloadedSignals).toEqual(freshnessContext.preloadedSignals);
 
       const dto = attachProjectNames(
         t.app.ck.deps.db,

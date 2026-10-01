@@ -23,6 +23,14 @@ describe("exact search filter identities", () => {
 });
 
 describe("shared URL validation", () => {
+  it.each(["recordType", "recordedFrom", "recordedTo", "scope", "limit"] as const)("distinguishes an explicitly empty %s from an absent filter", field => {
+    const empty = validateSearchFilters({ q: "release", [field]: "" });
+    expect(empty[field]).toBe("");
+    expect(searchFilterError(empty)).not.toBeNull();
+    const absent = validateSearchFilters({ q: "release" });
+    expect(absent[field]).toBeUndefined();
+    expect(searchFilterError(absent)).toBeNull();
+  });
   it.each(["2026-02-29", "2026-02-30", "2026-04-31", "2026-00-01", "2026-01-00", "2026-13-01", "2026-1-01", "2026-01-01T00:00:00Z"])("rejects impossible or non-date-only input %s", value => {
     expect(isRecordedDate(value)).toBe(false);
     const parsed = validateSearchFilters({ recordedFrom: value });

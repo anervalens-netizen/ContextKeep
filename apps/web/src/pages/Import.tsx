@@ -174,9 +174,10 @@ export default function Import(): ReactNode {
   const projects = projectsQuery.data?.data ?? [];
 
   useEffect(() => {
-    if (!projectsQuery.isSuccess || !projectId) return;
+    // A cached list cannot establish that an explicitly requested project is gone.
+    if (!projectsQuery.isSuccess || projectsQuery.data.provenance.source !== "network" || !projectId) return;
     if (!projects.some((project) => project.id === projectId)) setProjectId("");
-  }, [projectId, projects, projectsQuery.isSuccess]);
+  }, [projectId, projects, projectsQuery.isSuccess, projectsQuery.data?.provenance.source]);
 
   return (
     <div>
@@ -232,11 +233,13 @@ export default function Import(): ReactNode {
           className="w-full rounded-xl border border-ck-line bg-ck-bg px-3 py-2 text-sm"
         />
         <select
+          aria-label="Import project"
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
           className="w-full rounded-xl border border-ck-line bg-ck-bg px-3 py-2 text-sm"
         >
           <option value="">Unassigned (no project)</option>
+          {projectId && !projects.some((project) => project.id === projectId) ? <option value={projectId}>Unavailable project ({projectId})</option> : null}
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} {p.lifecycle === "retired" ? "(retired)" : ""}
