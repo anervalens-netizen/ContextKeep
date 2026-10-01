@@ -15,7 +15,8 @@ export function useShellData() {
   const projectsQuery = useQuery(projectsQueryOptions());
   const activeProjectId = projectIdFromPath(location.pathname);
   const tab = (location.search as { tab?: string } | undefined)?.tab;
-  const projectOverview = activeProjectId !== null && tab !== "timeline" && tab !== "export";
+  const projectOverview =
+    activeProjectId !== null && tab !== "timeline" && tab !== "export";
   const recon = useQuery({
     queryKey: ["workspace-reconciliation"],
     queryFn: () =>
