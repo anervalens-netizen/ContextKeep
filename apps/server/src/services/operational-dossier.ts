@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { runReconciliation } from "./run-reconciliation-read.js";
 import { workflowHealth } from "./workflow-health.js";
-import { currentEvidenceValidity } from "./run-evidence.js";
+import {
+  currentEvidenceValidity,
+  currentEvidenceValidityMany,
+} from "./run-evidence.js";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { captureWork } from "./capture-work.js";
 import { requireProject } from "./memory-management.js";
@@ -78,8 +81,13 @@ export function effectiveTaskState(
   // change may supersede reported progress with a nonterminal state. Acceptance
   // snapshots also cover retained edits whose intermediate snapshot used the
   // pre-acceptance revision; immutable audit rows need not be rewritten.
-  const statusChangedAfterReport = task.taskStatus !== null && progress !== null &&
-    progress.taskRevision < task.revision && !!deps.sqlite.prepare(`
+  const statusChangedAfterReport =
+    task.taskStatus !== null &&
+    progress !== null &&
+    progress.taskRevision < task.revision &&
+    !!deps.sqlite
+      .prepare(
+        `
       SELECT 1 FROM audit_events
       WHERE target_type='record' AND target_id=? AND action IN ('record.edited','record.accepted')
         AND json_valid(before_ref) AND json_valid(after_ref)
@@ -87,13 +95,27 @@ export function effectiveTaskState(
         AND CAST(json_extract(after_ref,'$.revision') AS INTEGER)<=?
         AND json_extract(before_ref,'$.taskStatus') IS NOT json_extract(after_ref,'$.taskStatus')
         AND json_extract(after_ref,'$.taskStatus')=?
-      LIMIT 1`).get(task.id, progress.taskRevision, task.revision, task.taskStatus);
-  const useRecord = task.taskStatus !== null && (
-    task.taskStatus === "done" || task.taskStatus === "cancelled" || statusChangedAfterReport
-  );
-  if (useRecord) return { state: task.taskStatus!, stateSource: "task_record" as const };
-  if (progress) return { state: progress.status, stateSource: "reported_progress" as const };
-  return { state: task.taskStatus ?? "unknown", stateSource: task.taskStatus ? "task_record" as const : "unknown" as const };
+      LIMIT 1`,
+      )
+      .get(task.id, progress.taskRevision, task.revision, task.taskStatus);
+  const useRecord =
+    task.taskStatus !== null &&
+    (task.taskStatus === "done" ||
+      task.taskStatus === "cancelled" ||
+      statusChangedAfterReport);
+  if (useRecord)
+    return { state: task.taskStatus!, stateSource: "task_record" as const };
+  if (progress)
+    return {
+      state: progress.status,
+      stateSource: "reported_progress" as const,
+    };
+  return {
+    state: task.taskStatus ?? "unknown",
+    stateSource: task.taskStatus
+      ? ("task_record" as const)
+      : ("unknown" as const),
+  };
 }
 export function reportTaskProgress(
   deps: ServiceDeps,
@@ -140,7 +162,11 @@ export function reportTaskProgress(
     }
     if (input.status === "done") {
       const latest = latestRun(deps, input.taskId);
-      if (latest && (latest.verification !== "passed" || latest.evidenceValidity.status !== "valid"))
+      if (
+        latest &&
+        (latest.verification !== "passed" ||
+          latest.evidenceValidity.status !== "valid")
+      )
         throw new ApiError(
           409,
           "task_verification_required",
@@ -207,45 +233,102 @@ function latestRun(deps: ServiceDeps, taskId: string) {
     .get(taskId) as LatestRun | undefined;
   if (!row) return null;
   const { criteriaJson, ...run } = row;
-  return { ...run, criteria: JSON.parse(criteriaJson) as string[], evidenceValidity: currentEvidenceValidity(deps,run), reconciliation: runReconciliation(deps, run.id) };
+  return {
+    ...run,
+    criteria: JSON.parse(criteriaJson) as string[],
+    evidenceValidity: currentEvidenceValidity(deps, run),
+    reconciliation: runReconciliation(deps, run.id),
+  };
 }
 /** Bound returned items, not the candidate history: older uncertain/invalid runs must remain visible.
  * Exact current-proof counts require inspecting every candidate; iteration keeps memory bounded. */
-export function unresolvedExecutions(deps: ServiceDeps, projectId: string, taskId: string, offset = 0, limit = 20) {
+export function unresolvedExecutions(
+  deps: ServiceDeps,
+  projectId: string,
+  taskId: string,
+  offset = 0,
+  limit = 20,
+) {
   requireTaskScope(deps, projectId, taskId);
   limit = Math.max(1, Math.min(50, limit));
   offset = Math.max(0, offset);
-  const items: Array<Omit<LatestRun, "criteriaJson"> & {
-    evidenceValidity: ReturnType<typeof currentEvidenceValidity>;
-    reconciliation: ReturnType<typeof runReconciliation>;
-  }> = [];
+  const items: Array<
+    Omit<LatestRun, "criteriaJson"> & {
+      evidenceValidity: ReturnType<typeof currentEvidenceValidity>;
+      reconciliation: ReturnType<typeof runReconciliation>;
+    }
+  > = [];
   let total = 0;
-  const counts = { reserved: 0, job_start_uncertain: 0, running: 0, verificationRequired: 0 };
+  const counts = {
+    reserved: 0,
+    job_start_uncertain: 0,
+    running: 0,
+    verificationRequired: 0,
+  };
   const fingerprint = createHash("sha256");
-  const rows = deps.sqlite.prepare(`SELECT id,status,revision,verification,
+  const rows = deps.sqlite
+    .prepare(
+      `SELECT id,status,revision,verification,
     verification_record_id AS verificationRecordId,external_job_id AS externalJobId,device,identity,
     updated_at AS updatedAt,criteria_json AS criteriaJson FROM workflow_runs
     WHERE project_id=? AND task_id=?
     ORDER BY CASE WHEN status='job_start_uncertain' THEN 0 WHEN status IN ('reserved','running') THEN 1 ELSE 2 END,
-    created_at DESC,id DESC`).iterate(projectId, taskId) as Iterable<LatestRun>;
-  for (const row of rows) {
-    const live = ["reserved", "job_start_uncertain", "running"].includes(row.status);
-    const evidenceValidity = currentEvidenceValidity(deps, row);
-    if (!live && evidenceValidity.status === "valid") continue;
-    if (live) counts[row.status as "reserved" | "job_start_uncertain" | "running"]++;
-    else counts.verificationRequired++;
-    fingerprint.update(JSON.stringify([row.id, row.revision, evidenceValidity]));
-    if (total >= offset && items.length < limit) {
-      const { criteriaJson: _criteria, ...run } = row;
-      items.push({ ...run, evidenceValidity, reconciliation: runReconciliation(deps, row.id) });
+    created_at DESC,id DESC`,
+    )
+    .iterate(projectId, taskId) as Iterable<LatestRun>;
+  const processBatch = (batch: LatestRun[]) => {
+    const validities = currentEvidenceValidityMany(deps, batch);
+    for (const row of batch) {
+      const live = ["reserved", "job_start_uncertain", "running"].includes(
+        row.status,
+      );
+      const evidenceValidity = validities.get(row.id)!;
+      if (!live && evidenceValidity.status === "valid") continue;
+      if (live)
+        counts[row.status as "reserved" | "job_start_uncertain" | "running"]++;
+      else counts.verificationRequired++;
+      fingerprint.update(
+        JSON.stringify([row.id, row.revision, evidenceValidity]),
+      );
+      if (total >= offset && items.length < limit) {
+        const { criteriaJson: _criteria, ...run } = row;
+        items.push({
+          ...run,
+          evidenceValidity,
+          reconciliation: runReconciliation(deps, row.id),
+        });
+      }
+      total++;
     }
-    total++;
+  };
+  let batch: LatestRun[] = [];
+  for (const row of rows) {
+    batch.push(row);
+    if (batch.length === 100) {
+      processBatch(batch);
+      batch = [];
+    }
   }
-  return { total, returned: items.length, counts, items, offset, limit,
+  if (batch.length > 0) processBatch(batch);
+  return {
+    total,
+    returned: items.length,
+    counts,
+    items,
+    offset,
+    limit,
     nextOffset: offset + limit < total ? offset + limit : null,
     fingerprint: fingerprint.digest("hex"),
-    recovery: { tool: "resume_task", projectId, taskId, unresolvedOffset: offset + limit < total ? offset + limit : null, unresolvedLimit: limit },
-    semantics: "All live/uncertain runs and terminal runs with pending or invalid current proof. Items are a bounded page; counts cover all runs. Never replay execution." };
+    recovery: {
+      tool: "resume_task",
+      projectId,
+      taskId,
+      unresolvedOffset: offset + limit < total ? offset + limit : null,
+      unresolvedLimit: limit,
+    },
+    semantics:
+      "All live/uncertain runs and terminal runs with pending or invalid current proof. Items are a bounded page; counts cover all runs. Never replay execution.",
+  };
 }
 export function taskDossier(
   deps: ServiceDeps,
@@ -257,7 +340,13 @@ export function taskDossier(
   const progress = getTaskProgress(deps, taskId);
   const checkpoint = latestCheckpointFor(deps.db, projectId, taskId);
   const run = latestRun(deps, taskId);
-  const unresolved = unresolvedExecutions(deps, projectId, taskId, unresolvedPage.offset ?? 0, unresolvedPage.limit ?? 20);
+  const unresolved = unresolvedExecutions(
+    deps,
+    projectId,
+    taskId,
+    unresolvedPage.offset ?? 0,
+    unresolvedPage.limit ?? 20,
+  );
   const blockers = getBlockerState(deps, projectId, {
     taskId,
     offset: 0,
@@ -287,7 +376,9 @@ export function taskDossier(
     !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
   const nextAction = newerCheckpoint
     ? (cp?.nextAction ?? null)
-    : progress ? progress.nextAction : (cp?.nextAction ?? null);
+    : progress
+      ? progress.nextAction
+      : (cp?.nextAction ?? null);
   const summary = newerCheckpoint
     ? (cp?.summary ?? cp?.outcome ?? latest?.text)
     : (progress?.summary ?? cp?.summary ?? latest?.text);
@@ -315,16 +406,40 @@ export function taskDossier(
         updatedAt: string;
       }
     | undefined;
-  const health = workflowHealth(deps,taskId);
+  const health = workflowHealth(deps, taskId);
   const { state, stateSource } = effectiveTaskState(deps, task, progress);
-  const taskSource = deps.sqlite.prepare(`SELECT recorded_at AS recordedAt,updated_at AS updatedAt,
-    evidence_basis AS evidenceBasis FROM records WHERE id=?`).get(taskId) as
-    { recordedAt: string; updatedAt: string; evidenceBasis: string };
-  const stateProvenance = stateSource === "reported_progress" && progress
-    ? { recordId: progress.recordId, recordedAt: progress.recordedAt, evidenceBasis: progress.evidenceBasis, reviewStatus: progress.reviewStatus }
-    : { recordId: task.id, recordedAt: taskSource.updatedAt, evidenceBasis: taskSource.evidenceBasis, reviewStatus: task.reviewStatus };
+  const taskSource = deps.sqlite
+    .prepare(
+      `SELECT recorded_at AS recordedAt,updated_at AS updatedAt,
+    evidence_basis AS evidenceBasis FROM records WHERE id=?`,
+    )
+    .get(taskId) as {
+    recordedAt: string;
+    updatedAt: string;
+    evidenceBasis: string;
+  };
+  const stateProvenance =
+    stateSource === "reported_progress" && progress
+      ? {
+          recordId: progress.recordId,
+          recordedAt: progress.recordedAt,
+          evidenceBasis: progress.evidenceBasis,
+          reviewStatus: progress.reviewStatus,
+        }
+      : {
+          recordId: task.id,
+          recordedAt: taskSource.updatedAt,
+          evidenceBasis: taskSource.evidenceBasis,
+          reviewStatus: task.reviewStatus,
+        };
   const blockerFingerprint = createHash("sha256")
-    .update(JSON.stringify([blockers.activeCount, blockers.resolvedCount, blockers.active]))
+    .update(
+      JSON.stringify([
+        blockers.activeCount,
+        blockers.resolvedCount,
+        blockers.active,
+      ]),
+    )
     .digest("hex");
   const stateToken = [
     task.revision,
@@ -344,13 +459,21 @@ export function taskDossier(
   ].join(":");
   const warnings: string[] = [];
   if (["done", "cancelled"].includes(state) && blockers.activeCount > 0)
-    warnings.push(`Terminal task state ${state} retains ${blockers.activeCount} active blocker mentions. Reconcile each explicitly; task state and blocker history are unchanged.`);
+    warnings.push(
+      `Terminal task state ${state} retains ${blockers.activeCount} active blocker mentions. Reconcile each explicitly; task state and blocker history are unchanged.`,
+    );
   if (unresolved.total > 0)
-    warnings.push(`${unresolved.total} unresolved executions across all task runs; inspect the bounded list and follow nextOffset. Never replay a start.`);
+    warnings.push(
+      `${unresolved.total} unresolved executions across all task runs; inspect the bounded list and follow nextOffset. Never replay a start.`,
+    );
   if (progress && stateSource === "task_record")
-    warnings.push("The explicit task record takes precedence over reported progress. Reopening requires an explicit task status update; reports do not authorize continuation of a closed task.");
-  if (run && !["pending","valid"].includes(run.evidenceValidity.status))
-    warnings.push(`Historical verification is ${run.verification}, but its current evidence is ${run.evidenceValidity.status}. Capture correlated evidence and re-verify; historical task state is unchanged.`);
+    warnings.push(
+      "The explicit task record takes precedence over reported progress. Reopening requires an explicit task status update; reports do not authorize continuation of a closed task.",
+    );
+  if (run && !["pending", "valid"].includes(run.evidenceValidity.status))
+    warnings.push(
+      `Historical verification is ${run.verification}, but its current evidence is ${run.evidenceValidity.status}. Capture correlated evidence and re-verify; historical task state is unchanged.`,
+    );
   if (!progress && !task.taskStatus)
     warnings.push(
       "No structured task progress has been recorded; free text is not a completion signal.",
@@ -388,7 +511,12 @@ export function taskDossier(
     state,
     stateSource,
     stateProvenance,
-    taskIdentity: { recordId: task.id, revision: task.revision, reviewStatus: task.reviewStatus, ...taskSource },
+    taskIdentity: {
+      recordId: task.id,
+      revision: task.revision,
+      reviewStatus: task.reviewStatus,
+      ...taskSource,
+    },
     progress,
     summary: summary ? clip(summary) : null,
     nextAction,
@@ -407,9 +535,12 @@ export function taskDossier(
       : null,
     execution: run,
     unresolvedExecutions: unresolved,
-    blockers: { activeCount: blockers.activeCount, items: blockers.active,
+    blockers: {
+      activeCount: blockers.activeCount,
+      items: blockers.active,
       nextOffset: blockers.pagination.activeNextOffset,
-      recovery: { tool: "list_blockers", projectId, taskId } },
+      recovery: { tool: "list_blockers", projectId, taskId },
+    },
     continuation: {
       policy: policy
         ? {
@@ -440,7 +571,10 @@ export function resumeTask(
   unresolvedOffset = 0,
   unresolvedLimit = 20,
 ) {
-  const dossier = taskDossier(deps, projectId, taskId, { offset: unresolvedOffset, limit: unresolvedLimit });
+  const dossier = taskDossier(deps, projectId, taskId, {
+    offset: unresolvedOffset,
+    limit: unresolvedLimit,
+  });
   const text = [
     `Resume ContextKeep project ${projectId}, task ${taskId}.`,
     `Current task state: ${dossier.state} (${dossier.stateSource}).`,
@@ -449,11 +583,25 @@ export function resumeTask(
     `Next action: ${dossier.nextAction ?? "Not specified; inspect the linked evidence."}`,
     ...(dossier.ownerAction ? [`Owner input: ${dossier.ownerAction}`] : []),
     `Active blockers: ${dossier.blockers.activeCount}; showing ${dossier.blockers.items.length}.`,
-    ...dossier.blockers.items.map(b => `Blocker ${b.blockerId}: ${b.text} [category=${b.category ?? "unclassified/legacy"}; logicalKey=${b.logicalKey ?? "none"}; source=${b.checkpointRecordId}; recordedAt=${b.checkpointRecordedAt}; review=${b.checkpointStatus}].`),
-    ...(dossier.blockers.nextOffset !== null ? [`More blockers: list_blockers with taskId=${taskId}, offset=${dossier.blockers.nextOffset}.`] : []),
+    ...dossier.blockers.items.map(
+      (b) =>
+        `Blocker ${b.blockerId}: ${b.text} [category=${b.category ?? "unclassified/legacy"}; logicalKey=${b.logicalKey ?? "none"}; source=${b.checkpointRecordId}; recordedAt=${b.checkpointRecordedAt}; review=${b.checkpointStatus}].`,
+    ),
+    ...(dossier.blockers.nextOffset !== null
+      ? [
+          `More blockers: list_blockers with taskId=${taskId}, offset=${dossier.blockers.nextOffset}.`,
+        ]
+      : []),
     `Unresolved executions: ${dossier.unresolvedExecutions.total}; showing ${dossier.unresolvedExecutions.returned}.`,
-    ...dossier.unresolvedExecutions.items.map(r => `Unresolved run ${r.id}: execution=${r.status}; historicalVerification=${r.verification}; currentEvidenceValidity=${r.evidenceValidity.status}; updatedAt=${r.updatedAt}; reconciliation=${r.reconciliation?.disposition ?? "none"}. Inspect retained evidence; never replay.`),
-    ...(dossier.unresolvedExecutions.nextOffset !== null ? [`More unresolved executions: resume_task with unresolvedOffset=${dossier.unresolvedExecutions.nextOffset} and unresolvedLimit=${dossier.unresolvedExecutions.limit}.`] : []),
+    ...dossier.unresolvedExecutions.items.map(
+      (r) =>
+        `Unresolved run ${r.id}: execution=${r.status}; historicalVerification=${r.verification}; currentEvidenceValidity=${r.evidenceValidity.status}; updatedAt=${r.updatedAt}; reconciliation=${r.reconciliation?.disposition ?? "none"}. Inspect retained evidence; never replay.`,
+    ),
+    ...(dossier.unresolvedExecutions.nextOffset !== null
+      ? [
+          `More unresolved executions: resume_task with unresolvedOffset=${dossier.unresolvedExecutions.nextOffset} and unresolvedLimit=${dossier.unresolvedExecutions.limit}.`,
+        ]
+      : []),
     ...(dossier.execution
       ? [
           `Latest run: ${dossier.execution.id}; execution=${dossier.execution.status}; historicalVerification=${dossier.execution.verification}; currentEvidenceValidity=${dossier.execution.evidenceValidity.status}. Inspect its existing receipt; do not start it again.`,

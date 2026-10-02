@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
+import { unresolvedExecutions } from "../src/services/operational-dossier.js";
 
 const token = randomUUID();
 const tracked: TestApp[] = [];
@@ -62,7 +63,11 @@ async function setup() {
     outcome: "Implement synthetic change",
     ...identity(),
   });
-  return { t, projectId: project.id as string, taskId: task.outcome.recordId as string };
+  return {
+    t,
+    projectId: project.id as string,
+    taskId: task.outcome.recordId as string,
+  };
 }
 
 async function verifiedTerminal(t: TestApp, projectId: string, taskId: string) {
@@ -161,7 +166,9 @@ describe("usage hardening regressions", () => {
       ...identity(),
     });
     expect(projectNote.captureScope).toBe("project");
-    expect(projectNote.warnings.join(" ")).toContain("excluded from resume_task");
+    expect(projectNote.warnings.join(" ")).toContain(
+      "excluded from resume_task",
+    );
 
     await call(t, "capture_work", {
       projectId,
@@ -169,7 +176,11 @@ describe("usage hardening regressions", () => {
       outcome: "Task checkpoint",
       checkpoint: {
         blockers: [
-          { text: "Await fixture", category: "deferred", logicalKey: "fixture-wait" },
+          {
+            text: "Await fixture",
+            category: "deferred",
+            logicalKey: "fixture-wait",
+          },
         ],
       },
       ...identity(),
@@ -180,7 +191,11 @@ describe("usage hardening regressions", () => {
       outcome: "Second task checkpoint",
       checkpoint: {
         blockers: [
-          { text: "Await fixture", category: "deferred", logicalKey: "fixture-wait" },
+          {
+            text: "Await fixture",
+            category: "deferred",
+            logicalKey: "fixture-wait",
+          },
         ],
       },
       ...identity(),
@@ -193,15 +208,21 @@ describe("usage hardening regressions", () => {
       limit: 25,
     });
     expect(taskBlockers.activeCount).toBe(2);
-    expect(taskBlockers.active.every((b: any) => b.category === "deferred")).toBe(true);
-    expect(taskBlockers.active.every((b: any) => b.logicalKey === "fixture-wait")).toBe(true);
+    expect(
+      taskBlockers.active.every((b: any) => b.category === "deferred"),
+    ).toBe(true);
+    expect(
+      taskBlockers.active.every((b: any) => b.logicalKey === "fixture-wait"),
+    ).toBe(true);
 
     const projectBlockers = await call(t, "list_blockers", {
       projectId,
       offset: 0,
       limit: 25,
     });
-    const legacy = projectBlockers.active.find((b: any) => b.text === "Compatibility blocker mention");
+    const legacy = projectBlockers.active.find(
+      (b: any) => b.text === "Compatibility blocker mention",
+    );
     expect(legacy.category).toBe("legacy");
   });
 
@@ -269,13 +290,16 @@ describe("usage hardening regressions", () => {
       summary: "Scoped work is complete",
       nextAction: null,
       ownerAction: null,
-      evidenceText: "Synthetic completion evidence independent of deferred device check.",
+      evidenceText:
+        "Synthetic completion evidence independent of deferred device check.",
       ...identity(),
     });
     const resumed = await call(t, "resume_task", { projectId, taskId });
     expect(resumed.dossier.state).toBe("done");
     expect(resumed.dossier.blockers.activeCount).toBe(1);
-    expect(resumed.dossier.warnings.join(" ")).toContain("retains 1 active blocker");
+    expect(resumed.dossier.warnings.join(" ")).toContain(
+      "retains 1 active blocker",
+    );
   });
 
   it("keeps canonical handoff canonical while operational handoff includes proposed progress", async () => {
@@ -300,13 +324,17 @@ describe("usage hardening regressions", () => {
       ...identity(),
     });
     expect(operational.reviewStatus).toBe("proposed");
-    expect(operational.snapshot.operationalContext.progress.summary).toBe(marker);
+    expect(operational.snapshot.operationalContext.progress.summary).toBe(
+      marker,
+    );
     expect(operational.snapshot.semantics).toContain("not a canonical handoff");
 
-    const stored = t.app.ck.handle.sqlite.prepare(
-      "SELECT value_json AS valueJson FROM records WHERE id=?",
-    ).get(operational.recordId) as { valueJson: string };
-    expect(JSON.parse(stored.valueJson).operationalContext.progress.summary).toBe(marker);
+    const stored = t.app.ck.handle.sqlite
+      .prepare("SELECT value_json AS valueJson FROM records WHERE id=?")
+      .get(operational.recordId) as { valueJson: string };
+    expect(
+      JSON.parse(stored.valueJson).operationalContext.progress.summary,
+    ).toBe(marker);
 
     const canonical = await call(t, "create_handoff", {
       projectId,
@@ -374,7 +402,9 @@ describe("usage hardening regressions", () => {
       offset: 0,
       limit: 20,
     });
-    const recoveryRun = recoveryView.runs.find((run: any) => run.id === reserved.run.id);
+    const recoveryRun = recoveryView.runs.find(
+      (run: any) => run.id === reserved.run.id,
+    );
     expect(recoveryRun.recoveryIdentity).toEqual({
       operationKey,
       inputHash,
@@ -417,7 +447,8 @@ describe("usage hardening regressions", () => {
       identity: "owner",
       disposition: "not_started",
       externalJobId: null,
-      evidenceText: "Inspected exact synthetic executor registry and confirmed no start.",
+      evidenceText:
+        "Inspected exact synthetic executor registry and confirmed no start.",
       evidenceSource: "synthetic executor registry",
       observedAt: new Date().toISOString(),
       ...identity(),
@@ -435,7 +466,8 @@ describe("usage hardening regressions", () => {
         externalJobId: null,
       },
       outcome: "Verified reconciled non-start",
-      evidenceText: "Re-read the exact reconciliation evidence and run identity.",
+      evidenceText:
+        "Re-read the exact reconciliation evidence and run identity.",
       subject: "non-start-proof",
       ...identity(),
     });
@@ -482,7 +514,9 @@ describe("usage hardening regressions", () => {
       limit: 20,
       includeRetired: false,
     });
-    expect(portfolio.items.some((item: any) => item.id === projectId)).toBe(true);
+    expect(portfolio.items.some((item: any) => item.id === projectId)).toBe(
+      true,
+    );
   });
 
   it("can attach an exact receipt discovered after an explicit lost reconciliation without replay", async () => {
@@ -517,7 +551,8 @@ describe("usage hardening regressions", () => {
       identity: "owner",
       disposition: "lost",
       externalJobId: null,
-      evidenceText: "Initial exact executor inspection could not recover the receipt.",
+      evidenceText:
+        "Initial exact executor inspection could not recover the receipt.",
       evidenceSource: "synthetic executor registry",
       observedAt: new Date().toISOString(),
       ...identity(),
@@ -537,7 +572,8 @@ describe("usage hardening regressions", () => {
       identity: "owner",
       disposition: "attached",
       externalJobId,
-      evidenceText: "A later exact registry read found the retained executor receipt.",
+      evidenceText:
+        "A later exact registry read found the retained executor receipt.",
       evidenceSource: "synthetic executor registry exact receipt",
       observedAt: new Date().toISOString(),
       ...identity(),
@@ -545,6 +581,24 @@ describe("usage hardening regressions", () => {
     expect(attached.executionStarted).toBe(false);
     expect(attached.run.status).toBe("running");
     expect(attached.run.externalJobId).toBe(externalJobId);
+
+    const sameTimestamp = "2026-10-02T09:00:00.000Z";
+    t.app.ck.handle.sqlite
+      .prepare(
+        "UPDATE audit_events SET timestamp=? WHERE target_type='workflow_run' AND target_id=? AND action='run.reconciled'",
+      )
+      .run(sameTimestamp, reserved.run.id);
+    const sameTimeView = await call(t, "get_task", {
+      projectId,
+      taskId,
+      offset: 0,
+      limit: 20,
+    });
+    const sameTimeRun = sameTimeView.runs.find(
+      (run: any) => run.id === reserved.run.id,
+    );
+    expect(sameTimeRun.reconciliation.disposition).toBe("attached");
+    expect(sameTimeRun.reconciliation.revision).toBe(attached.run.revision);
 
     const observed = await call(t, "observe_run", {
       projectId,
@@ -560,5 +614,36 @@ describe("usage hardening regressions", () => {
       ...identity(),
     });
     expect(observed.run.status).toBe("completed");
+  });
+
+  it("bulk-checks historical verification validity without per-run query growth", async () => {
+    const { t, projectId, taskId } = await setup();
+    for (let index = 0; index < 8; index++) {
+      await verifiedTerminal(t, projectId, taskId);
+    }
+
+    const baseDeps = t.app.ck.deps;
+    let prepareCount = 0;
+    const sqlite = new Proxy(baseDeps.sqlite as any, {
+      get(target, prop) {
+        if (prop === "prepare") {
+          return (...args: any[]) => {
+            prepareCount++;
+            return target.prepare(...args);
+          };
+        }
+        const value = target[prop];
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const result = unresolvedExecutions(
+      { ...baseDeps, sqlite } as any,
+      projectId,
+      taskId,
+      0,
+      20,
+    );
+    expect(result.total).toBe(0);
+    expect(prepareCount).toBeLessThanOrEqual(12);
   });
 });
