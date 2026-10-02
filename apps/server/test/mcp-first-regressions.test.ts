@@ -129,7 +129,7 @@ describe("CK-MCP-FIRST P01-P10 regression contracts", () => {
     const f = setup("p07");
     try {
       for (let i = 0; i < 24; i += 1) {
-        cap(f.deps, f.id, "checkpoint-" + i, { checkpoint: { summary: "batch " + i, blockers: Array.from({ length: 20 }, (_, j) => "block " + i + "-" + j + ": " + "b".repeat(950)) } });
+        cap(f.deps, f.id, "checkpoint-" + i, { checkpoint: { projectLevelIntent: "project_note", summary: "batch " + i, blockers: Array.from({ length: 20 }, (_, j) => "block " + i + "-" + j + ": " + "b".repeat(950)) } });
       }
       const state = getBlockerState(f.deps, f.id);
       expect(state.activeCount).toBe(480);
@@ -155,7 +155,7 @@ describe("CK-MCP-FIRST P01-P10 regression contracts", () => {
   it("P09 resolved blocker alone does not keep stale indicator true", () => {
     const f = setup("p09");
     try {
-      cap(f.deps, f.id, "checkpoint", { checkpoint: { summary: "checkpoint", blockers: ["wait for dependency"] } });
+      cap(f.deps, f.id, "checkpoint", { checkpoint: { projectLevelIntent: "project_note", summary: "checkpoint", blockers: ["wait for dependency"] } });
       const blocker = getBlockerState(f.deps, f.id).active[0]!;
       resolveBlocker(f.deps, { projectId: f.id, blockerId: blocker.blockerId, checkpointRevision: blocker.checkpointRevision, disposition: "resolved", resolution: "available", evidenceText: null, actionRecordId: null }, ctx);
       const out = new ContextKeepMemoryService(f.deps).getWorkContext(readCtx, { projectId: f.id, diagnostics: true });

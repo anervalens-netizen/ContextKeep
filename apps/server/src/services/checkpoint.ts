@@ -1,6 +1,20 @@
+export type BlockerCategory =
+  "blocking" | "deferred" | "verification" | "legacy";
+export type BlockerMention = {
+  text: string;
+  category: BlockerCategory;
+  logicalKey?: string;
+};
+export type BlockerMetadata = {
+  category: BlockerCategory | null;
+  logicalKey: string | null;
+};
+
 export interface WorkingCheckpoint {
   kind: "working_checkpoint";
   taskId?: string;
+  projectLevelIntent?: "project_note";
+  blockerMetadata?: BlockerMetadata[];
   summary?: string;
   outcome?: string;
   nextAction: string | null;
@@ -37,6 +51,33 @@ export function parseWorkingCheckpoint(
     ...(typeof candidate.outcome === "string"
       ? { outcome: candidate.outcome }
       : {}),
+    ...(candidate.projectLevelIntent === "project_note"
+      ? { projectLevelIntent: "project_note" as const }
+      : {}),
+    ...(Array.isArray(candidate.blockerMetadata)
+      ? {
+          blockerMetadata: candidate.blockerMetadata.map((item: unknown) => {
+            const metadata =
+              item && typeof item === "object"
+                ? (item as Record<string, unknown>)
+                : {};
+            return {
+              category: [
+                "blocking",
+                "deferred",
+                "verification",
+                "legacy",
+              ].includes(String(metadata.category))
+                ? (metadata.category as BlockerCategory)
+                : null,
+              logicalKey:
+                typeof metadata.logicalKey === "string"
+                  ? metadata.logicalKey
+                  : null,
+            };
+          }),
+        }
+      : {}),
     nextAction:
       typeof candidate.nextAction === "string" ? candidate.nextAction : null,
     blockers: Array.isArray(candidate.blockers)
@@ -61,6 +102,12 @@ export function checkpointIdentity(value: WorkingCheckpoint | null): string {
   return JSON.stringify({
     kind: value.kind,
     ...(value.taskId ? { taskId: value.taskId } : {}),
+    ...(value.projectLevelIntent
+      ? { projectLevelIntent: value.projectLevelIntent }
+      : {}),
+    ...(value.blockerMetadata
+      ? { blockerMetadata: value.blockerMetadata }
+      : {}),
     summary: value.summary ?? null,
     outcome: value.outcome ?? null,
     nextAction: value.nextAction,

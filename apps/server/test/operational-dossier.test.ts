@@ -223,6 +223,7 @@ describe("operational dossier", () => {
       projectId,
       outcome: "Legacy project observation",
       checkpoint: {
+        projectLevelIntent: "project_note",
         nextAction: "Legacy next step",
         blockers: ["Historical blocker"],
       },

@@ -792,7 +792,7 @@ export class ContextKeepMemoryService {
 
   searchContext(
     context: MemoryToolRunContext,
-    input: { q: string; projectId?: string; includeHistorical?: boolean; match?: "terms" | "phrase"; scope?: "canonical" | "working" | "all"; limit?: number },
+    input: { q: string; compact?: boolean; projectId?: string; includeHistorical?: boolean; match?: "terms" | "phrase"; scope?: "canonical" | "working" | "all"; limit?: number },
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
     const limit = clamp(input.limit, 10, MAX_SEARCH_RECORDS);
@@ -856,7 +856,7 @@ export class ContextKeepMemoryService {
       scope: result.scope,
       includeHistorical: result.includeHistorical,
       records: canonicalRecords,
-      canonicalRecords,
+      ...(input.compact === true ? { compact: true } : { canonicalRecords }),
       workingRecords,
       semantics: {
         canonical: "accepted records are truth-bearing subject to historical/stale labels",

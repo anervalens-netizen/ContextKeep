@@ -631,13 +631,21 @@ export const SearchRecordSummaryDto = WorkContextRecordSummaryDto.extend({
   stale: z.boolean(),
   requiresReview: z.boolean(),
 });
-export const McpSearchResultDto = z.object({
+const McpSearchBaseDto = z.object({
   query: z.string(), scope: SearchScope,
   records: z.array(SearchRecordSummaryDto),
-  canonicalRecords: z.array(SearchRecordSummaryDto),
   workingRecords: z.array(SearchRecordSummaryDto),
   completeness: SearchCompletenessSectionsDto,
 }).passthrough();
+export const McpSearchCompatibilityResultDto = McpSearchBaseDto.extend({
+  compact: z.literal(false).optional(),
+  canonicalRecords: z.array(SearchRecordSummaryDto),
+});
+export const McpSearchCompactResultDto = McpSearchBaseDto.extend({
+  compact: z.literal(true),
+  canonicalRecords: z.never().optional(),
+});
+export const McpSearchResultDto = z.union([McpSearchCompatibilityResultDto, McpSearchCompactResultDto]);
 export const TimelineEntrySummaryDto = z.object({
   record: RecordDto.omit({ evidence: true, projectName: true }).extend({
     recordId: z.string().uuid(),

@@ -485,7 +485,7 @@ describe("blocker resolution traceability and readiness", () => {
     await call(t, "capture_work", {
       projectId: scope.projectId,
       outcome: "Legacy blocker",
-      checkpoint: { blockers: ["Synthetic legacy dependency"] },
+      checkpoint: { projectLevelIntent: "project_note", blockers: ["Synthetic legacy dependency"] },
       ...identity(),
     });
     const blocker = (

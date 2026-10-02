@@ -49,7 +49,7 @@ describe("CKR core Definition of Done edge cases", () => {
       projectId,
       outcome: "Unicode payload țară 日本語 with enough prose " + "x".repeat(3000),
       subject: "budget-checkpoint",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "Rezumat țară 日本語 " + "s".repeat(3000),
         blockers: Array.from({ length: 20 }, (_, i) => `blocaj-${i}-` + "b".repeat(500)),
         artifactRefs: ["/opt/contextkeep/releases/1234567890abcdef"],
@@ -76,7 +76,7 @@ describe("CKR core Definition of Done edge cases", () => {
       projectId,
       outcome: "ordinary body without metadata needles",
       subject: "metadata-checkpoint",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "sumneedleorchid",
         outcome: "outneedlecobalt",
         nextAction: "nextneedleamber",
@@ -107,7 +107,7 @@ describe("CKR core Definition of Done edge cases", () => {
       projectId,
       outcome: "first checkpoint",
       subject: "cp-first",
-      checkpoint: { summary: "first checkpoint" },
+      checkpoint: { projectLevelIntent: "project_note", summary: "first checkpoint" },
       idempotencyKey: crypto.randomUUID(),
     });
     for (let i = 0; i < 55; i++) {
@@ -121,7 +121,7 @@ describe("CKR core Definition of Done edge cases", () => {
       projectId,
       outcome: "second checkpoint",
       subject: "cp-second",
-      checkpoint: { summary: "second checkpoint" },
+      checkpoint: { projectLevelIntent: "project_note", summary: "second checkpoint" },
       idempotencyKey: crypto.randomUUID(),
     });
     const tied = "2030-01-01T00:00:00.000Z";

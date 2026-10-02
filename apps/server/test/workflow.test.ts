@@ -25,7 +25,7 @@ describe("task-scoped workflow integration",()=>{
   const b=await call(t,"capture_work",{...base,taskId:otherTaskId,...identity()});
   expect(a.outcome.recordId).not.toBe(b.outcome.recordId);
   await call(t,"capture_work",{projectId,taskId:otherTaskId,outcome:"Other task progressed",checkpoint:{nextAction:"Other next step"},...identity()});
-  await call(t,"capture_work",{projectId,outcome:"Legacy capture",checkpoint:{nextAction:"Legacy step"},...identity()});
+  await call(t,"capture_work",{projectId,outcome:"Legacy capture",checkpoint:{projectLevelIntent:"project_note",nextAction:"Legacy step"},...identity()});
   const context=await call(t,"get_work_context",{projectId,taskId});
   expect(context.latestCheckpoint.recordId).toBe(a.outcome.recordId);
   expect(context.latestCheckpoint.checkpoint.taskId).toBe(taskId);

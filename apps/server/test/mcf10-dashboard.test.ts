@@ -16,7 +16,7 @@ describe("MCF-10 owner dashboard read-side", () => {
         recordType: "fact",
         subject: "mcf10-dashboard",
         progressUpdates: [],
-        checkpoint: {
+        checkpoint: { projectLevelIntent: "project_note",
           summary: "Dashboard checkpoint",
           nextAction: "Review explicitly",
           blockers: ["Owner review pending"],

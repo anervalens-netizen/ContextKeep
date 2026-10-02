@@ -4,7 +4,7 @@ import {
 import { APP_VERSION } from "../db/bootstrap.js";
 import { SERVER_SCHEMA_VERSION } from "../db/schema-version.js";
 
-export const MCP_VERSION = "2.13.1";
+export const MCP_VERSION = "2.14.0";
 export const MCP_CONTRACT_VERSION = "mcp-first-v1";
 export const MODERN_PROTOCOL_VERSION = "2026-07-28";
 export const SUPPORTED_MCP_PROTOCOLS = [MODERN_PROTOCOL_VERSION, ...SUPPORTED_PROTOCOL_VERSIONS] as const;

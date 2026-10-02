@@ -2,7 +2,7 @@ import type { ActorCtx, ServiceDeps } from "./import.js";
 import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
 import { captureWork } from "./capture-work.js";
-import { parseWorkingCheckpoint } from "./checkpoint.js";
+import { parseWorkingCheckpoint, type BlockerCategory } from "./checkpoint.js";
 import { requireProject, requireRecord } from "./memory-management.js";
 
 export type BlockerDisposition = "resolved" | "withdrawn";
@@ -20,6 +20,8 @@ type ResolutionValue = {
 type CheckpointBlocker = {
   blockerId: string;
   text: string;
+  category: BlockerCategory | null;
+  logicalKey: string | null;
   checkpointRecordId: string;
   checkpointRevision: number;
   checkpointStatus: string;
@@ -112,6 +114,8 @@ function checkpointBlockersForProject(deps: ServiceDeps, projectId: string, task
       blockers.push({
         blockerId: blockerIdFor(row.id, row.revision, index),
         text,
+        category: checkpoint.blockerMetadata?.[index]?.category ?? null,
+        logicalKey: checkpoint.blockerMetadata?.[index]?.logicalKey ?? null,
         checkpointRecordId: row.id,
         checkpointRevision: row.revision,
         checkpointStatus: row.reviewStatus,

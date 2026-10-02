@@ -1,7 +1,10 @@
 import { enqueueExecutionEvent } from "./workflow-events.js";
 import { taskDossier, getTaskProgress } from "./operational-dossier.js";
 import { randomUUID } from "node:crypto";
-import type { ServiceDeps } from "./import.js";
+import { captureWork } from "./capture-work.js";
+import { writeAudit } from "./audit.js";
+import { runReconciliation } from "./run-reconciliation-read.js";
+import type { ActorCtx, ServiceDeps } from "./import.js";
 import { requireTaskScope } from "./task-scope.js";
 import { latestCheckpointFor } from "./checkpoint-context.js";
 import { getBlockerState } from "./blockers.js";
@@ -10,6 +13,7 @@ import { sha256 } from "../lib/hash.js";
 import { verificationProof, currentEvidenceValidity } from "./run-evidence.js";
 
 export interface WorkflowRun {
+  reconciliation?: ReturnType<typeof runReconciliation>;
   id: string;
   projectId: string;
   taskId: string;
@@ -50,11 +54,15 @@ export function getRun(
       "run_not_found",
       "Run does not belong to this task.",
     );
-  return run;
+  return { ...run, reconciliation: runReconciliation(deps, run.id) };
 }
 export function publicRun(run: WorkflowRun) {
-  const { leaseToken: _lease, inputHash: _hash, criteriaJson, ...result } = run;
-  return { ...result, criteria: JSON.parse(criteriaJson) as string[] };
+  const { leaseToken: _lease, inputHash, criteriaJson, ...result } = run;
+  const recoveryIdentity = ["job_start_uncertain", "lost"].includes(run.status)
+    ? { operationKey: run.operationKey, inputHash, device: run.device, identity: run.identity }
+    : null;
+  return { ...result, criteria: JSON.parse(criteriaJson) as string[],
+    ...(recoveryIdentity ? { recoveryIdentity } : {}) };
 }
 type Scope = { projectId: string; taskId: string };
 type RunScope = Scope & { runId: string };
@@ -194,6 +202,61 @@ export function attachJob(
     };
   })();
 }
+export type ReconcileUncertainRunInput = RunScope & {
+  revision: number;
+  operationKey: string;
+  inputHash: string;
+  device: string;
+  identity: string;
+  disposition: "attached" | "not_started" | "lost";
+  externalJobId: string | null;
+  evidenceText: string;
+  evidenceSource: string;
+  observedAt: string;
+};
+/** Records an inspected caller conclusion, never invokes an executor or grants a new start. */
+export function reconcileUncertainRun(deps: ServiceDeps, input: ReconcileUncertainRunInput, ctx: ActorCtx) {
+  return deps.sqlite.transaction(() => {
+    const run = getRun(deps, input.projectId, input.taskId, input.runId);
+    if (run.revision !== input.revision)
+      throw new ApiError(409, "run_revision_conflict", "Read the exact current run revision before reconciliation.");
+    const lateLostReceipt = run.status === "lost" && run.externalJobId === null &&
+      run.reconciliation?.disposition === "lost" && input.disposition === "attached";
+    if ((run.status !== "job_start_uncertain" && !lateLostReceipt) || run.externalJobId !== null)
+      throw new ApiError(409, "run_state_conflict",
+        "Only an uncertain start, or a previously reconciled lost start with a newly discovered exact receipt, can be reconciled.");
+    if (run.operationKey !== input.operationKey || run.inputHash !== input.inputHash || run.device !== input.device || run.identity !== input.identity)
+      throw new ApiError(409, "run_identity_conflict", "Reconciliation requires the exact reserved operation, input hash, device and identity.");
+    if (!["attached", "not_started", "lost"].includes(input.disposition) ||
+      (input.disposition === "attached" ? !input.externalJobId?.trim() : input.externalJobId !== null) ||
+      !input.evidenceText.trim() || !input.evidenceSource.trim() || !Number.isFinite(Date.parse(input.observedAt)))
+      throw new ApiError(400, "run_reconciliation_evidence_required", "Supply an explicit conclusion and inspected evidence/source/time; attach only an exact existing receipt. Missing bounded history is not evidence of non-start.");
+    const status = input.disposition === "attached" ? "running" : input.disposition;
+    const evidence = captureWork(deps, {
+      projectId: input.projectId, taskId: input.taskId,
+      outcome: `Caller reconciled uncertain run ${run.id} as ${input.disposition}.`,
+      evidenceText: input.evidenceText, title: "Uncertain run reconciliation", eventAt: input.observedAt,
+      recordType: "fact", subject: "run-reconciliation", progressUpdates: [],
+      predicate: "run_reconciliation",
+      structuredValueJson: { kind: "run_reconciliation", ...input },
+      dedupIdentity: `run-reconciliation:${run.id}:${run.revision}`,
+    }, ctx);
+    const updated = deps.sqlite.prepare(`UPDATE workflow_runs SET status=?,external_job_id=?,
+      verification='pending',verification_record_id=NULL,lease_token=NULL,lease_until=NULL,
+      revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status=?`)
+      .run(status, input.externalJobId, new Date().toISOString(), run.id, input.revision, run.status);
+    if (updated.changes !== 1) throw new ApiError(409, "run_revision_conflict", "Run changed during reconciliation.");
+    writeAudit(deps.db, { ...ctx, action: "run.reconciled", targetType: "workflow_run", targetId: run.id,
+      before: { status: run.status, revision: run.revision, externalJobId: run.externalJobId },
+      after: { disposition: input.disposition, revision: run.revision + 1, externalJobId: input.externalJobId, evidenceRecordId: evidence.outcome.recordId },
+      detail: { projectId: input.projectId, taskId: input.taskId, operationKey: input.operationKey,
+        inputHash: input.inputHash, device: input.device, identity: input.identity,
+        evidenceSource: input.evidenceSource, evidenceText: input.evidenceText, observedAt: input.observedAt, executionStarted: false },
+    });
+    return { run: publicRun(getRun(deps, input.projectId, input.taskId, run.id)),
+      evidenceRecordId: evidence.outcome.recordId, executionStarted: false, acceptedTaskUnchanged: true };
+  })();
+}
 export type ObservationInput = RunScope & {
   eventKey: string;
   externalJobId: string;
@@ -313,7 +376,7 @@ export function verifyRun(
         "run_revision_conflict",
         "Read the latest run before verifying.",
       );
-    if (!["completed", "failed", "cancelled", "lost"].includes(run.status))
+    if (!["completed", "failed", "cancelled", "lost", "not_started"].includes(run.status))
       throw new ApiError(
         409,
         "run_not_terminal",
@@ -373,7 +436,7 @@ export function getTaskView(
         `SELECT ${columns} FROM workflow_runs WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`,
       )
       .all(input.taskId, limit, offset) as WorkflowRun[]
-  ).map(run => ({...publicRun(run),evidenceValidity:currentEvidenceValidity(deps,run)}));
+  ).map(run => ({...publicRun(run),reconciliation:runReconciliation(deps,run.id),evidenceValidity:currentEvidenceValidity(deps,run)}));
   const records = deps.sqlite
     .prepare(
       `SELECT r.id,r.text,r.subject,r.review_status AS reviewStatus,r.evidence_basis AS evidenceBasis,r.recorded_at AS recordedAt,r.revision

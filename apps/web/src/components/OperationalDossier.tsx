@@ -124,6 +124,7 @@ export function stateLabel(state: string): string {
     running: "Rulează",
     reserved: "Pregătit",
     job_start_uncertain: "Pornire de verificat",
+    not_started: "Nu a pornit",
     lost: "Rezultat necunoscut",
     passed: "Verificat",
     pending: "Neverificat",

@@ -6,7 +6,7 @@ import { recordDedupHash, sha256 } from "../lib/hash.js";
 import { newId } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
 import { writeAudit } from "./audit.js";
-import { checkpointIdentity, parseWorkingCheckpoint, type WorkingCheckpoint } from "./checkpoint.js";
+import { checkpointIdentity, parseWorkingCheckpoint, type WorkingCheckpoint, type BlockerMention } from "./checkpoint.js";
 import { refreshContextCursorSnapshot } from "./context-journal.js";
 import { chunkText } from "./chunk.js";
 import { bumpProjectWorkingMemoryVersion } from "./content-version.js";
@@ -36,10 +36,11 @@ export interface CaptureWorkInput {
   dedupIdentity?: string | null;
   authorLabel?: string | null;
   checkpoint?: {
+    projectLevelIntent?: "project_note";
     summary?: string;
     outcome?: string;
     nextAction?: string | null;
-    blockers?: string[];
+    blockers?: Array<string | BlockerMention>;
     artifactRefs?: string[];
   };
 }
@@ -49,10 +50,14 @@ function buildCheckpoint(input: CaptureWorkInput, capturedAt: string): WorkingCh
   return {
     kind: "working_checkpoint",
     ...(input.taskId ? { taskId: input.taskId } : {}),
+    ...(input.checkpoint.projectLevelIntent ? { projectLevelIntent: input.checkpoint.projectLevelIntent } : {}),
     summary: input.checkpoint.summary ?? input.checkpoint.outcome ?? input.outcome,
     outcome: input.checkpoint.outcome ?? input.outcome,
     nextAction: input.checkpoint.nextAction ?? null,
-    blockers: input.checkpoint.blockers ?? [],
+    blockers: (input.checkpoint.blockers ?? []).map(item => typeof item === "string" ? item : item.text),
+    blockerMetadata: (input.checkpoint.blockers ?? []).map(item => typeof item === "string"
+      ? { category: "legacy" as const, logicalKey: null }
+      : { category: item.category, logicalKey: item.logicalKey ?? null }),
     artifactRefs: input.checkpoint.artifactRefs ?? [],
     capturedAt,
   };
@@ -62,6 +67,10 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
   return deps.sqlite.transaction(() => {
     requireProject(deps, input.projectId);
     if (input.taskId) requireTaskScope(deps, input.projectId, input.taskId);
+    if (input.checkpoint && !input.taskId && input.checkpoint.projectLevelIntent !== "project_note")
+      throw new ApiError(400, "checkpoint_task_required", "Supply taskId for operational checkpoints, or explicitly set checkpoint.projectLevelIntent=project_note for project history excluded from task resume.");
+    if (input.taskId && input.checkpoint?.projectLevelIntent)
+      throw new ApiError(400, "checkpoint_scope_conflict", "A checkpoint cannot be both task-scoped and a project note.");
     const runBinding = input.runEvidence ? validateRunEvidence(deps, input.projectId, input.taskId, input.runEvidence) : null;
     const rawEvidence = input.evidenceText ?? input.outcome;
     const normalized = normalizeText(rawEvidence);
@@ -151,7 +160,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
         : input.structuredValueJson === undefined || input.structuredValueJson === null
           ? null
           : JSON.stringify(input.structuredValueJson),
-      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
+      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${checkpoint ? ":event:" + (ctx.requestId ?? newId()) : ""}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
     }, ctx);
     const outcomeRecord = requireRecord(deps, created.record.id);
     if (input.taskId) deps.sqlite.prepare("INSERT OR IGNORE INTO workflow_task_records(task_id,record_id) VALUES (?,?)").run(input.taskId, outcomeRecord.id);
@@ -219,6 +228,12 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
       contentVersion: project.contentVersion,
       workingMemoryVersion: project.workingMemoryVersion,
       checkpoint: parseWorkingCheckpoint(outcomeRecord.valueJson),
+      captureScope: input.taskId ? "task" : "project",
+      warnings: input.checkpoint && !input.taskId
+        ? ["Explicit project-level checkpoint: historical project context only; excluded from resume_task. Use taskId for operational continuity."] : [],
+      readback: input.taskId
+        ? { tool: "resume_task", projectId: input.projectId, taskId: input.taskId }
+        : { tool: "get_record", recordId: outcomeRecord.id, includeUnreviewed: true },
     };
   })();
 }

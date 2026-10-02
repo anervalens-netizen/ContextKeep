@@ -105,14 +105,14 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "Audit finished.",
       subject: "same subject",
-      checkpoint: { summary: "Audit finished.", nextAction: "Inspect database" },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Audit finished.", nextAction: "Inspect database" },
       idempotencyKey: crypto.randomUUID(),
     });
     const second = await call(t, "capture_working_memory", {
       projectId,
       outcome: "Audit finished.",
       subject: "same subject",
-      checkpoint: { summary: "Audit finished.", nextAction: "Prepare rollout" },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Audit finished.", nextAction: "Prepare rollout" },
       idempotencyKey: crypto.randomUUID(),
     });
     expect(second.outcome.recordId).not.toBe(first.outcome.recordId);
@@ -144,7 +144,7 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "Same text.",
       subject: "shared semantic identity",
-      checkpoint: { summary: "Working copy", nextAction: "Continue" },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Working copy", nextAction: "Continue" },
       idempotencyKey: crypto.randomUUID(),
     });
     expect(captured.outcome.recordId).not.toBe(document.record.id);
@@ -190,7 +190,7 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "Dense checkpoint",
       subject: "checkpoint",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "S".repeat(5000),
         blockers: Array.from({ length: 20 }, (_, i) => `blocker-${i}-${"B".repeat(800)}`),
         artifactRefs: ["/repo/" + "a".repeat(900)],
@@ -210,7 +210,7 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "checkpoint persimmon implementation",
       subject: "checkpoint",
-      checkpoint: { summary: "Persimmon", nextAction: "Continue persimmon", artifactRefs: ["PR-9981"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Persimmon", nextAction: "Continue persimmon", artifactRefs: ["PR-9981"] },
       idempotencyKey: crypto.randomUUID(),
     });
     const search = await call(t, "search_context", { projectId, q: "persimmon", scope: "working" });
@@ -224,7 +224,7 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "Saved resumption point.",
       subject: "checkpoint",
-      checkpoint: { summary: "Saved resumption point." },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Saved resumption point." },
       idempotencyKey: crypto.randomUUID(),
     });
     t.app.ck.handle.sqlite
@@ -288,7 +288,7 @@ describe("CKR 2026-09-21 remediation regressions", () => {
       projectId,
       outcome: "Recorded implementation checkpoint.",
       subject: "checkpoint",
-      checkpoint: { summary: "Done", nextAction: "Continue", artifactRefs: ["uniqueartifactmarigold"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Done", nextAction: "Continue", artifactRefs: ["uniqueartifactmarigold"] },
       idempotencyKey: crypto.randomUUID(),
     });
     const search = await call(t, "search_context", { projectId, q: "uniqueartifactmarigold", scope: "working" });

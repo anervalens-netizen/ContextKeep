@@ -377,7 +377,7 @@ describe("CK-A05 context/search/REST parity", () => {
     await mcpCall(t, "capture_working_memory", {
       projectId: project.id,
       outcome: "Waiting on an external dependency.",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "Blocked but canonical truth is not stale.",
         blockers: ["External dependency pending"],
         artifactRefs: [],

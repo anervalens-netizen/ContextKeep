@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 import os
 import pathlib
 import shutil
@@ -801,10 +802,14 @@ class RuntimeDataIdentityTests(unittest.TestCase):
     def test_current_mcp_guides_match_runtime_contract(self):
         root=OPS.parent
         version=json.loads((root/'apps/server/package.json').read_text())['dependencies']['@modelcontextprotocol/server']
+        runtime=(root/'apps/server/src/mcp/runtime-metadata.ts').read_text()
+        match=re.search(r'export const MCP_VERSION = "([^"]+)"',runtime)
+        self.assertIsNotNone(match)
+        mcp_version=match.group(1)
         for name in ['docs/contextkeep-mcp.md','docs/mcp/CLIENT_WORKFLOW.md','docs/mcp/SDK_COMPATIBILITY.md']:
             text=(root/name).read_text()
             with self.subTest(document=name):
-                self.assertIn('2.10.1',text)
+                self.assertIn(mcp_version,text)
                 self.assertIn('2026-07-28',text)
                 for obsolete in ['Current MCP: **2.9.1**','@modelcontextprotocol/sdk@1.30.0','Current candidate','not-yet-deployed']:
                     self.assertNotIn(obsolete,text)

@@ -296,7 +296,7 @@ describe("CKR-13 provider-independent common memory core", () => {
       projectId: project.id,
       outcome: "Network-blocked local memory marker.",
       subject: "ckr13-local-memory",
-      checkpoint: { summary: "Local-only checkpoint", nextAction: "Keep reads provider-independent", blockers: [], artifactRefs: ["ckr13:local"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Local-only checkpoint", nextAction: "Keep reads provider-independent", blockers: [], artifactRefs: ["ckr13:local"] },
       idempotencyKey: crypto.randomUUID(),
     });
     const recordId = capture.outcome.recordId as string;

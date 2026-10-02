@@ -126,6 +126,7 @@ export const LIFECYCLE_PREDICATE = "lifecycle";
 
 /** Audit actions (A15: every accept/reject/supersession/export is covered). */
 export const auditActions = [
+  "run.reconciled",
   "auth.setup",
   "auth.login",
   "auth.logout",

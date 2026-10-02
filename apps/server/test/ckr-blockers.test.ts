@@ -56,7 +56,7 @@ async function checkpoint(t: TestApp, projectId: string, blockers: string[], sub
     projectId,
     outcome: `checkpoint ${subject}`,
     subject,
-    checkpoint: { summary: `summary ${subject}`, blockers },
+    checkpoint: { projectLevelIntent: "project_note", summary: `summary ${subject}`, blockers },
     idempotencyKey: crypto.randomUUID(),
   });
 }

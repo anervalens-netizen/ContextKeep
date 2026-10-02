@@ -16,12 +16,16 @@ export function compactWorkingCheckpoint(
   if (!checkpoint) return null;
   return {
     kind: checkpoint.kind,
+    ...(checkpoint.projectLevelIntent
+      ? { projectLevelIntent: checkpoint.projectLevelIntent }
+      : {}),
     ...(checkpoint.taskId ? { taskId: checkpoint.taskId } : {}),
     ...(checkpoint.summary ? { summary: clip(checkpoint.summary, 400) } : {}),
     ...(checkpoint.outcome ? { outcome: clip(checkpoint.outcome, 400) } : {}),
     nextAction: checkpoint.nextAction ? clip(checkpoint.nextAction, 500) : null,
     ...(options.includeResumeDetails
       ? {
+          blockerMetadata: checkpoint.blockerMetadata?.slice(0, 5),
           blockers: checkpoint.blockers
             .slice(0, 5)
             .map((item) => clip(item, 300)),

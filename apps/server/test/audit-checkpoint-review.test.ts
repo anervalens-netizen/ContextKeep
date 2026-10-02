@@ -58,6 +58,7 @@ async function fixture() {
         outcome: `${label} verified outcome`,
         subject: label,
         checkpoint: {
+          projectLevelIntent: "project_note",
           summary: `${label} checkpoint`,
           nextAction: `${label} next action`,
         },

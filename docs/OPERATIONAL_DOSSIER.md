@@ -15,6 +15,17 @@ scheduler. HTTP, PWA and MCP use the same service functions.
    the current `taskRevision` and `expectedProgressRecordId` (null only when none
    exists). A conflicting writer must read and reconcile before retrying.
 
+6. Operational checkpoints require the selected taskId. Project-wide history is
+   still supported only when the caller explicitly sets
+   checkpoint.projectLevelIntent=project_note; those notes remain outside task
+   resume.
+7. resume_task presents current state and its provenance first, then active
+   blocker mentions and every unresolved execution page, before the historical
+   task objective. Follow pagination rather than treating a bounded page as complete.
+8. Use create_task_handoff for an operational task handoff. It is a proposed,
+   task-scoped working export and never replaces the accepted-only
+   create_handoff project export.
+
 Resume selection and the **Reia lucrarea** button are read-only. They prepare
 context; they do not start an executor job. The ChatGPT panel updates Model-App
 Context with the selected task and state token. The text fallback remains usable
@@ -60,6 +71,31 @@ observations with source/review labels. It is not a complete OS process log.
 `get_changes_digest` supports explicit time windows and pagination; unreturned
 pages must not be described as an empty or complete result. Retired projects are
 excluded by default from portfolio and change summaries.
+
+
+## Usage-hardening contracts (MCP 2.14)
+
+New blocker mentions may carry an explicit caller-supplied category:
+blocking, deferred, verification, or legacy, plus an optional logical
+key. The category/key are metadata only: ContextKeep never deduplicates or
+resolves blockers from text or key similarity. Existing checkpoint+index blocker
+identities and explicit resolution history remain authoritative.
+
+A terminal task may retain active blocker mentions. Resume reports that
+contradiction without mutating accepted or reported task state. Likewise,
+unresolvedExecutions includes every reserved, job_start_uncertain, running,
+or terminal run whose current verification evidence is pending/invalid; the
+latest run alone is not a complete recovery view.
+
+reconcile_uncertain_run never starts an executor. It applies only to an exact
+job_start_uncertain run and requires the current revision, operation key,
+input hash, device, identity and inspected evidence. It may attach an exact
+existing receipt or record an explicit not_started/lost conclusion. Missing
+or truncated executor history is never proof that a start did not occur.
+
+search_context remains backward-compatible by default. Callers may request
+compact=true to omit the duplicate canonicalRecords alias while keeping
+records as the canonical result set and workingRecords separate.
 
 ## Relationships
 

@@ -42,7 +42,7 @@ describe("A4 AI-first memory contract", () => {
       projectId: project.id,
       outcome: "Working checkpoint is proposal-only.",
       evidenceText: "A4 cursor evidence",
-      checkpoint: { summary: "Checkpoint one", nextAction: "Run the focused tests", blockers: [], artifactRefs: ["test:a4"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Checkpoint one", nextAction: "Run the focused tests", blockers: [], artifactRefs: ["test:a4"] },
       clientId: "a4",
       sessionId: "cursor",
       idempotencyKey: crypto.randomUUID(),
@@ -156,7 +156,7 @@ describe("A4 AI-first memory contract", () => {
       outcome: "Current release observation is new-release.",
       evidenceText: "Observed current release new-release in the working environment.",
       eventAt: "2030-01-02T00:00:00.000Z",
-      checkpoint: { summary: "New release checkpoint", nextAction: "Review the release evidence", blockers: ["Waiting for owner review"], artifactRefs: ["deploy:2030"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "New release checkpoint", nextAction: "Review the release evidence", blockers: ["Waiting for owner review"], artifactRefs: ["deploy:2030"] },
       clientId: "a4",
       sessionId: "context",
       idempotencyKey: crypto.randomUUID(),
@@ -204,7 +204,7 @@ describe("A4 AI-first memory contract", () => {
       projectId: project.id,
       outcome: "Budget parity checkpoint.",
       evidenceText: "Local deterministic checkpoint evidence.",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: `Latest checkpoint ${"retain the operational summary ".repeat(5)}`,
         nextAction: "Continue the bounded local verification.",
         blockers: ["Owner review remains explicit."],
@@ -256,7 +256,7 @@ describe("A4 AI-first memory contract", () => {
       outcome: "Legacy alpha remediation PR 141 PR 142 Romanian timezone compatibility.",
       evidenceText: "Legacy alpha remediation evidence.",
       eventAt: "2030-01-01T00:00:00.000Z",
-      checkpoint: { summary: "Older alpha checkpoint", artifactRefs: ["legacy-alpha"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Older alpha checkpoint", artifactRefs: ["legacy-alpha"] },
       clientId: "a4",
       sessionId: "latest-checkpoint",
       idempotencyKey: crypto.randomUUID(),
@@ -266,7 +266,7 @@ describe("A4 AI-first memory contract", () => {
       outcome: "Final production state is complete.",
       evidenceText: "Final production state evidence.",
       eventAt: "2030-01-02T00:00:00.000Z",
-      checkpoint: { summary: "Newest checkpoint", artifactRefs: ["final-state"] },
+      checkpoint: { projectLevelIntent: "project_note", summary: "Newest checkpoint", artifactRefs: ["final-state"] },
       clientId: "a4",
       sessionId: "latest-checkpoint",
       idempotencyKey: crypto.randomUUID(),
@@ -294,7 +294,7 @@ describe("A4 AI-first memory contract", () => {
       projectId: project.id,
       outcome,
       evidenceText: `${outcome} evidence`,
-      ...(checkpoint ? { checkpoint } : {}),
+      ...(checkpoint ? { checkpoint: { ...checkpoint, projectLevelIntent: "project_note" } } : {}),
       clientId: "a4",
       sessionId: "retention",
       idempotencyKey: crypto.randomUUID(),
@@ -361,7 +361,7 @@ describe("A4 AI-first memory contract", () => {
     const response = await t.app.inject({ method: "POST", url: "/mcp", headers: AUTHORIZE, payload: { jsonrpc: "2.0", id: crypto.randomUUID(), method: "tools/list", params: {} } });
     expect(response.statusCode).toBe(200);
     const tools = response.json().result.tools as Array<{ name: string; outputSchema?: unknown }>;
-    expect(tools).toHaveLength(55);
+    expect(tools).toHaveLength(57);
     for (const name of ["get_project", "get_work_context", "get_context_delta", "search_context", "capture_work", "get_capabilities"]) {
       expect(tools.find((tool) => tool.name === name)?.outputSchema).toBeTruthy();
     }

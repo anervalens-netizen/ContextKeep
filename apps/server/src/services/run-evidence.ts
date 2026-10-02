@@ -73,7 +73,7 @@ export function validateRunEvidence(
       "evidence_receipt_mismatch",
       "Read the current run and its exact executor receipt before capturing evidence.",
     );
-  if (!["completed", "failed", "cancelled", "lost"].includes(run.status))
+  if (!["completed", "failed", "cancelled", "lost", "not_started"].includes(run.status))
     throw new ApiError(
       409,
       "evidence_run_not_terminal",

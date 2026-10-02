@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ServiceDeps } from "../services/import.js";
 import {
+  reconcileUncertainRun,
   reserveRun,
   beginRun,
   attachJob,
@@ -90,6 +91,20 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps) {
     false,
     (i) => attachJob(deps, i),
     result,
+  );
+  define(
+    "reconcile_uncertain_run",
+    "Reconcile job_start_uncertain without replay. Requires exact reserved identity and inspected evidence. Attach an exact existing externalJobId, or explicitly conclude not_started/lost with evidence. Missing bounded history never proves non-start. No executor is invoked and verification remains separate.",
+    z.strictObject({
+      ...run, ...write, revision: z.number().int().min(1),
+      operationKey: z.string().min(1).max(200), inputHash: z.string().regex(/^[a-f0-9]{64}$/),
+      device: z.string().min(1).max(100), identity: z.enum(["owner", "root", "interactive"]),
+      disposition: z.enum(["attached", "not_started", "lost"]),
+      externalJobId: z.string().trim().min(1).max(200).nullable(),
+      evidenceText: z.string().trim().min(1).max(64000),
+      evidenceSource: z.string().trim().min(1).max(1000), observedAt: z.string().datetime(),
+    }), false,
+    i => reconcileUncertainRun(deps, i, { actor: `owner:mcp:${i.clientId}:${i.sessionId}`, requestId: i.idempotencyKey }), result,
   );
   define(
     "observe_run",

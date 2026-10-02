@@ -60,7 +60,7 @@ describe("CK-A02 canonical-first work-context budgeting", () => {
         recordType: "fact",
         subject: `release-working-${i}`,
         progressUpdates: [],
-        checkpoint: {
+        checkpoint: { projectLevelIntent: "project_note",
           summary: `verbose summary ${i} ${noise}`,
           outcome: `verbose outcome ${i} ${noise}`,
           nextAction: null,

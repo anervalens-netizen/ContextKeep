@@ -86,7 +86,7 @@ function fixture(): Record<string, unknown> {
       recordedAt: "2026-09-23T00:00:00.000Z",
       status: "proposed",
       provenance: "agent_report",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "synthetic checkpoint",
         nextAction: "continue synthetic verification",
         artifactRefs: ["synthetic-ref"],
@@ -144,7 +144,7 @@ describe("context packing evaluation", () => {
       scope: "working",
     });
     expect(result.latestCheckpoint).toMatchObject({
-      checkpoint: { artifactRefs: ["synthetic-ref"] },
+      checkpoint: { projectLevelIntent: "project_note", artifactRefs: ["synthetic-ref"] },
     });
   });
 });

@@ -88,7 +88,7 @@ describe("CKR-01 frozen independent quality gate", () => {
       projectId: project.id,
       outcome: "Frozen quality checkpoint marker.",
       subject: "quality-checkpoint",
-      checkpoint: {
+      checkpoint: { projectLevelIntent: "project_note",
         summary: "Quality checkpoint",
         nextAction: "Keep projection canonical-safe",
         artifactRefs: ["PR-7711"],
