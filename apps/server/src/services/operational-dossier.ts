@@ -10,7 +10,7 @@ import { captureWork } from "./capture-work.js";
 import { requireProject } from "./memory-management.js";
 import { requireTaskScope } from "./task-scope.js";
 import { latestCheckpointFor } from "./checkpoint-context.js";
-import { getBlockerState } from "./blockers.js";
+import { activeBlockerCountsByTask, getBlockerState } from "./blockers.js";
 import { ApiError } from "../lib/errors.js";
 
 export type OperationalStatus =
@@ -117,6 +117,70 @@ export function effectiveTaskState(
       : ("unknown" as const),
   };
 }
+export function effectiveTaskContinuity(
+  deps: ServiceDeps,
+  projectId: string,
+  taskId: string,
+  supplied: {
+    task?: ReturnType<typeof requireTaskScope>;
+    progress?: ReturnType<typeof getTaskProgress>;
+    checkpoint?: ReturnType<typeof latestCheckpointFor>;
+  } = {},
+) {
+  const task = supplied.task ?? requireTaskScope(deps, projectId, taskId);
+  const progress =
+    supplied.progress === undefined ? getTaskProgress(deps, taskId) : supplied.progress;
+  const checkpoint =
+    supplied.checkpoint === undefined
+      ? latestCheckpointFor(deps.db, projectId, taskId)
+      : supplied.checkpoint;
+  const { state, stateSource } = effectiveTaskState(deps, task, progress);
+  const cp = checkpoint?.checkpoint;
+  const newerCheckpoint =
+    !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
+  const terminal = state === "done" || state === "cancelled";
+
+  let nextAction: string | null;
+  if (terminal && stateSource === "task_record") {
+    nextAction = null;
+  } else if (progress) {
+    nextAction =
+      newerCheckpoint && !terminal
+        ? (cp?.nextAction ?? progress.nextAction)
+        : progress.nextAction;
+  } else {
+    nextAction = cp?.nextAction ?? null;
+  }
+
+  const followUp =
+    terminal && newerCheckpoint && cp?.nextAction
+      ? {
+          nextAction: cp.nextAction,
+          summary: cp.summary ?? cp.outcome ?? null,
+          checkpointRecordId: checkpoint.recordId,
+          recordedAt: checkpoint.recordedAt,
+          provenance: checkpoint.provenance,
+        }
+      : null;
+
+  const summary =
+    newerCheckpoint && !terminal
+      ? (cp?.summary ?? cp?.outcome ?? progress?.summary ?? null)
+      : (progress?.summary ?? cp?.summary ?? cp?.outcome ?? null);
+
+  return {
+    task,
+    progress,
+    checkpoint,
+    state,
+    stateSource,
+    nextAction,
+    followUp,
+    summary,
+    newerCheckpoint,
+  };
+}
+
 export function reportTaskProgress(
   deps: ServiceDeps,
   input: {
@@ -336,9 +400,8 @@ export function taskDossier(
   taskId: string,
   unresolvedPage: { offset?: number; limit?: number } = {},
 ) {
-  const task = requireTaskScope(deps, projectId, taskId);
-  const progress = getTaskProgress(deps, taskId);
-  const checkpoint = latestCheckpointFor(deps.db, projectId, taskId);
+  const continuity = effectiveTaskContinuity(deps, projectId, taskId);
+  const { task, progress, checkpoint } = continuity;
   const run = latestRun(deps, taskId);
   const unresolved = unresolvedExecutions(
     deps,
@@ -372,16 +435,8 @@ export function taskDossier(
       }
     | undefined;
   const cp = checkpoint?.checkpoint;
-  const newerCheckpoint =
-    !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
-  const nextAction = newerCheckpoint
-    ? (cp?.nextAction ?? null)
-    : progress
-      ? progress.nextAction
-      : (cp?.nextAction ?? null);
-  const summary = newerCheckpoint
-    ? (cp?.summary ?? cp?.outcome ?? latest?.text)
-    : (progress?.summary ?? cp?.summary ?? latest?.text);
+  const { nextAction, followUp, newerCheckpoint } = continuity;
+  const summary = continuity.summary ?? latest?.text ?? null;
   const policy = latestTaskValue(deps, taskId, "continuation_policy");
   const subscription = deps.sqlite
     .prepare(
@@ -407,7 +462,7 @@ export function taskDossier(
       }
     | undefined;
   const health = workflowHealth(deps, taskId);
-  const { state, stateSource } = effectiveTaskState(deps, task, progress);
+  const { state, stateSource } = continuity;
   const taskSource = deps.sqlite
     .prepare(
       `SELECT recorded_at AS recordedAt,updated_at AS updatedAt,
@@ -480,7 +535,9 @@ export function taskDossier(
     );
   if (newerCheckpoint && progress)
     warnings.push(
-      "The checkpoint is newer than the explicit progress report; reconcile before acting.",
+      followUp
+        ? "A checkpoint newer than terminal progress is preserved as a follow-up, not as the current resume instruction. Reconcile it explicitly before starting new work."
+        : "The checkpoint is newer than the explicit progress report; reconcile before acting.",
     );
   if (
     run &&
@@ -501,6 +558,15 @@ export function taskDossier(
     warnings.push(
       "Reported progress differs from accepted task progress. Accepted knowledge is unchanged.",
     );
+  const attentionReasons = [
+    ...(state === "blocked" ? ["blocked_state"] : []),
+    ...(blockers.activeCount > 0 ? ["active_blocker"] : []),
+    ...(unresolved.total > 0 ? ["unresolved_execution"] : []),
+    ...(health.reconciliationNeeded > 0
+      ? ["continuation_reconciliation"]
+      : []),
+    ...(progress?.ownerAction ? ["owner_action"] : []),
+  ];
   return {
     projectId,
     taskId,
@@ -520,6 +586,7 @@ export function taskDossier(
     progress,
     summary: summary ? clip(summary) : null,
     nextAction,
+    followUp,
     ownerAction: progress?.ownerAction ?? null,
     lastReported: latest ? { ...latest, text: clip(latest.text) } : null,
     checkpoint: checkpoint
@@ -534,6 +601,10 @@ export function taskDossier(
         }
       : null,
     execution: run,
+    currentEvidenceValidity: run?.evidenceValidity.status ?? null,
+    unresolvedExecutionCount: unresolved.total,
+    needsAttention: attentionReasons.length > 0,
+    attentionReasons,
     unresolvedExecutions: unresolved,
     blockers: {
       activeCount: blockers.activeCount,
@@ -640,6 +711,105 @@ function taskRows(
     )
     .all(projectId, limit, offset) as TaskRow[];
 }
+
+function projectAttentionReasons(
+  deps: ServiceDeps,
+  projectId: string,
+  rows: TaskRow[],
+): Map<string, string[]> {
+  const reasons = new Map<string, string[]>();
+  const add = (taskId: string, reason: string) => {
+    const existing = reasons.get(taskId) ?? [];
+    if (!existing.includes(reason)) existing.push(reason);
+    reasons.set(taskId, existing);
+  };
+
+  const progressRows = deps.sqlite
+    .prepare(
+      `SELECT tr.task_id AS taskId,r.id AS recordId,r.value_json AS valueJson,
+              r.recorded_at AS recordedAt,r.review_status AS reviewStatus,
+              r.evidence_basis AS evidenceBasis
+       FROM records r
+       JOIN workflow_task_records tr ON tr.record_id=r.id
+       WHERE r.project_id=? AND ${currentRecords}
+         AND json_valid(r.value_json)
+         AND json_extract(r.value_json,'$.kind')='task_progress'
+       ORDER BY tr.task_id,
+         CAST(json_extract(r.value_json,'$.revision') AS INTEGER) DESC,
+         r.recorded_at DESC,r.id DESC`,
+    )
+    .all(projectId) as Array<{
+    taskId: string;
+    recordId: string;
+    valueJson: string;
+    recordedAt: string;
+    reviewStatus: string;
+    evidenceBasis: string;
+  }>;
+  const progressByTask = new Map<
+    string,
+    ReturnType<typeof getTaskProgress>
+  >();
+  for (const row of progressRows) {
+    if (progressByTask.has(row.taskId)) continue;
+    const value = JSON.parse(row.valueJson) as ProgressValue;
+    progressByTask.set(row.taskId, {
+      ...value,
+      recordId: row.recordId,
+      recordedAt: row.recordedAt,
+      reviewStatus: row.reviewStatus,
+      evidenceBasis: row.evidenceBasis,
+      authority: "reported_progress" as const,
+    });
+  }
+
+  for (const row of rows) {
+    const progress = progressByTask.get(row.id) ?? null;
+    const effective = effectiveTaskState(deps, row, progress);
+    if (effective.state === "blocked") add(row.id, "blocked_state");
+    if (progress?.ownerAction) add(row.id, "owner_action");
+  }
+
+  for (const [taskId, count] of activeBlockerCountsByTask(deps, projectId)) {
+    if (count > 0) add(taskId, "active_blocker");
+  }
+
+  const runs = deps.sqlite
+    .prepare(
+      `SELECT id,task_id AS taskId,status,revision,verification,
+              verification_record_id AS verificationRecordId,
+              external_job_id AS externalJobId,device,identity,
+              updated_at AS updatedAt,criteria_json AS criteriaJson
+       FROM workflow_runs WHERE project_id=?
+       ORDER BY task_id,created_at DESC,id DESC`,
+    )
+    .all(projectId) as Array<LatestRun & { taskId: string }>;
+  const validities = currentEvidenceValidityMany(deps, runs);
+  for (const run of runs) {
+    const live = ["reserved", "job_start_uncertain", "running"].includes(
+      run.status,
+    );
+    if (live || validities.get(run.id)?.status !== "valid")
+      add(run.taskId, "unresolved_execution");
+  }
+
+  const now = new Date().toISOString();
+  const reconciliation = deps.sqlite
+    .prepare(
+      `SELECT c.task_id AS taskId,count(*) AS n
+       FROM workflow_continuations c
+       JOIN records r ON r.id=c.task_id
+       WHERE r.project_id=? AND c.status='claimed' AND c.lease_until<=?
+       GROUP BY c.task_id`,
+    )
+    .all(projectId, now) as Array<{ taskId: string; n: number }>;
+  for (const row of reconciliation) {
+    if (row.n > 0) add(row.taskId, "continuation_reconciliation");
+  }
+
+  return reasons;
+}
+
 export function projectDossier(
   deps: ServiceDeps,
   projectId: string,
@@ -668,7 +838,7 @@ export function projectDossier(
     reviewStatus: string;
     recordedAt: string;
   }>;
-  const tasks = rows.map((row) => {
+  const digestTask = (row: TaskRow) => {
     const d = taskDossier(deps, projectId, row.id);
     return {
       taskId: row.id,
@@ -677,13 +847,44 @@ export function projectDossier(
       stateSource: d.stateSource,
       summary: d.summary,
       nextAction: d.nextAction,
+      followUp: d.followUp,
       ownerAction: d.ownerAction,
       lastActivityAt: row.lastActivityAt,
       activeBlockers: d.blockers.activeCount,
       executionStatus: d.execution?.status ?? null,
       verification: d.execution?.verification ?? null,
+      currentEvidenceValidity: d.currentEvidenceValidity,
+      unresolvedExecutionCount: d.unresolvedExecutionCount,
+      needsAttention: d.needsAttention,
+      attentionReasons: d.attentionReasons,
       stateToken: d.stateToken,
       taskRevision: row.revision,
+    };
+  };
+  const tasks = rows.map(digestTask);
+  const taskDigests = new Map(tasks.map((item) => [item.taskId, item]));
+  const attentionRows =
+    offset === 0 && rows.length === total
+      ? rows
+      : taskRows(deps, projectId, 0, total);
+  const attentionReasonIndex = projectAttentionReasons(
+    deps,
+    projectId,
+    attentionRows,
+  );
+  const attentionLimit = 10;
+  const attentionCandidates = attentionRows.filter((row) =>
+    attentionReasonIndex.has(row.id),
+  );
+  const attentionTasks = attentionCandidates.slice(0, attentionLimit).map((row) => {
+    const digest = taskDigests.get(row.id) ?? digestTask(row);
+    const indexedReasons = attentionReasonIndex.get(row.id) ?? [];
+    return {
+      ...digest,
+      needsAttention: true,
+      attentionReasons: [
+        ...new Set([...digest.attentionReasons, ...indexedReasons]),
+      ],
     };
   });
   // Unscoped old checkpoints remain visible, but they are not the current task's blockers.
@@ -705,6 +906,13 @@ export function projectDossier(
     },
     goals: goals.map((g) => ({ ...g, text: clip(g.text, 600) })),
     tasks,
+    attention: {
+      count: attentionCandidates.length,
+      tasks: attentionTasks,
+      truncated: attentionCandidates.length > attentionLimit,
+      semantics:
+        "Actionable attention is computed across the whole project, independently of the recent-task page. Completion and attention are separate.",
+    },
     pagination: {
       offset,
       limit,
@@ -749,6 +957,8 @@ export function portfolioOverview(
         tasks: d.tasks,
         taskCount: d.pagination.total,
         moreTasks: d.pagination.nextOffset !== null,
+        attentionCount: d.attention.count,
+        attentionTasks: d.attention.tasks.slice(0, 3),
       };
     }),
     total,
@@ -756,7 +966,7 @@ export function portfolioOverview(
     limit,
     nextOffset: offset + limit < total ? offset + limit : null,
     semantics:
-      "Bounded recent tasks per project, not a claim that unlisted tasks are complete. Retired projects are excluded unless requested.",
+      "Bounded recent tasks plus an independently computed attention projection per project. Retired projects are excluded unless requested.",
   };
 }
 

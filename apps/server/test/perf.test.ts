@@ -331,3 +331,133 @@ describe("A6.1: AI-first hot-path latency on a deterministic SQLite fixture", ()
     180_000,
   );
 });
+
+
+function seedAttentionProjectionPerfFixture(
+  t: TestApp,
+  projectId: string,
+  taskCount = 100,
+  runsPerTask = 10,
+) {
+  const db = t.app.ck.deps.sqlite;
+  const insertRecord = db.prepare(
+    `INSERT INTO records
+    (id,project_id,type,subject,predicate,value_json,text,review_status,evidence_basis,
+     task_status,record_dedup_hash,recorded_at,source_event_at,effective_from,effective_to,
+     reviewed_at,review_due_at,volatile,revision,created_at,updated_at)
+     VALUES (?,?,?,?,NULL,NULL,?,?,?,?,?,?,?,NULL,NULL,?,NULL,0,1,?,?)`,
+  );
+  const insertRun = db.prepare(
+    `INSERT INTO workflow_runs
+    (id,project_id,task_id,operation_key,input_hash,device,identity,external_job_id,status,
+     revision,lease_token,lease_until,criteria_json,verification,verification_record_id,
+     created_at,updated_at)
+     VALUES (?,?,?,?,?,?,?,NULL,'completed',1,NULL,NULL,'[]','passed',?,?,?)`,
+  );
+  db.transaction(() => {
+    for (let i = 0; i < taskCount; i++) {
+      const taskId = `10000000-0000-4000-8000-${i
+        .toString(16)
+        .padStart(12, "0")}`;
+      const taskAt = new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString();
+      insertRecord.run(
+        taskId,
+        projectId,
+        "action",
+        `Synthetic attention task ${i}`,
+        `Synthetic attention task ${i}`,
+        "accepted",
+        "owner_declaration",
+        "done",
+        `attention-task-${i}`,
+        taskAt,
+        taskAt,
+        taskAt,
+        taskAt,
+        taskAt,
+      );
+      for (let j = 0; j < runsPerTask; j++) {
+        const n = i * runsPerTask + j;
+        const proofId = `20000000-0000-4000-8000-${n
+          .toString(16)
+          .padStart(12, "0")}`;
+        const runId = `30000000-0000-4000-8000-${n
+          .toString(16)
+          .padStart(12, "0")}`;
+        const at = new Date(Date.UTC(2026, 0, 2, 0, 0, n)).toISOString();
+        insertRecord.run(
+          proofId,
+          projectId,
+          "fact",
+          `Synthetic historical proof ${n}`,
+          `Synthetic historical proof ${n}`,
+          "proposed",
+          "agent_report",
+          null,
+          `attention-proof-${n}`,
+          at,
+          at,
+          null,
+          at,
+          at,
+        );
+        insertRun.run(
+          runId,
+          projectId,
+          taskId,
+          `attention-op-${n}`,
+          "a".repeat(64),
+          "synthetic",
+          "owner",
+          proofId,
+          at,
+          at,
+        );
+      }
+    }
+  })();
+}
+
+describe("CK attention projection performance", () => {
+  it(
+    "keeps a 100-task / 1k terminal-proof dossier p95 <= 100ms without a persistent cache",
+    async () => {
+      const t = await makeTestApp();
+      try {
+        const project = (
+          await t.post("/api/projects", {
+            name: "Synthetic attention performance fixture",
+          })
+        ).json<{ id: string }>();
+        seedAttentionProjectionPerfFixture(t, project.id);
+
+        const { projectDossier } = await import(
+          "../src/services/operational-dossier.js"
+        );
+        for (let i = 0; i < WARMUP_SAMPLES; i++) {
+          const warm = projectDossier(t.app.ck.deps, project.id, 0, 10);
+          expect(warm.attention.count).toBe(100);
+        }
+
+        const samples: number[] = [];
+        for (let i = 0; i < MEASURED_SAMPLES; i++) {
+          const startedAt = performance.now();
+          const result = projectDossier(t.app.ck.deps, project.id, 0, 10);
+          samples.push(performance.now() - startedAt);
+          expect(result.attention.count).toBe(100);
+          expect(result.attention.tasks).toHaveLength(10);
+        }
+        const latencyP95 = p95(samples);
+        console.log(
+          `[perf] dossier attention p95 = ${latencyP95.toFixed(
+            2,
+          )}ms over ${samples.length} samples (100 tasks + 1k terminal proof records)`,
+        );
+        expect(latencyP95).toBeLessThanOrEqual(100);
+      } finally {
+        await t.cleanup();
+      }
+    },
+    180_000,
+  );
+});

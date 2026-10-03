@@ -13,6 +13,7 @@ import { requireTaskScope } from "./task-scope.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import { compactWorkingCheckpoint, latestCheckpointFor } from "./checkpoint-context.js";
 import { getBlockerState } from "./blockers.js";
+import { effectiveTaskContinuity } from "./operational-dossier.js";
 import { selectContextRows } from "./context-selection.js";
 import { fitWorkContext, type WorkContextDiagnostics, type WorkContextSectionDiagnostic } from "./context-budget.js";
 import {
@@ -236,8 +237,10 @@ export class ContextKeepMemoryService {
     const project = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
     if (!project) throw new ApiError(404, "project_not_found", "Project not found.");
     const limit = clamp(input.limitPerSection, 5, 10);
-    if (input.taskId) requireTaskScope(this.deps, projectId, input.taskId);
-    const task = input.task?.trim() || undefined;
+    const taskScope = input.taskId
+      ? requireTaskScope(this.deps, projectId, input.taskId)
+      : null;
+    const task = input.task?.trim() || taskScope?.subject.trim() || undefined;
     const fetchLimit = task ? Math.min(50, Math.max(limit * 5, 25)) : limit;
     const contextNow = new Date().toISOString();
     // Share bounded, versioned evidence with brief/search reads. Only selected
@@ -421,39 +424,103 @@ export class ContextKeepMemoryService {
       eq(records.reviewStatus, "proposed"),
       eq(records.evidenceBasis, "agent_report"),
     )!;
-    const recentWorkRows = this.deps.db
+    const projectRecentWorkRows = this.deps.db
       .select()
       .from(records)
       .where(recentWorkWhere)
       .orderBy(desc(records.recordedAt), desc(records.id))
       .limit(fetchLimit)
       .all();
-    const rankedRecentWorkRows = task
-      ? (() => {
-          const global = taskMatches("working:agent_report", () => retrieveRecordMatches(this.deps.db, {
-            q: task,
-            projectId,
-            basis: "agent_report",
-            statuses: ["proposed"],
-            limit: fetchLimit,
-            hydrateEvidence: false,
-          })).map((match) => match.row);
-          const recentRelevant = rankForTask(recentWorkRows, task, limit);
-          const seen = new Set<string>();
-          return [...global, ...recentRelevant].filter((row) => {
-            if (seen.has(row.id)) return false;
-            seen.add(row.id);
-            return true;
-          }).slice(0, limit);
-        })()
-      : recentWorkRows.slice(0, limit);
+    const taskWorkIds = input.taskId
+      ? (
+          this.deps.sqlite
+            .prepare(
+              `SELECT r.id FROM records r
+               JOIN workflow_task_records tr ON tr.record_id=r.id
+               WHERE tr.task_id=? AND r.project_id=? AND r.review_status='proposed'
+                 AND r.evidence_basis='agent_report'
+               ORDER BY r.recorded_at DESC,r.id DESC LIMIT ?`,
+            )
+            .all(input.taskId, projectId, fetchLimit) as Array<{ id: string }>
+        ).map((row) => row.id)
+      : [];
+    const taskWorkById = new Map(
+      projectRecentWorkRows.map((row) => [row.id, row]),
+    );
+    const missingTaskWorkIds = taskWorkIds.filter((id) => !taskWorkById.has(id));
+    if (missingTaskWorkIds.length > 0) {
+      const extra = this.deps.db
+        .select()
+        .from(records)
+        .where(
+          and(
+            eq(records.projectId, projectId),
+            eq(records.reviewStatus, "proposed"),
+            eq(records.evidenceBasis, "agent_report"),
+            inArray(records.id, missingTaskWorkIds),
+          ),
+        )
+        .all();
+      for (const row of extra) taskWorkById.set(row.id, row);
+    }
+    const scopedRecentWorkRows = input.taskId
+      ? taskWorkIds
+          .map((id) => taskWorkById.get(id))
+          .filter((row): row is RecordRow => row !== undefined)
+      : projectRecentWorkRows;
+    const rankedRecentWorkRows = input.taskId
+      ? scopedRecentWorkRows.slice(0, limit)
+      : task
+        ? (() => {
+            const global = taskMatches("working:agent_report", () =>
+              retrieveRecordMatches(this.deps.db, {
+                q: task,
+                projectId,
+                basis: "agent_report",
+                statuses: ["proposed"],
+                limit: fetchLimit,
+                hydrateEvidence: false,
+              }),
+            ).map((match) => match.row);
+            const recentRelevant = rankForTask(
+              projectRecentWorkRows,
+              task,
+              limit,
+            );
+            const seen = new Set<string>();
+            return [...global, ...recentRelevant]
+              .filter((row) => {
+                if (seen.has(row.id)) return false;
+                seen.add(row.id);
+                return true;
+              })
+              .slice(0, limit);
+          })()
+        : projectRecentWorkRows.slice(0, limit);
     if (diagnosticsRequested && task) {
       for (const row of rankedRecentWorkRows) workingTaskMatchIds.add(row.id);
     }
     const recentWorkEvidence = loadEvidenceRefsFor(this.deps.db, rankedRecentWorkRows.map((row) => row.id));
-    const recentWorkTotal = Number(
-      this.deps.db.select({ n: sql.raw("count(*)") }).from(records).where(recentWorkWhere).get()!.n,
-    );
+    const recentWorkTotal = input.taskId
+      ? Number(
+          (
+            this.deps.sqlite
+              .prepare(
+                `SELECT count(*) AS n FROM records r
+                 JOIN workflow_task_records tr ON tr.record_id=r.id
+                 WHERE tr.task_id=? AND r.project_id=? AND r.review_status='proposed'
+                   AND r.evidence_basis='agent_report'`,
+              )
+              .get(input.taskId, projectId) as { n: number }
+          ).n,
+        )
+      : Number(
+          this.deps.db
+            .select({ n: sql.raw("count(*)") })
+            .from(records)
+            .where(recentWorkWhere)
+            .get()!.n,
+        );
     const recentHandoffRows = this.deps.db
       .select()
       .from(handoffs)
@@ -501,7 +568,12 @@ export class ContextKeepMemoryService {
       }),
     };
     // Review changes authority, not the chronology of agent resume.
-    const latestCheckpoint = latestCheckpointFor(this.deps.db, projectId, input.taskId);
+    const continuity = input.taskId
+      ? effectiveTaskContinuity(this.deps, projectId, input.taskId)
+      : null;
+    const latestCheckpoint =
+      continuity?.checkpoint ??
+      latestCheckpointFor(this.deps.db, projectId, input.taskId);
     const blockerState = getBlockerState(this.deps, projectId, { taskId: input.taskId });
     const latestBlockers = blockerState.active.map((item) => item.text).slice(0, 20);
     const compactBlockerState = {
@@ -560,8 +632,11 @@ export class ContextKeepMemoryService {
       : undefined;
 
     const workingMemory = {
-      scope: "working",
-      semantics: "Unreviewed agent_report records only. Proposal-only, project-scoped, timestamped and never canonical truth.",
+      scope: input.taskId ? "task" : "project",
+      ...(input.taskId ? { taskId: input.taskId } : {}),
+      semantics: input.taskId
+        ? "Unreviewed agent_report records linked to the selected task only. Proposal-only, timestamped and never canonical truth. Project-wide context is returned separately."
+        : "Unreviewed agent_report records only. Proposal-only, project-scoped, timestamped and never canonical truth.",
       cursor: project.workingMemoryVersion,
       total: recentWork.total,
       truncated: recentWork.truncated,
@@ -721,7 +796,24 @@ export class ContextKeepMemoryService {
       workingMemory,
       recentHandoffs,
       latestCheckpoint,
-      latestNextAction: latestCheckpoint?.checkpoint?.nextAction ?? null,
+      latestNextAction: continuity
+        ? continuity.nextAction
+        : (latestCheckpoint?.checkpoint?.nextAction ?? null),
+      resumeCapsule: continuity
+        ? {
+            projectId,
+            taskId: input.taskId,
+            state: continuity.state,
+            stateSource: continuity.stateSource,
+            nextAction: continuity.nextAction,
+            followUp: continuity.followUp,
+            ownerAction: continuity.progress?.ownerAction ?? null,
+            stateRecordId:
+              continuity.progress?.recordId ??
+              continuity.checkpoint?.recordId ??
+              continuity.task.id,
+          }
+        : null,
       latestBlockers,
       blockerState: compactBlockerState,
       ...(relations ? { relations } : {}),

@@ -80,6 +80,64 @@ export function fitWorkContext(
       candidate[name] = sectionSummary(candidate[name]);
   }
 
+  // A bounded response should not pay twice for the same accepted current-state
+  // record. Keep the full decisive observation in currentState and retain only
+  // an identity/provenance pointer in facts. The item still counts as returned,
+  // so clients can discover the record without a false omission/all-clear signal.
+  if (budget !== undefined && budget <= 10_000) {
+    const facts = candidate.facts as Record<string, unknown> | undefined;
+    const currentState = candidate.currentState as
+      Record<string, unknown> | undefined;
+    const currentItems = Array.isArray(currentState?.items)
+      ? currentState.items
+      : [];
+    const currentIds = new Set(
+      currentItems
+        .map((item) =>
+          item && typeof item === "object" && !Array.isArray(item)
+            ? (item as Record<string, unknown>).recordId
+            : null,
+        )
+        .filter((id): id is string => typeof id === "string"),
+    );
+    if (facts && Array.isArray(facts.items) && currentIds.size > 0) {
+      let deduplicated = 0;
+      facts.items = facts.items.map((raw) => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+        const item = raw as Record<string, unknown>;
+        if (typeof item.recordId !== "string" || !currentIds.has(item.recordId))
+          return raw;
+        deduplicated += 1;
+        return {
+          recordId: item.recordId,
+          revision: item.revision,
+          sourceType: item.sourceType,
+          subject: item.subject,
+          predicate: item.predicate,
+          taskStatus: item.taskStatus,
+          recordedAt: item.recordedAt,
+          observedAt: item.observedAt,
+          reviewedAt: item.reviewedAt,
+          reviewDueAt: item.reviewDueAt,
+          status: item.status,
+          provenance: item.provenance,
+          stale: item.stale,
+          requiresReview: item.requiresReview,
+          freshnessReasons: item.freshnessReasons,
+          freshness: item.freshness,
+          evidenceCount: item.evidenceCount,
+          currentStateRef: true,
+          recovery: { section: "currentState", tool: "get_work_context" },
+        };
+      });
+      if (deduplicated > 0) {
+        facts.deduplicatedCurrentStateCount = deduplicated;
+        facts.semantics =
+          "Current-state records remain discoverable here by identity, while their full body appears once in currentState.";
+      }
+    }
+  }
+
   const syncDiagnostics = (target: Record<string, unknown>): void => {
     if (!diagnostics) return;
     let budgetOmitted = false;
@@ -344,6 +402,29 @@ export function fitWorkContext(
     else delete section.semantics;
     return section;
   };
+  const resumeCapsule =
+    candidate.resumeCapsule &&
+    typeof candidate.resumeCapsule === "object" &&
+    !Array.isArray(candidate.resumeCapsule)
+      ? (candidate.resumeCapsule as Record<string, unknown>)
+      : null;
+  const compactResumeCapsule = resumeCapsule
+    ? {
+        taskId: resumeCapsule.taskId,
+        state: resumeCapsule.state,
+        stateSource: resumeCapsule.stateSource,
+        nextAction:
+          typeof resumeCapsule.nextAction === "string"
+            ? clip(resumeCapsule.nextAction, 300)
+            : (resumeCapsule.nextAction ?? null),
+        ...(resumeCapsule.followUp ? { followUp: resumeCapsule.followUp } : {}),
+        ownerAction:
+          typeof resumeCapsule.ownerAction === "string"
+            ? clip(resumeCapsule.ownerAction, 220)
+            : (resumeCapsule.ownerAction ?? null),
+        stateRecordId: resumeCapsule.stateRecordId,
+      }
+    : null;
   const compact: Record<string, unknown> = {
     project: project
       ? {
@@ -361,6 +442,8 @@ export function fitWorkContext(
           workingMemoryVersion: project.workingMemoryVersion,
         }
       : null,
+    taskId: candidate.taskId ?? null,
+    resumeCapsule: compactResumeCapsule,
     freshness,
     goals: requiredSection("goals"),
     actions: requiredSection("actions"),
@@ -446,6 +529,17 @@ export function fitWorkContext(
   };
   const minimal: Record<string, unknown> = {
     project: compact.project,
+    taskId: compact.taskId ?? null,
+    resumeCapsule: compactResumeCapsule
+      ? {
+          taskId: compactResumeCapsule.taskId,
+          state: compactResumeCapsule.state,
+          nextAction: compactResumeCapsule.nextAction,
+          ...(compactResumeCapsule.followUp
+            ? { followUp: compactResumeCapsule.followUp }
+            : {}),
+        }
+      : null,
     freshness,
     // Read from the already-trimmed compact sections so omission/recovery
     // metadata survives the last-resort projection. Re-reading candidate
@@ -480,12 +574,118 @@ export function fitWorkContext(
     truncated: true,
     contextBudgetChars: budget,
   };
-  if (size(minimal) > semanticBudget!) {
+  if (size(minimal) <= semanticBudget!) return finalize(minimal);
+
+  // The public contract accepts budgets down to 2k. Preserve task identity,
+  // effective state and explicit omission/recovery semantics before optional
+  // section metadata. This is not an "all clear" response.
+  const compactProject =
+    compact.project &&
+    typeof compact.project === "object" &&
+    !Array.isArray(compact.project)
+      ? (compact.project as Record<string, unknown>)
+      : null;
+  const omittedSection = (name: string) => {
+    const section = sectionSummary(compact[name]);
+    const total = typeof section.total === "number" ? section.total : 0;
+    const omittedIds = Array.isArray(section.budgetOmittedRecordIds)
+      ? section.budgetOmittedRecordIds
+      : [];
+    return {
+      total,
+      returned: 0,
+      omitted: total,
+      truncated: total > 0,
+      items: [],
+      ...(omittedIds.length > 0 ? { budgetOmittedRecordIds: omittedIds } : {}),
+      ...(section.recovery
+        ? { recovery: section.recovery }
+        : total > 0
+          ? {
+              recovery: [
+                "goals",
+                "actions",
+                "constraints",
+                "openQuestions",
+                "facts",
+                "currentState",
+              ].includes(name)
+                ? { tool: "search_context", scope: "canonical" }
+                : name === "workingMemory"
+                  ? { tool: "search_context", scope: "working" }
+                  : {
+                      tool: "get_work_context",
+                      reason: "context_budget",
+                    },
+            }
+          : {}),
+    };
+  };
+  const sourceIndicators =
+    candidate.indicators &&
+    typeof candidate.indicators === "object" &&
+    !Array.isArray(candidate.indicators)
+      ? (candidate.indicators as Record<string, unknown>)
+      : {};
+  const sourceWorking =
+    candidate.workingMemory &&
+    typeof candidate.workingMemory === "object" &&
+    !Array.isArray(candidate.workingMemory)
+      ? (candidate.workingMemory as Record<string, unknown>)
+      : {};
+  const structural: Record<string, unknown> = {
+    project: compactProject
+      ? {
+          id: compactProject.id,
+          name:
+            typeof compactProject.name === "string"
+              ? clip(compactProject.name, 80)
+              : "",
+          revision: compactProject.revision,
+          contentVersion: compactProject.contentVersion,
+          workingMemoryVersion: compactProject.workingMemoryVersion,
+        }
+      : null,
+    freshness,
+    taskId: compact.taskId ?? null,
+    resumeCapsule: minimal.resumeCapsule,
+    goals: omittedSection("goals"),
+    actions: omittedSection("actions"),
+    constraints: omittedSection("constraints"),
+    workingMemory: {
+      ...omittedSection("workingMemory"),
+      cursor:
+        typeof sourceWorking.cursor === "number" ? sourceWorking.cursor : 0,
+    },
+    latestCheckpoint: null,
+    recovery: {
+      tool: "get_work_context",
+      reason: "context_budget",
+      action: "increase_budget_or_read_specific_records",
+    },
+    indicators: {
+      stale: sourceIndicators.stale === true,
+      blocked:
+        typeof sourceIndicators.blocked === "boolean"
+          ? sourceIndicators.blocked
+          : undefined,
+      truncated: true,
+      unknown: ["context_budget_omitted_optional_content"],
+    },
+    truncated: true,
+    contextBudgetChars: budget,
+  };
+  // At the last-resort projection, let finalize choose the compact/minimal
+  // diagnostics variant against the real response budget. The semantic
+  // selection is already fixed; reserving the full diagnostics envelope here
+  // would make valid 2k structural responses impossible once recovery IDs are
+  // included.
+  if (size(structural) > budget) {
     throw new ApiError(
       413,
       "context_budget_unrepresentable",
       "Context budget is too small for the structural response contract.",
     );
   }
-  return finalize(minimal);
+  return finalize(structural);
 }

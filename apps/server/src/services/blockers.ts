@@ -19,6 +19,7 @@ type ResolutionValue = {
 
 type CheckpointBlocker = {
   blockerId: string;
+  taskId: string | null;
   text: string;
   category: BlockerCategory | null;
   logicalKey: string | null;
@@ -113,6 +114,7 @@ function checkpointBlockersForProject(deps: ServiceDeps, projectId: string, task
     checkpoint.blockers.forEach((text, index) => {
       blockers.push({
         blockerId: blockerIdFor(row.id, row.revision, index),
+        taskId: checkpoint.taskId ?? null,
         text,
         category: checkpoint.blockerMetadata?.[index]?.category ?? null,
         logicalKey: checkpoint.blockerMetadata?.[index]?.logicalKey ?? null,
@@ -140,6 +142,32 @@ function resolutionRowsForProject(deps: ServiceDeps, projectId: string): Resolut
       AND r.review_status IN ('proposed','accepted')
     ORDER BY r.recorded_at DESC, r.id DESC
   `).all(projectId) as ResolutionRow[];
+}
+
+export function activeBlockerCountsByTask(
+  deps: ServiceDeps,
+  projectId: string,
+): Map<string, number> {
+  requireProject(deps, projectId);
+  const blockers = checkpointBlockersForProject(deps, projectId);
+  const resolutions = resolutionRowsForProject(deps, projectId);
+  const resolved = new Set<string>();
+  for (const row of resolutions) {
+    const value = parseResolutionValue(row.valueJson);
+    if (value) resolved.add(value.blockerId);
+  }
+  const counts = new Map<string, number>();
+  for (const blocker of blockers) {
+    if (
+      !blocker.taskId ||
+      resolved.has(blocker.blockerId) ||
+      (blocker.checkpointStatus !== "proposed" &&
+        blocker.checkpointStatus !== "accepted")
+    )
+      continue;
+    counts.set(blocker.taskId, (counts.get(blocker.taskId) ?? 0) + 1);
+  }
+  return counts;
 }
 
 export function getBlockerState(

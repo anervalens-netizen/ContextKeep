@@ -8,6 +8,7 @@
     "build": "pnpm check:privacy && pnpm -r build",
     "test": "pnpm test:functional && pnpm --filter @contextkeep/server test:perf",
     "test:functional": "pnpm --workspace-concurrency=1 -r test",
+    "test:focused": "node scripts/run-focused-tests.mjs",
     "typecheck": "pnpm --filter @contextkeep/shared build && pnpm -r typecheck",
     "verify:context-value": "node scripts/context-value-gates.mjs",
     "dev": "pnpm --filter @contextkeep/shared build && pnpm --parallel --filter @contextkeep/server --filter @contextkeep/web dev",
