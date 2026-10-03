@@ -46,24 +46,50 @@ export function registerDossierTools(
   define(
     "get_project_dossier",
     "Current tasks, outcomes, next steps and owner input; not old history.",
-    z.strictObject({ projectId: uuid, ...page }),
+    z.strictObject({
+      projectId: uuid,
+      ...page,
+      attentionOffset: z.number().int().min(0).optional(),
+      attentionLimit: z.number().int().min(1).max(50).default(10),
+    }),
     true,
-    (i) => projectDossier(deps, i.projectId, i.offset, i.limit),
+    (i) =>
+      projectDossier(
+        deps,
+        i.projectId,
+        i.offset,
+        i.limit,
+        i.attentionOffset ?? null,
+        i.attentionLimit,
+      ),
     result,
   );
   define(
     "resume_task",
     "Read-only, task-scoped resume context. Never starts a job.",
-    z.strictObject({ ...scope, unresolvedOffset: z.number().int().min(0).optional(), unresolvedLimit: z.number().int().min(1).max(50).optional() }),
+    z.strictObject({
+      ...scope,
+      unresolvedOffset: z.number().int().min(0).optional(),
+      unresolvedLimit: z.number().int().min(1).max(50).optional(),
+    }),
     true,
-    (i) => resumeTask(deps, i.projectId, i.taskId, i.unresolvedOffset, i.unresolvedLimit),
+    (i) =>
+      resumeTask(
+        deps,
+        i.projectId,
+        i.taskId,
+        i.unresolvedOffset,
+        i.unresolvedLimit,
+      ),
     result,
   );
   define(
     "create_task_handoff",
     "Persist a task-scoped operational working export from its dossier. Separates accepted/proposed task identity, reported progress, blockers and execution verification. Never accepts material or starts a job; create_handoff remains canonical only.",
-    z.strictObject({ ...scope, ...write }), false,
-    i => createTaskHandoff(deps, i, actorFor(i)), result,
+    z.strictObject({ ...scope, ...write }),
+    false,
+    (i) => createTaskHandoff(deps, i, actorFor(i)),
+    result,
   );
   define(
     "report_task_progress",

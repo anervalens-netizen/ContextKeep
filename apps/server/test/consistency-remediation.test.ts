@@ -723,3 +723,92 @@ describe("final Codex task-context regressions", () => {
     });
   });
 });
+
+describe("attention pagination and ordinary task pages", () => {
+  it("paginates all attention tasks and omits the global projection from later ordinary task pages", async () => {
+    const { t, projectId } = await setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const id = await createTask(
+        t,
+        projectId,
+        `Synthetic attention task ${i}`,
+      );
+      ids.push(id);
+      await progress(
+        t,
+        projectId,
+        id,
+        "blocked",
+        `Synthetic attention action ${i}`,
+      );
+    }
+
+    const first = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 3,
+      attentionLimit: 5,
+    });
+    expect(first.attention).toMatchObject({
+      count: 12,
+      offset: 0,
+      limit: 5,
+      nextOffset: 5,
+      truncated: true,
+    });
+    expect(first.attention.tasks).toHaveLength(5);
+    expect(first.attention.recovery).toMatchObject({
+      tool: "get_project_dossier",
+      projectId,
+      attentionOffset: 5,
+      attentionLimit: 5,
+    });
+
+    const ordinarySecondPage = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 3,
+      limit: 3,
+    });
+    expect(ordinarySecondPage.attention).toBeUndefined();
+
+    const second = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 3,
+      attentionOffset: 5,
+      attentionLimit: 5,
+    });
+    expect(second.attention).toMatchObject({
+      count: 12,
+      offset: 5,
+      nextOffset: 10,
+      truncated: true,
+    });
+    expect(second.attention.tasks).toHaveLength(5);
+
+    const third = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 3,
+      attentionOffset: 10,
+      attentionLimit: 5,
+    });
+    expect(third.attention).toMatchObject({
+      count: 12,
+      offset: 10,
+      nextOffset: null,
+      truncated: false,
+      recovery: null,
+    });
+    expect(third.attention.tasks).toHaveLength(2);
+
+    const returnedIds = [
+      ...first.attention.tasks,
+      ...second.attention.tasks,
+      ...third.attention.tasks,
+    ].map((item: { taskId: string }) => item.taskId);
+    expect(new Set(returnedIds).size).toBe(12);
+    expect(returnedIds).toEqual(expect.arrayContaining(ids));
+  }, 30_000);
+});

@@ -92,6 +92,8 @@ export function projectResumeContext(context: {
   currentState?: unknown;
   latestCheckpoint?: unknown;
   latestNextAction?: unknown;
+  resumePointersOmittedForBudget?: boolean;
+  resumeCapsule?: { nextAction?: unknown } | null;
   latestBlockers?: unknown;
   workingMemory?: { total?: number };
   indicators?: { truncated?: boolean };
@@ -104,8 +106,22 @@ export function projectResumeContext(context: {
     context,
     "latestNextAction",
   );
-  const nextAction =
-    typeof context.latestNextAction === "string"
+  const capsuleHasNextAction =
+    context.resumeCapsule !== null &&
+    typeof context.resumeCapsule === "object" &&
+    Object.prototype.hasOwnProperty.call(context.resumeCapsule, "nextAction");
+  const capsuleNextAction =
+    typeof context.resumeCapsule?.nextAction === "string"
+      ? context.resumeCapsule.nextAction
+      : capsuleHasNextAction && context.resumeCapsule?.nextAction === null
+        ? null
+        : undefined;
+  const useCapsule =
+    capsuleHasNextAction &&
+    (context.resumePointersOmittedForBudget === true || !hasLatestNextAction);
+  const nextAction = useCapsule
+    ? (capsuleNextAction ?? null)
+    : typeof context.latestNextAction === "string"
       ? context.latestNextAction
       : hasLatestNextAction && context.latestNextAction === null
         ? null

@@ -101,3 +101,29 @@ it("preserves an explicit null next action instead of reviving a checkpoint acti
   ).toBeNull();
   expect(projectResumeContext(base).nextAction).toBe("OBSOLETE STEP");
 });
+
+it("uses the resume capsule when legacy pointers were omitted for budget", () => {
+  const project = { id: "project-fixture", name: "Fixture" };
+  expect(
+    projectResumeContext({
+      project,
+      latestNextAction: null,
+      resumePointersOmittedForBudget: true,
+      resumeCapsule: { nextAction: "Continue verified work" },
+    }).nextAction,
+  ).toBe("Continue verified work");
+  expect(
+    projectResumeContext({
+      project,
+      resumeCapsule: { nextAction: "Continue from capsule" },
+    }).nextAction,
+  ).toBe("Continue from capsule");
+  expect(
+    projectResumeContext({
+      project,
+      latestNextAction: null,
+      resumePointersOmittedForBudget: true,
+      resumeCapsule: { nextAction: null },
+    }).nextAction,
+  ).toBeNull();
+});

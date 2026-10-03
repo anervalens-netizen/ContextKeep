@@ -210,7 +210,6 @@ describe("operational UI", () => {
   });
 });
 
-
 describe("needs-attention projection", () => {
   it("surfaces attention that is outside the loaded recent-task page", async () => {
     const attentionTask = {
@@ -252,8 +251,12 @@ describe("needs-attention projection", () => {
       ],
       attention: {
         count: 1,
+        offset: 0,
+        limit: 10,
         tasks: [attentionTask],
+        nextOffset: null,
         truncated: false,
+        recovery: null,
       },
       pagination: { total: 4, nextOffset: 1 },
       historicalUnscopedCheckpoints: 0,
@@ -273,4 +276,84 @@ describe("needs-attention projection", () => {
     );
     expect(select).toHaveBeenCalledWith("older-attention");
   });
+});
+
+it("loads additional attention pages without requiring later ordinary task pages to carry attention", async () => {
+  const baseTask = {
+    title: "Needs attention",
+    state: "done",
+    summary: "Historical proof changed",
+    nextAction: null,
+    ownerAction: null,
+    lastActivityAt: "2026-01-01T00:00:00.000Z",
+    activeBlockers: 0,
+    executionStatus: "completed",
+    verification: "passed",
+    currentEvidenceValidity: "valid",
+    unresolvedExecutionCount: 1,
+    needsAttention: true,
+    attentionReasons: ["unresolved_execution"],
+    stateToken: "attention",
+    taskRevision: 1,
+  };
+  const first = {
+    project: { id: "fixture-project", name: "Synthetic", lifecycle: "active" },
+    goals: [],
+    tasks: [],
+    attention: {
+      count: 3,
+      offset: 0,
+      limit: 2,
+      tasks: [
+        { ...baseTask, taskId: "attention-1", title: "Attention item 1" },
+        { ...baseTask, taskId: "attention-2", title: "Attention item 2" },
+      ],
+      nextOffset: 2,
+      truncated: true,
+      recovery: {
+        tool: "get_project_dossier",
+        projectId: "fixture-project",
+        offset: 0,
+        limit: 10,
+        attentionOffset: 2,
+        attentionLimit: 2,
+      },
+    },
+    pagination: { total: 0, nextOffset: null },
+    historicalUnscopedCheckpoints: 0,
+    links: { items: [] },
+  } satisfies ProjectDossier;
+  const second = {
+    ...first,
+    attention: {
+      count: 3,
+      offset: 2,
+      limit: 2,
+      tasks: [
+        { ...baseTask, taskId: "attention-3", title: "Attention item 3" },
+      ],
+      nextOffset: null,
+      truncated: false,
+      recovery: null,
+    },
+  } satisfies ProjectDossier;
+  const load = vi.fn(
+    async (_projectId: string, _offset = 0, attentionOffset?: number) =>
+      attentionOffset === 2 ? second : first,
+  );
+  render(
+    <ProjectNow
+      projectId="fixture-project"
+      load={load}
+      onTask={() => undefined}
+    />,
+  );
+  expect(await screen.findByText("Necesită atenție (3)")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Mai multe de verificat" }),
+  );
+  expect(
+    await screen.findByRole("button", { name: /Attention item 3/i }),
+  ).toBeTruthy();
+  expect(load).toHaveBeenCalledWith("fixture-project", 0, 2);
 });

@@ -854,6 +854,8 @@ export function projectDossier(
   projectId: string,
   offset = 0,
   limit = 10,
+  attentionOffset: number | null = null,
+  attentionLimit = 10,
 ) {
   const project = requireProject(deps, projectId);
   const rows = taskRows(deps, projectId, offset, limit);
@@ -902,32 +904,66 @@ export function projectDossier(
   };
   const tasks = rows.map(digestTask);
   const taskDigests = new Map(tasks.map((item) => [item.taskId, item]));
-  const attentionRows =
-    offset === 0 && rows.length === total
-      ? rows
-      : taskRows(deps, projectId, 0, total);
-  const attentionReasonIndex = projectAttentionReasons(
-    deps,
-    projectId,
-    attentionRows,
-  );
-  const attentionLimit = 10;
-  const attentionCandidates = attentionRows.filter((row) =>
-    attentionReasonIndex.has(row.id),
-  );
-  const attentionTasks = attentionCandidates
-    .slice(0, attentionLimit)
-    .map((row) => {
-      const digest = taskDigests.get(row.id) ?? digestTask(row);
-      const indexedReasons = attentionReasonIndex.get(row.id) ?? [];
-      return {
-        ...digest,
-        needsAttention: true,
-        attentionReasons: [
-          ...new Set([...digest.attentionReasons, ...indexedReasons]),
-        ],
-      };
-    });
+  const includeAttention = offset === 0 || attentionOffset !== null;
+  const boundedAttentionLimit = Math.max(1, Math.min(50, attentionLimit));
+  const resolvedAttentionOffset = attentionOffset ?? 0;
+  const attention = includeAttention
+    ? (() => {
+        const attentionRows =
+          offset === 0 && rows.length === total
+            ? rows
+            : taskRows(deps, projectId, 0, total);
+        const attentionReasonIndex = projectAttentionReasons(
+          deps,
+          projectId,
+          attentionRows,
+        );
+        const attentionCandidates = attentionRows.filter((row) =>
+          attentionReasonIndex.has(row.id),
+        );
+        const pageCandidates = attentionCandidates.slice(
+          resolvedAttentionOffset,
+          resolvedAttentionOffset + boundedAttentionLimit,
+        );
+        const attentionTasks = pageCandidates.map((row) => {
+          const digest = taskDigests.get(row.id) ?? digestTask(row);
+          const indexedReasons = attentionReasonIndex.get(row.id) ?? [];
+          return {
+            ...digest,
+            needsAttention: true,
+            attentionReasons: [
+              ...new Set([...digest.attentionReasons, ...indexedReasons]),
+            ],
+          };
+        });
+        const nextOffset =
+          resolvedAttentionOffset + boundedAttentionLimit <
+          attentionCandidates.length
+            ? resolvedAttentionOffset + boundedAttentionLimit
+            : null;
+        return {
+          count: attentionCandidates.length,
+          offset: resolvedAttentionOffset,
+          limit: boundedAttentionLimit,
+          tasks: attentionTasks,
+          nextOffset,
+          truncated: nextOffset !== null,
+          recovery:
+            nextOffset === null
+              ? null
+              : {
+                  tool: "get_project_dossier",
+                  projectId,
+                  offset: 0,
+                  limit,
+                  attentionOffset: nextOffset,
+                  attentionLimit: boundedAttentionLimit,
+                },
+          semantics:
+            "Actionable attention is computed across the whole project, independently of the recent-task page. Completion and attention are separate. Follow attention.nextOffset/recovery for omitted attention tasks.",
+        };
+      })()
+    : undefined;
   // Unscoped old checkpoints remain visible, but they are not the current task's blockers.
   const historical = deps.sqlite
     .prepare(
@@ -947,13 +983,7 @@ export function projectDossier(
     },
     goals: goals.map((g) => ({ ...g, text: clip(g.text, 600) })),
     tasks,
-    attention: {
-      count: attentionCandidates.length,
-      tasks: attentionTasks,
-      truncated: attentionCandidates.length > attentionLimit,
-      semantics:
-        "Actionable attention is computed across the whole project, independently of the recent-task page. Completion and attention are separate.",
-    },
+    ...(attention ? { attention } : {}),
     pagination: {
       offset,
       limit,
@@ -998,8 +1028,8 @@ export function portfolioOverview(
         tasks: d.tasks,
         taskCount: d.pagination.total,
         moreTasks: d.pagination.nextOffset !== null,
-        attentionCount: d.attention.count,
-        attentionTasks: d.attention.tasks.slice(0, 3),
+        attentionCount: d.attention?.count ?? 0,
+        attentionTasks: d.attention?.tasks.slice(0, 3) ?? [],
       };
     }),
     total,

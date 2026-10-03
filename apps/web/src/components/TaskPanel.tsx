@@ -54,7 +54,11 @@ export type TaskView = {
 };
 export interface TaskTransport {
   projects(): Promise<Project[]>;
-  overview?: (projectId: string, offset?: number) => Promise<ProjectDossier>;
+  overview?: (
+    projectId: string,
+    offset?: number,
+    attentionOffset?: number,
+  ) => Promise<ProjectDossier>;
   portfolio?: (offset?: number) => Promise<PortfolioPage>;
   resume?: (
     projectId: string,

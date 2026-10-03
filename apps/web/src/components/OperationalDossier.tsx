@@ -97,8 +97,19 @@ export interface ProjectDossier {
   tasks: TaskDigest[];
   attention?: {
     count: number;
+    offset: number;
+    limit: number;
     tasks: TaskDigest[];
+    nextOffset: number | null;
     truncated: boolean;
+    recovery?: {
+      tool: string;
+      projectId: string;
+      offset: number;
+      limit: number;
+      attentionOffset: number;
+      attentionLimit: number;
+    } | null;
   };
   pagination: { total: number; nextOffset: number | null };
   historicalUnscopedCheckpoints: number;
@@ -301,7 +312,11 @@ export function ProjectNow({
   onTask,
 }: {
   projectId: string;
-  load: (id: string, offset?: number) => Promise<ProjectDossier>;
+  load: (
+    id: string,
+    offset?: number,
+    attentionOffset?: number,
+  ) => Promise<ProjectDossier>;
   onTask: (id: string) => void;
 }) {
   const [data, setData] = useState<ProjectDossier | null>(null),
@@ -310,12 +325,16 @@ export function ProjectNow({
     [filter, setFilter] = useState("active");
   const generation = useRef(0),
     loadedPages = useRef(1),
+    loadedAttentionPages = useRef(1),
     pending = useRef(false),
-    reload = useRef<((pages?: number) => Promise<void>) | null>(null);
+    reload = useRef<
+      ((pages?: number, attentionPages?: number) => Promise<void>) | null
+    >(null);
   useEffect(() => {
     const g = ++generation.current;
     let stopped = false;
     loadedPages.current = 1;
+    loadedAttentionPages.current = 1;
     pending.current = false;
     setMoreBusy(false);
     setData(null);
@@ -344,14 +363,50 @@ export function ProjectNow({
         pagination: { ...last.pagination, total: first.pagination.total },
       });
     }
-    async function refresh(targetPages = loadedPages.current) {
+    async function refresh(
+      targetPages = loadedPages.current,
+      targetAttentionPages = loadedAttentionPages.current,
+    ) {
       if (pending.current || stopped) return;
       pending.current = true;
       setMoreBusy(true);
       const fresh: ProjectDossier[] = [];
       try {
         // Re-read the visible prefix rather than append to obsolete page boundaries.
-        const first = await load(projectId, 0);
+        let first = await load(projectId, 0);
+        if (
+          first.attention &&
+          targetAttentionPages > 1 &&
+          first.attention.nextOffset !== null
+        ) {
+          const attentionById = new Map(
+            first.attention.tasks.map((task) => [task.taskId, task]),
+          );
+          let attentionPage = first.attention;
+          let attentionPages = 1;
+          while (
+            attentionPages < targetAttentionPages &&
+            attentionPage.nextOffset !== null
+          ) {
+            const next = await load(projectId, 0, attentionPage.nextOffset);
+            if (!next.attention) break;
+            for (const task of next.attention.tasks)
+              attentionById.set(task.taskId, task);
+            attentionPage = next.attention;
+            attentionPages += 1;
+          }
+          loadedAttentionPages.current = attentionPages;
+          first = {
+            ...first,
+            attention: {
+              ...first.attention,
+              tasks: [...attentionById.values()],
+              nextOffset: attentionPage.nextOffset,
+              truncated: attentionPage.nextOffset !== null,
+              recovery: attentionPage.recovery,
+            },
+          };
+        }
         fresh.push(first);
         let last = first,
           previousOffset = 0;
@@ -398,7 +453,22 @@ export function ProjectNow({
   }, [projectId, load]);
   async function more() {
     if (!data || data.pagination.nextOffset === null || pending.current) return;
-    await reload.current?.(loadedPages.current + 1);
+    await reload.current?.(
+      loadedPages.current + 1,
+      loadedAttentionPages.current,
+    );
+  }
+  async function moreAttention() {
+    if (
+      !data?.attention ||
+      data.attention.nextOffset === null ||
+      pending.current
+    )
+      return;
+    await reload.current?.(
+      loadedPages.current,
+      loadedAttentionPages.current + 1,
+    );
   }
   const tasks =
     data?.tasks.filter(
@@ -438,8 +508,13 @@ export function ProjectNow({
                   </button>
                 ))}
               </div>
-              {data.attention.truncated && (
-                <small>Lista de atenție este trunchiată; deschide dosarul complet.</small>
+              {data.attention.nextOffset !== null && (
+                <button
+                  disabled={moreBusy}
+                  onClick={() => void moreAttention()}
+                >
+                  Mai multe de verificat
+                </button>
               )}
             </section>
           )}
@@ -573,10 +648,7 @@ export function PortfolioNow({
                       Necesită atenție: {p.attentionCount}
                     </span>
                   )}
-                {(p.attentionTasks?.length
-                  ? p.attentionTasks
-                  : p.tasks
-                )
+                {(p.attentionTasks?.length ? p.attentionTasks : p.tasks)
                   .slice(0, 1)
                   .map((t) => (
                     <span key={t.taskId}>

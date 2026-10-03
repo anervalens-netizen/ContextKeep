@@ -37,11 +37,14 @@ async function call(name: string, args: Record<string, unknown> = {}) {
   return result.structuredContent as Record<string, unknown>;
 }
 const transport: TaskTransport = {
-  overview: async (projectId, offset = 0) =>
+  overview: async (projectId, offset = 0, attentionOffset) =>
     (await call("get_project_dossier", {
       projectId,
       offset,
       limit: 10,
+      ...(attentionOffset === undefined
+        ? {}
+        : { attentionOffset, attentionLimit: 10 }),
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["overview"]>>
     >,
