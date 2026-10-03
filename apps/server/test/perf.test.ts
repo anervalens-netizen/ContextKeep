@@ -1,7 +1,12 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { BriefDto } from "@contextkeep/shared";
-import { expectStatus, makeTestApp, reviewCurrent, type TestApp } from "./helpers.js";
+import {
+  expectStatus,
+  makeTestApp,
+  reviewCurrent,
+  type TestApp,
+} from "./helpers.js";
 
 const PERF_MCP_TOKEN = "contextkeep-perf-local-token-0123456789abcdef";
 const HOT_PATH_TARGET_MS = 75;
@@ -13,7 +18,11 @@ function p95(samples: number[]): number {
   return ordered[Math.floor(ordered.length * 0.95) - 1]!;
 }
 
-async function callMcp(t: TestApp, name: string, arguments_: Record<string, unknown>): Promise<any> {
+async function callMcp(
+  t: TestApp,
+  name: string,
+  arguments_: Record<string, unknown>,
+): Promise<any> {
   const response = await t.app.inject({
     method: "POST",
     url: "/mcp",
@@ -28,9 +37,16 @@ async function callMcp(t: TestApp, name: string, arguments_: Record<string, unkn
       params: { name, arguments: arguments_ },
     },
   });
-  if (response.statusCode !== 200) throw new Error(`${name} failed: ${response.statusCode} ${response.body.slice(0, 500)}`);
-  const result = response.json().result as { isError?: boolean; structuredContent?: unknown };
-  if (result.isError || result.structuredContent === undefined) throw new Error(`${name} returned an MCP error`);
+  if (response.statusCode !== 200)
+    throw new Error(
+      `${name} failed: ${response.statusCode} ${response.body.slice(0, 500)}`,
+    );
+  const result = response.json().result as {
+    isError?: boolean;
+    structuredContent?: unknown;
+  };
+  if (result.isError || result.structuredContent === undefined)
+    throw new Error(`${name} returned an MCP error`);
   return result.structuredContent;
 }
 
@@ -42,17 +58,19 @@ function populateAiFirstHotPathFixture(t: TestApp): string {
   const projectId = "00000000-0000-4000-8000-000000000001";
   const sqlite = t.app.ck.deps.sqlite;
   const projectNow = "2026-01-01T00:00:00.000Z";
-  sqlite.prepare(
-    `INSERT INTO projects (id, name, aliases_json, parent_project_id, description, lifecycle,
+  sqlite
+    .prepare(
+      `INSERT INTO projects (id, name, aliases_json, parent_project_id, description, lifecycle,
       lifecycle_record_id, revision, content_version, working_memory_version, created_at, updated_at)
      VALUES (?, ?, '[]', NULL, ?, 'active', NULL, 1, 1000, 1000, ?, ?)`,
-  ).run(
-    projectId,
-    "AI-first performance fixture",
-    "Representative local project for task-aware context and working-memory retrieval.",
-    projectNow,
-    projectNow,
-  );
+    )
+    .run(
+      projectId,
+      "AI-first performance fixture",
+      "Representative local project for task-aware context and working-memory retrieval.",
+      projectNow,
+      projectNow,
+    );
 
   const insertRecord = sqlite.prepare(
     `INSERT INTO records (id, project_id, type, subject, predicate, value_json, text,
@@ -61,7 +79,13 @@ function populateAiFirstHotPathFixture(t: TestApp): string {
       volatile, revision, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, NULL, 0, 1, ?, ?)`,
   );
-  const types = ["decision", "fact", "action", "constraint", "question"] as const;
+  const types = [
+    "decision",
+    "fact",
+    "action",
+    "constraint",
+    "question",
+  ] as const;
   const populate = sqlite.transaction(() => {
     for (let i = 0; i < 1_000; i++) {
       const type = types[i % types.length]!;
@@ -92,15 +116,16 @@ function populateAiFirstHotPathFixture(t: TestApp): string {
     }
     for (let i = 0; i < 1_000; i++) {
       const timestamp = new Date(Date.UTC(2026, 1, 1, 0, 0, i)).toISOString();
-      const checkpoint = i % 10 === 0
-        ? JSON.stringify({
-            kind: "working_checkpoint",
-            summary: `Working release checkpoint ${i}`,
-            nextAction: "Verify deployment health and SQLite backup evidence",
-            blockers: i % 20 === 0 ? ["Owner review required"] : [],
-            artifactRefs: [`perf:working:${i}`],
-          })
-        : null;
+      const checkpoint =
+        i % 10 === 0
+          ? JSON.stringify({
+              kind: "working_checkpoint",
+              summary: `Working release checkpoint ${i}`,
+              nextAction: "Verify deployment health and SQLite backup evidence",
+              blockers: i % 20 === 0 ? ["Owner review required"] : [],
+              artifactRefs: [`perf:working:${i}`],
+            })
+          : null;
       insertRecord.run(
         deterministicRecordId(i + 1_002),
         projectId,
@@ -123,9 +148,11 @@ function populateAiFirstHotPathFixture(t: TestApp): string {
   });
   populate();
 
-  const counts = sqlite.prepare(
-    "SELECT review_status AS status, count(*) AS count FROM records WHERE project_id = ? GROUP BY review_status ORDER BY status",
-  ).all(projectId) as Array<{ status: string; count: number }>;
+  const counts = sqlite
+    .prepare(
+      "SELECT review_status AS status, count(*) AS count FROM records WHERE project_id = ? GROUP BY review_status ORDER BY status",
+    )
+    .all(projectId) as Array<{ status: string; count: number }>;
   expect(counts).toEqual([
     { status: "accepted", count: 1_000 },
     { status: "proposed", count: 1_000 },
@@ -139,199 +166,220 @@ function populateAiFirstHotPathFixture(t: TestApp): string {
  * regression concern — LIKE scanning is explicitly M0-minimal.)
  */
 describe("§10: brief route latency on a 1k-record corpus", () => {
-  it(
-    "stays within p95 ≤ 50ms",
-    async () => {
-      const t = await makeTestApp();
-      try {
-        const proj = (await t.post("/api/projects", { name: "Perf Project" })).json<{ id: string }>();
-        const topics = [
-          "deployment",
-          "database",
-          "networking",
-          "security",
-          "monitoring",
-          "backups",
-          "search",
-          "export",
-          "auth",
-          "pwa",
-        ];
-        for (let b = 0; b < 10; b++) {
-          const topic = topics[b]!;
-          const preamble = `# ${topic} corpus batch ${b}\n\nNotes collected for the ${topic} subsystem review.\n\n`;
-          const lines = Array.from(
-            { length: 100 },
-            (_, i) =>
-              `fact: ${topic} note ${b}-${i} describing ${topic} behavior for component ${i % 7} in environment ${i % 3}`,
-          ).join("\n");
-          const imp = await t.post("/api/imports/text", {
-            text: preamble + lines,
-            adapterId: "faketest",
-            projectId: proj.id,
-          });
-          expectStatus(imp, 201, `import batch ${b}`);
-          expect(imp.json<{ candidateCount: number }>().candidateCount).toBe(100);
-        }
-
-        const inbox = await t.get(`/api/inbox?projectId=${proj.id}&limit=1000`);
-        const ids = inbox.json<{ candidates: { id: string }[] }>().candidates.map((c) => c.id);
-        expect(ids.length).toBe(1000);
-        // API validation caps one decide call at 500 ids; accept in two batches.
-        let acceptedTotal = 0;
-        for (let i = 0; i < ids.length; i += 500) {
-          const batch = ids.slice(i, i + 500);
-          const decide = await reviewCurrent(t, batch, "accept");
-          expectStatus(decide, 200, `bulk accept batch ${i / 500}`);
-          acceptedTotal += decide.json<{ accepted: string[] }>().accepted.length;
-        }
-        expect(acceptedTotal).toBe(1000);
-
-        const briefCheck = await t.get(`/api/projects/${proj.id}/brief`);
-        expectStatus(briefCheck, 200, "brief with 1000 facts");
-        expect(briefCheck.json<BriefDto>().facts.length).toBe(1000);
-
-        // Measure over REAL HTTP (§10 is about the local API, not the inject harness).
-        await t.app.listen({ port: 0, host: "127.0.0.1" });
-        const addr = t.app.server.address();
-        if (addr === null || typeof addr === "string") throw new Error("no ephemeral port");
-        const base = `http://127.0.0.1:${addr.port}`;
-        const headers = { cookie: t.cookie };
-
-        // §10 measures steady-state brief latency, not first-call latency.
-        // Benchmark is run in a DEDICATED Node process (see pnpm test
-        // orchestration in root package.json: `pnpm -r test` runs functional
-        // suite first; perf.test.ts is excluded from that, then a separate
-        // `pnpm --filter @contextkeep/server test:perf` invocation runs only
-        // this file in a fresh fork). With no fork-pool competition, 5
-        // throwaway requests are enough to warm V8 inline caches for
-        // brief.ts, Fastify routing, and better-sqlite3's page cache for
-        // this project's records. The 40 measured samples are still real
-        // brief responses (status + body validated). Threshold (50 ms),
-        // sample count (40), and corpus size (1k accepted records) are
-        // unchanged. Warmup = 5 is FIXED (not bumped) for this dedicated
-        // process — chosen once and documented here.
-        for (let i = 0; i < 5; i++) {
-          const warm = await fetch(`${base}/api/projects/${proj.id}/brief`, { headers });
-          await warm.arrayBuffer();
-          if (warm.status !== 200) throw new Error(`warmup failed: ${warm.status}`);
-        }
-
-        const samples: number[] = [];
-        for (let i = 0; i < 40; i++) {
-          const start = performance.now();
-          const res = await fetch(`${base}/api/projects/${proj.id}/brief`, { headers });
-          const body = await res.arrayBuffer(); // count serialization + transfer
-          samples.push(performance.now() - start);
-          if (res.status !== 200 || body.byteLength < 1000) {
-            throw new Error(`brief sample failed: ${res.status}, ${body.byteLength} bytes`);
-          }
-        }
-        await t.app.server.close();
-        samples.sort((a, b) => a - b);
-        const p95 = samples[Math.floor(samples.length * 0.95) - 1]!;
-        // eslint-disable-next-line no-console
-        console.log(`[perf] brief p95 = ${p95.toFixed(2)}ms over ${samples.length} samples (1k accepted records)`);
-        expect(p95).toBeLessThanOrEqual(50);
-      } finally {
-        await t.cleanup();
+  it("stays within p95 ≤ 50ms", async () => {
+    const t = await makeTestApp();
+    try {
+      const proj = (
+        await t.post("/api/projects", { name: "Perf Project" })
+      ).json<{ id: string }>();
+      const topics = [
+        "deployment",
+        "database",
+        "networking",
+        "security",
+        "monitoring",
+        "backups",
+        "search",
+        "export",
+        "auth",
+        "pwa",
+      ];
+      for (let b = 0; b < 10; b++) {
+        const topic = topics[b]!;
+        const preamble = `# ${topic} corpus batch ${b}\n\nNotes collected for the ${topic} subsystem review.\n\n`;
+        const lines = Array.from(
+          { length: 100 },
+          (_, i) =>
+            `fact: ${topic} note ${b}-${i} describing ${topic} behavior for component ${i % 7} in environment ${i % 3}`,
+        ).join("\n");
+        const imp = await t.post("/api/imports/text", {
+          text: preamble + lines,
+          adapterId: "faketest",
+          projectId: proj.id,
+        });
+        expectStatus(imp, 201, `import batch ${b}`);
+        expect(imp.json<{ candidateCount: number }>().candidateCount).toBe(100);
       }
-    },
-    180_000,
-  );
+
+      const inbox = await t.get(`/api/inbox?projectId=${proj.id}&limit=1000`);
+      const ids = inbox
+        .json<{ candidates: { id: string }[] }>()
+        .candidates.map((c) => c.id);
+      expect(ids.length).toBe(1000);
+      // API validation caps one decide call at 500 ids; accept in two batches.
+      let acceptedTotal = 0;
+      for (let i = 0; i < ids.length; i += 500) {
+        const batch = ids.slice(i, i + 500);
+        const decide = await reviewCurrent(t, batch, "accept");
+        expectStatus(decide, 200, `bulk accept batch ${i / 500}`);
+        acceptedTotal += decide.json<{ accepted: string[] }>().accepted.length;
+      }
+      expect(acceptedTotal).toBe(1000);
+
+      const briefCheck = await t.get(`/api/projects/${proj.id}/brief`);
+      expectStatus(briefCheck, 200, "brief with 1000 facts");
+      expect(briefCheck.json<BriefDto>().facts.length).toBe(1000);
+
+      // Measure over REAL HTTP (§10 is about the local API, not the inject harness).
+      await t.app.listen({ port: 0, host: "127.0.0.1" });
+      const addr = t.app.server.address();
+      if (addr === null || typeof addr === "string")
+        throw new Error("no ephemeral port");
+      const base = `http://127.0.0.1:${addr.port}`;
+      const headers = { cookie: t.cookie };
+
+      // §10 measures steady-state brief latency, not first-call latency.
+      // Benchmark is run in a DEDICATED Node process (see pnpm test
+      // orchestration in root package.json: `pnpm -r test` runs functional
+      // suite first; perf.test.ts is excluded from that, then a separate
+      // `pnpm --filter @contextkeep/server test:perf` invocation runs only
+      // this file in a fresh fork). With no fork-pool competition, 5
+      // throwaway requests are enough to warm V8 inline caches for
+      // brief.ts, Fastify routing, and better-sqlite3's page cache for
+      // this project's records. The 40 measured samples are still real
+      // brief responses (status + body validated). Threshold (50 ms),
+      // sample count (40), and corpus size (1k accepted records) are
+      // unchanged. Warmup = 5 is FIXED (not bumped) for this dedicated
+      // process — chosen once and documented here.
+      for (let i = 0; i < 5; i++) {
+        const warm = await fetch(`${base}/api/projects/${proj.id}/brief`, {
+          headers,
+        });
+        await warm.arrayBuffer();
+        if (warm.status !== 200)
+          throw new Error(`warmup failed: ${warm.status}`);
+      }
+
+      const samples: number[] = [];
+      for (let i = 0; i < 40; i++) {
+        const start = performance.now();
+        const res = await fetch(`${base}/api/projects/${proj.id}/brief`, {
+          headers,
+        });
+        const body = await res.arrayBuffer(); // count serialization + transfer
+        samples.push(performance.now() - start);
+        if (res.status !== 200 || body.byteLength < 1000) {
+          throw new Error(
+            `brief sample failed: ${res.status}, ${body.byteLength} bytes`,
+          );
+        }
+      }
+      await t.app.server.close();
+      samples.sort((a, b) => a - b);
+      const p95 = samples[Math.floor(samples.length * 0.95) - 1]!;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[perf] brief p95 = ${p95.toFixed(2)}ms over ${samples.length} samples (1k accepted records)`,
+      );
+      expect(p95).toBeLessThanOrEqual(50);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
 });
 
 describe("A6.1: AI-first hot-path latency on a deterministic SQLite fixture", () => {
-  it(
-    "keeps task-aware get_work_context p95 ≤ 75ms with 1k accepted and 1k working records",
-    async () => {
-      const t = await makeTestApp({ mcpToken: PERF_MCP_TOKEN });
-      try {
-        const projectId = populateAiFirstHotPathFixture(t);
-        const input = {
-          projectId,
-          task: "Verify the current release deployment health and SQLite backup evidence before handoff",
-          limitPerSection: 5,
-          totalContextBudgetChars: 60_000,
-        };
+  it("keeps task-aware get_work_context p95 ≤ 75ms with 1k accepted and 1k working records", async () => {
+    const t = await makeTestApp({ mcpToken: PERF_MCP_TOKEN });
+    try {
+      const projectId = populateAiFirstHotPathFixture(t);
+      const input = {
+        projectId,
+        task: "Verify the current release deployment health and SQLite backup evidence before handoff",
+        limitPerSection: 5,
+        totalContextBudgetChars: 60_000,
+      };
 
-        for (let i = 0; i < WARMUP_SAMPLES; i++) {
-          const warm = await callMcp(t, "get_work_context", input);
-          if (warm.project?.id !== projectId || warm.task !== input.task) throw new Error("get_work_context warmup returned an invalid context");
-        }
-
-        const samples: number[] = [];
-        for (let i = 0; i < MEASURED_SAMPLES; i++) {
-          const startedAt = performance.now();
-          const context = await callMcp(t, "get_work_context", input);
-          samples.push(performance.now() - startedAt);
-          if (
-            context.project?.id !== projectId ||
-            context.freshness?.canonicalCursor !== 1000 ||
-            context.freshness?.workingCursor !== 1000 ||
-            context.workingMemory?.items?.length === 0
-          ) {
-            throw new Error("get_work_context sample returned an invalid AI-first context");
-          }
-        }
-        const latencyP95 = p95(samples);
-        // eslint-disable-next-line no-console
-        console.log(`[perf] get_work_context task-aware p95 = ${latencyP95.toFixed(2)}ms over ${samples.length} samples (1k accepted + 1k working records)`);
-        expect(latencyP95).toBeLessThanOrEqual(HOT_PATH_TARGET_MS);
-      } finally {
-        await t.cleanup();
+      for (let i = 0; i < WARMUP_SAMPLES; i++) {
+        const warm = await callMcp(t, "get_work_context", input);
+        if (warm.project?.id !== projectId || warm.task !== input.task)
+          throw new Error(
+            "get_work_context warmup returned an invalid context",
+          );
       }
-    },
-    180_000,
-  );
 
-  it(
-    "keeps explicit working-memory search p95 ≤ 75ms with 1k working records",
-    async () => {
-      const t = await makeTestApp({ mcpToken: PERF_MCP_TOKEN });
-      try {
-        const projectId = populateAiFirstHotPathFixture(t);
-        const input = {
-          projectId,
-          q: "release deployment health",
-          scope: "working",
-          match: "terms",
-          limit: 15,
-        };
-
-        for (let i = 0; i < WARMUP_SAMPLES; i++) {
-          const warm = await callMcp(t, "search_context", input);
-          if (warm.scope !== "working" || warm.records.length !== 0 || warm.workingRecords.length === 0) {
-            throw new Error("search_context warmup returned an invalid working-memory result");
-          }
+      const samples: number[] = [];
+      for (let i = 0; i < MEASURED_SAMPLES; i++) {
+        const startedAt = performance.now();
+        const context = await callMcp(t, "get_work_context", input);
+        samples.push(performance.now() - startedAt);
+        if (
+          context.project?.id !== projectId ||
+          context.freshness?.canonicalCursor !== 1000 ||
+          context.freshness?.workingCursor !== 1000 ||
+          context.workingMemory?.items?.length === 0
+        ) {
+          throw new Error(
+            "get_work_context sample returned an invalid AI-first context",
+          );
         }
-
-        const samples: number[] = [];
-        for (let i = 0; i < MEASURED_SAMPLES; i++) {
-          const startedAt = performance.now();
-          const result = await callMcp(t, "search_context", input);
-          samples.push(performance.now() - startedAt);
-          if (
-            result.scope !== "working" ||
-            result.records.length !== 0 ||
-            result.workingRecords.length === 0 ||
-            result.workingRecords.some((record: { truthStatus?: string }) => record.truthStatus !== "not_canonical_requires_review")
-          ) {
-            throw new Error("search_context sample returned an invalid working-memory result");
-          }
-        }
-        const latencyP95 = p95(samples);
-        // eslint-disable-next-line no-console
-        console.log(`[perf] search_context working p95 = ${latencyP95.toFixed(2)}ms over ${samples.length} samples (1k accepted + 1k working records)`);
-        expect(latencyP95).toBeLessThanOrEqual(HOT_PATH_TARGET_MS);
-      } finally {
-        await t.cleanup();
       }
-    },
-    180_000,
-  );
+      const latencyP95 = p95(samples);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[perf] get_work_context task-aware p95 = ${latencyP95.toFixed(2)}ms over ${samples.length} samples (1k accepted + 1k working records)`,
+      );
+      expect(latencyP95).toBeLessThanOrEqual(HOT_PATH_TARGET_MS);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
+
+  it("keeps explicit working-memory search p95 ≤ 75ms with 1k working records", async () => {
+    const t = await makeTestApp({ mcpToken: PERF_MCP_TOKEN });
+    try {
+      const projectId = populateAiFirstHotPathFixture(t);
+      const input = {
+        projectId,
+        q: "release deployment health",
+        scope: "working",
+        match: "terms",
+        limit: 15,
+      };
+
+      for (let i = 0; i < WARMUP_SAMPLES; i++) {
+        const warm = await callMcp(t, "search_context", input);
+        if (
+          warm.scope !== "working" ||
+          warm.records.length !== 0 ||
+          warm.workingRecords.length === 0
+        ) {
+          throw new Error(
+            "search_context warmup returned an invalid working-memory result",
+          );
+        }
+      }
+
+      const samples: number[] = [];
+      for (let i = 0; i < MEASURED_SAMPLES; i++) {
+        const startedAt = performance.now();
+        const result = await callMcp(t, "search_context", input);
+        samples.push(performance.now() - startedAt);
+        if (
+          result.scope !== "working" ||
+          result.records.length !== 0 ||
+          result.workingRecords.length === 0 ||
+          result.workingRecords.some(
+            (record: { truthStatus?: string }) =>
+              record.truthStatus !== "not_canonical_requires_review",
+          )
+        ) {
+          throw new Error(
+            "search_context sample returned an invalid working-memory result",
+          );
+        }
+      }
+      const latencyP95 = p95(samples);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[perf] search_context working p95 = ${latencyP95.toFixed(2)}ms over ${samples.length} samples (1k accepted + 1k working records)`,
+      );
+      expect(latencyP95).toBeLessThanOrEqual(HOT_PATH_TARGET_MS);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
 });
-
 
 function seedAttentionProjectionPerfFixture(
   t: TestApp,
@@ -419,45 +467,119 @@ function seedAttentionProjectionPerfFixture(
 }
 
 describe("CK attention projection performance", () => {
-  it(
-    "keeps a 100-task / 1k terminal-proof dossier p95 <= 100ms without a persistent cache",
-    async () => {
-      const t = await makeTestApp();
-      try {
-        const project = (
-          await t.post("/api/projects", {
-            name: "Synthetic attention performance fixture",
-          })
-        ).json<{ id: string }>();
-        seedAttentionProjectionPerfFixture(t, project.id);
+  it("keeps a 100-task / 1k terminal-proof dossier p95 <= 100ms without a persistent cache", async () => {
+    const t = await makeTestApp();
+    try {
+      const project = (
+        await t.post("/api/projects", {
+          name: "Synthetic attention performance fixture",
+        })
+      ).json<{ id: string }>();
+      seedAttentionProjectionPerfFixture(t, project.id);
 
-        const { projectDossier } = await import(
-          "../src/services/operational-dossier.js"
-        );
-        for (let i = 0; i < WARMUP_SAMPLES; i++) {
-          const warm = projectDossier(t.app.ck.deps, project.id, 0, 10);
-          expect(warm.attention.count).toBe(100);
-        }
-
-        const samples: number[] = [];
-        for (let i = 0; i < MEASURED_SAMPLES; i++) {
-          const startedAt = performance.now();
-          const result = projectDossier(t.app.ck.deps, project.id, 0, 10);
-          samples.push(performance.now() - startedAt);
-          expect(result.attention.count).toBe(100);
-          expect(result.attention.tasks).toHaveLength(10);
-        }
-        const latencyP95 = p95(samples);
-        console.log(
-          `[perf] dossier attention p95 = ${latencyP95.toFixed(
-            2,
-          )}ms over ${samples.length} samples (100 tasks + 1k terminal proof records)`,
-        );
-        expect(latencyP95).toBeLessThanOrEqual(100);
-      } finally {
-        await t.cleanup();
+      const { projectDossier } =
+        await import("../src/services/operational-dossier.js");
+      for (let i = 0; i < WARMUP_SAMPLES; i++) {
+        const warm = projectDossier(t.app.ck.deps, project.id, 0, 10);
+        expect(warm.attention.count).toBe(100);
       }
-    },
-    180_000,
-  );
+
+      const samples: number[] = [];
+      for (let i = 0; i < MEASURED_SAMPLES; i++) {
+        const startedAt = performance.now();
+        const result = projectDossier(t.app.ck.deps, project.id, 0, 10);
+        samples.push(performance.now() - startedAt);
+        expect(result.attention.count).toBe(100);
+        expect(result.attention.tasks).toHaveLength(10);
+      }
+      const latencyP95 = p95(samples);
+      console.log(
+        `[perf] dossier attention p95 = ${latencyP95.toFixed(
+          2,
+        )}ms over ${samples.length} samples (100 tasks + 1k terminal proof records)`,
+      );
+      expect(latencyP95).toBeLessThanOrEqual(100);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
+});
+
+describe("FTS5 dedicated performance qualification", () => {
+  it("keeps /api/search p95 <= 150ms on 10k records in the dedicated perf process", async () => {
+    const t = await makeTestApp({ seed: true });
+    try {
+      const sqlite = t.app.ck.deps.sqlite;
+      const projectId = (
+        sqlite.prepare("SELECT id FROM projects LIMIT 1").get() as {
+          id: string;
+        }
+      ).id;
+      const insertOne = sqlite.prepare(
+        `INSERT INTO records
+          (id, project_id, type, subject, text, review_status, evidence_basis,
+           record_dedup_hash, recorded_at, created_at, updated_at)
+          VALUES (?, ?, 'fact', ?, ?, 'accepted', 'document', ?, ?, ?, ?)`,
+      );
+      const now = new Date().toISOString();
+      sqlite.transaction(() => {
+        for (let i = 0; i < 10_000; i++) {
+          const id = `perf-search-${i.toString(36).padStart(5, "0")}`;
+          const word = [
+            "release",
+            "verify",
+            "build",
+            "test",
+            "deploy",
+            "audit",
+            "review",
+          ][i % 7]!;
+          insertOne.run(
+            id,
+            projectId,
+            `${word}-subject-${i}`,
+            `The ${word} phase ${i} of the runbook covers environment preparation, evidence capture, and sign-off.`,
+            `dedup-${id}`,
+            now,
+            now,
+            now,
+          );
+        }
+      })();
+
+      for (let i = 0; i < 5; i++) {
+        const warm = await t.get("/api/search?q=release");
+        expectStatus(warm, 200, "FTS5 performance warmup");
+      }
+
+      const queries = [
+        "release",
+        "verify build",
+        "audit review",
+        "deploy",
+        "test audit",
+        "build test deploy",
+      ];
+      const samples: number[] = [];
+      for (let i = 0; i < 60; i++) {
+        const q = queries[i % queries.length]!;
+        const startedAt = performance.now();
+        const result = await t.get(`/api/search?q=${encodeURIComponent(q)}`);
+        samples.push(performance.now() - startedAt);
+        expectStatus(result, 200, "FTS5 performance sample");
+      }
+
+      const latencyP95 = [...samples].sort((a, b) => a - b)[
+        Math.floor(samples.length * 0.95)
+      ]!;
+      console.log(
+        `[perf] search p95 = ${latencyP95.toFixed(
+          2,
+        )}ms over ${samples.length} samples (10k records)`,
+      );
+      expect(latencyP95).toBeLessThanOrEqual(150);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
 });

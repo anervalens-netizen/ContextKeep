@@ -9,6 +9,7 @@ export const releaseGatePlan = [
   ["static audit", ["run", "check:audit"]],
   ["public-data privacy", ["run", "check:privacy"]],
   ["published-history privacy", ["run", "check:privacy:history"]],
+  ["performance tests", ["run", "test:performance"]],
   ["functional tests", ["run", "test:functional"]],
   ["operational recovery", ["run", "test:ops"]],
   ["build", ["run", "build"]],

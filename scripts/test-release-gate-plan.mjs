@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { commandFor, releaseGatePlan } from "./release-gate.mjs";
 
 const audit = releaseGatePlan.find(([name]) => name === "dependency audit");
+const performance = releaseGatePlan.find(
+  ([name]) => name === "performance tests",
+);
+assert.deepEqual(performance?.[1], ["run", "test:performance"]);
 assert.deepEqual(audit?.[1], ["audit", "--audit-level", "moderate"]);
 assert.deepEqual(commandFor(audit), [
   process.platform === "win32" ? "pnpm.cmd" : "pnpm",
