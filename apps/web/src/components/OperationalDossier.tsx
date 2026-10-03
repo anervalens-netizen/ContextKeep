@@ -10,6 +10,13 @@ export interface TaskDossier {
   stateSource: string;
   summary: string | null;
   nextAction: string | null;
+  followUp?: {
+    nextAction: string;
+    summary: string | null;
+    checkpointRecordId: string;
+    recordedAt: string;
+    provenance: string;
+  } | null;
   ownerAction: string | null;
   progress: {
     recordId: string;
@@ -33,6 +40,10 @@ export interface TaskDossier {
     };
     updatedAt: string;
   } | null;
+  currentEvidenceValidity?: string | null;
+  unresolvedExecutionCount?: number;
+  needsAttention?: boolean;
+  attentionReasons?: string[];
   blockers: { activeCount: number };
   continuation: {
     policy: { mode: string; objective: string } | null;
@@ -61,11 +72,22 @@ export interface TaskDigest {
   state: string;
   summary: string | null;
   nextAction: string | null;
+  followUp?: {
+    nextAction: string;
+    summary: string | null;
+    checkpointRecordId: string;
+    recordedAt: string;
+    provenance: string;
+  } | null;
   ownerAction: string | null;
   lastActivityAt: string;
   activeBlockers: number;
   executionStatus: string | null;
   verification: string | null;
+  currentEvidenceValidity?: string | null;
+  unresolvedExecutionCount?: number;
+  needsAttention?: boolean;
+  attentionReasons?: string[];
   stateToken: string;
   taskRevision: number;
 }
@@ -73,6 +95,11 @@ export interface ProjectDossier {
   project: { id: string; name: string; lifecycle: string };
   goals: Array<{ recordId: string; text: string }>;
   tasks: TaskDigest[];
+  attention?: {
+    count: number;
+    tasks: TaskDigest[];
+    truncated: boolean;
+  };
   pagination: { total: number; nextOffset: number | null };
   historicalUnscopedCheckpoints: number;
   links: {
@@ -94,6 +121,8 @@ export interface PortfolioPage {
     tasks: TaskDigest[];
     taskCount: number;
     moreTasks: boolean;
+    attentionCount?: number;
+    attentionTasks?: TaskDigest[];
   }>;
   total: number;
   nextOffset: number | null;
@@ -160,6 +189,15 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
       <p className="ck-now-summary">
         {dossier.summary ?? "Nu există încă un raport pentru această lucrare."}
       </p>
+      {dossier.needsAttention && (
+        <p role="status" className="ck-owner-action">
+          Necesită atenție
+          {typeof dossier.unresolvedExecutionCount === "number" &&
+          dossier.unresolvedExecutionCount > 0
+            ? `: ${dossier.unresolvedExecutionCount} execuții sau dovezi necesită verificare`
+            : "."}
+        </p>
+      )}
       <dl className="ck-now-facts">
         <div>
           <dt>Pasul următor</dt>
@@ -168,6 +206,12 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
               "Nu este precizat. Citește dovezile înainte de a continua."}
           </dd>
         </div>
+        {dossier.followUp && (
+          <div>
+            <dt>Urmărire după închidere</dt>
+            <dd>{dossier.followUp.nextAction}</dd>
+          </div>
+        )}
         {dossier.ownerAction && (
           <div className="ck-owner-action">
             <dt>De la tine</dt>
@@ -370,6 +414,35 @@ export function ProjectNow({
       {!data && !error && <p role="status">Se încarcă starea proiectului…</p>}
       {data && (
         <>
+          {data.attention && data.attention.count > 0 && (
+            <section aria-label="Needs attention" className="ck-attention-list">
+              <h4>Necesită atenție ({data.attention.count})</h4>
+              <div className="ck-dossier-cards">
+                {data.attention.tasks.map((t) => (
+                  <button
+                    className="ck-dossier-card"
+                    key={`attention-${t.taskId}`}
+                    onClick={() => onTask(t.taskId)}
+                  >
+                    <span className={`ck-state-tag ck-state-${t.state}`}>
+                      {stateLabel(t.state)}
+                    </span>
+                    <strong>{t.title}</strong>
+                    <span>
+                      {t.unresolvedExecutionCount
+                        ? `${t.unresolvedExecutionCount} execuții/dovezi necesită verificare`
+                        : t.activeBlockers
+                          ? `${t.activeBlockers} blocaje active`
+                          : "Este necesară o verificare sau o acțiune."}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {data.attention.truncated && (
+                <small>Lista de atenție este trunchiată; deschide dosarul complet.</small>
+              )}
+            </section>
+          )}
           <div className="ck-filter-controls">
             <button
               aria-pressed={filter === "active"}
@@ -494,11 +567,22 @@ export function PortfolioNow({
                 <small>
                   {p.lifecycle} · {p.taskCount} lucrări
                 </small>
-                {p.tasks.slice(0, 1).map((t) => (
-                  <span key={t.taskId}>
-                    {stateLabel(t.state)} · {t.summary ?? t.title}
-                  </span>
-                ))}
+                {typeof p.attentionCount === "number" &&
+                  p.attentionCount > 0 && (
+                    <span className="ck-owner-action">
+                      Necesită atenție: {p.attentionCount}
+                    </span>
+                  )}
+                {(p.attentionTasks?.length
+                  ? p.attentionTasks
+                  : p.tasks
+                )
+                  .slice(0, 1)
+                  .map((t) => (
+                    <span key={t.taskId}>
+                      {stateLabel(t.state)} · {t.summary ?? t.title}
+                    </span>
+                  ))}
               </button>
             ))}
           </div>

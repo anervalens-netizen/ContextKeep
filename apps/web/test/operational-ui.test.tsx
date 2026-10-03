@@ -209,3 +209,68 @@ describe("operational UI", () => {
     expect(select).toHaveBeenCalledWith("fixture-task");
   });
 });
+
+
+describe("needs-attention projection", () => {
+  it("surfaces attention that is outside the loaded recent-task page", async () => {
+    const attentionTask = {
+      taskId: "older-attention",
+      title: "Older verified task",
+      state: "done",
+      summary: "Historical proof changed",
+      nextAction: null,
+      ownerAction: null,
+      lastActivityAt: "2025-12-01T00:00:00.000Z",
+      activeBlockers: 0,
+      executionStatus: "completed",
+      verification: "passed",
+      currentEvidenceValidity: "valid",
+      unresolvedExecutionCount: 1,
+      needsAttention: true,
+      attentionReasons: ["unresolved_execution"],
+      stateToken: "attention",
+      taskRevision: 1,
+    };
+    const data: ProjectDossier = {
+      project: {
+        id: "fixture-project",
+        name: "Synthetic",
+        lifecycle: "active",
+      },
+      goals: [],
+      tasks: [
+        {
+          ...attentionTask,
+          taskId: "recent-done",
+          title: "Recent completed task",
+          unresolvedExecutionCount: 0,
+          needsAttention: false,
+          attentionReasons: [],
+          stateToken: "recent",
+          lastActivityAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+      attention: {
+        count: 1,
+        tasks: [attentionTask],
+        truncated: false,
+      },
+      pagination: { total: 4, nextOffset: 1 },
+      historicalUnscopedCheckpoints: 0,
+      links: { items: [] },
+    };
+    const select = vi.fn();
+    render(
+      <ProjectNow
+        projectId="fixture-project"
+        load={async () => data}
+        onTask={select}
+      />,
+    );
+    expect(await screen.findByText("Necesită atenție (1)")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Older verified task/ }),
+    );
+    expect(select).toHaveBeenCalledWith("older-attention");
+  });
+});

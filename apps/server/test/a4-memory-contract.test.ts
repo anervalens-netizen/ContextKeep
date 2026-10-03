@@ -241,7 +241,24 @@ describe("A4 AI-first memory contract", () => {
         expect(plain.latestNextAction).toBe("Continue the bounded local verification.");
       }
       if (budget >= 6000) {
-        expect(plain.facts.items.some((item: any) => item.text?.includes("Current state fact")), JSON.stringify({ budget, facts: plain.facts, currentState: plain.currentState })).toBe(true);
+        expect(
+          plain.currentState.items.some((item: any) =>
+            item.text?.includes("Current state fact"),
+          ),
+          JSON.stringify({
+            budget,
+            facts: plain.facts,
+            currentState: plain.currentState,
+          }),
+        ).toBe(true);
+        const currentIds = new Set(
+          plain.currentState.items.map((item: any) => item.recordId),
+        );
+        for (const item of plain.facts.items.filter((item: any) =>
+          currentIds.has(item.recordId),
+        )) {
+          expect(item.text).toBeUndefined();
+        }
       }
     }
   });

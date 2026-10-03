@@ -74,8 +74,12 @@ export function compactContextRecord(
     stale: item.stale,
     requiresReview: item.requiresReview,
     freshnessReasons: item.freshnessReasons,
+    ...(item.currentStateRef === true ? { currentStateRef: true } : {}),
     detailOmittedForBudget: true,
-    recovery: { tool: "get_record" },
+    recovery:
+      item.currentStateRef === true
+        ? { section: "currentState", tool: "get_work_context" }
+        : { tool: "get_record" },
   };
 }
 

@@ -11,6 +11,8 @@ pnpm install --frozen-lockfile
 pnpm build
 pnpm typecheck
 pnpm test:functional
+pnpm test:focused
+pnpm --filter @contextkeep/server test:perf
 pnpm test:ops
 ```
 
@@ -48,7 +50,7 @@ and the host panel; it does not silently promote reports to accepted knowledge.
 
 ## Reliable task continuity
 
-MCP 2.14 / schema 19 retains explicit execution-evidence correlation and immutable
+MCP 2.15 / schema 19 retains explicit execution-evidence correlation and immutable
 verification receipts and adds task-scope guardrails, current-state-first resume,
 operational task handoffs and no-replay uncertain-run reconciliation. A historical pass and a currently valid proof are different
 states. Read [Execution evidence](docs/VERIFICATION_EVIDENCE.md) for the optional

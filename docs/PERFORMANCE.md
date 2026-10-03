@@ -60,9 +60,30 @@ disabling just one observer does not defer a shared request. Delaying secondary
 work or rendering records progressively is distinct from paginating an HTTP
 payload; do not report one as evidence of the other.
 
+## Operational attention projection
+
+Project and portfolio attention must be computed over the whole project rather
+than inferred from the current recent-task page. The implementation batches
+progress, blocker, run-evidence and continuation state and materializes full task
+dossiers only for the visible page and the bounded attention detail list. Do not
+replace that with a latest-run-only shortcut: an older execution with invalid
+proof can remain actionable while the latest run is valid.
+
+The dedicated performance suite contains a synthetic 100-task / 1,000-terminal-run
+guard for this projection. It measures the bulk read path without a persistent
+cache. Introduce an additional cache or index only after a repeatable measured
+benefit, and invalidate it for run observations, evidence edits/withdrawals/restores,
+task or blocker changes, continuation expiry and other time-dependent state.
+
 ## Regression checks
 
-Run the full release gate as documented in the root README. Targeted checks
+Run the full release gate as documented in the root README. `pnpm test:focused`
+first builds the shared package, prints the source/worktree identity and hashes
+the shared DTO artifact before running selected server regressions; this prevents
+a stale generated artifact from masquerading as an application defect. Run the
+dedicated performance suite separately for machine-sensitive thresholds.
+
+Targeted checks
 include `apps/server/test/freshness-versioned.test.ts`,
 `apps/server/test/freshness-bounded-context.test.ts`,
 `apps/server/test/search-filter-bounds.test.ts`,
