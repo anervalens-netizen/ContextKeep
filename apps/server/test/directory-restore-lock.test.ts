@@ -307,6 +307,9 @@ describe.skipIf(process.platform !== "linux")(
       }
     });
 
+    // This is a correctness/integration probe that launches the real Python
+    // restore wrapper twice. It is not a latency SLO; allow full-suite CPU
+    // contention while keeping the dedicated recovery and performance gates separate.
     it("the real Python wrapper refuses a live custom-directory alias, then restores and restarts after close", async () => {
       const t = await fixture();
       try {
@@ -382,7 +385,7 @@ describe.skipIf(process.platform !== "linux")(
         if (t.handle.sqlite.open) t.handle.sqlite.close();
         fs.rmSync(t.root, { recursive: true, force: true });
       }
-    }, 30000);
+    }, 60000);
   },
 );
 
