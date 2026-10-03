@@ -127,7 +127,7 @@ export function fitWorkContext(
           freshness: item.freshness,
           evidenceCount: item.evidenceCount,
           currentStateRef: true,
-          recovery: { section: "currentState", tool: "get_work_context" },
+          recovery: { tool: "get_record" },
         };
       });
       if (deduplicated > 0) {

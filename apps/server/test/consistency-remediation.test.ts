@@ -35,7 +35,8 @@ async function call(
   });
   expect(response.statusCode).toBe(200);
   const result = response.json().result;
-  if (result?.isError) throw new Error(JSON.stringify(result.structuredContent));
+  if (result?.isError)
+    throw new Error(JSON.stringify(result.structuredContent));
   return result.structuredContent;
 }
 
@@ -189,7 +190,11 @@ describe("CK consistency remediation acceptance", () => {
   it("N01: task-scoped working memory cannot be replaced by another task's report", async () => {
     const { t, projectId, taskId } = await setup();
     const own = await checkpoint(t, projectId, taskId, "Synthetic task A step");
-    const otherTaskId = await createTask(t, projectId, "Synthetic secondary task");
+    const otherTaskId = await createTask(
+      t,
+      projectId,
+      "Synthetic secondary task",
+    );
     const other = await call(t, "capture_work", {
       projectId,
       taskId: otherTaskId,
@@ -204,7 +209,9 @@ describe("CK consistency remediation acceptance", () => {
     });
     expect(work.workingMemory.scope).toBe("task");
     expect(work.workingMemory.taskId).toBe(taskId);
-    const ids = work.workingMemory.items.map((item: { recordId: string }) => item.recordId);
+    const ids = work.workingMemory.items.map(
+      (item: { recordId: string }) => item.recordId,
+    );
     expect(ids).toContain(own.outcome.recordId);
     expect(ids).not.toContain(other.outcome.recordId);
   });
@@ -298,7 +305,6 @@ describe("CK consistency remediation acceptance", () => {
   });
 });
 
-
 describe("CK remediation budget and relation matrix", () => {
   it("keeps task identity/provenance across supported budgets and makes pinned omissions recoverable", async () => {
     const { t, projectId, taskId } = await setup();
@@ -315,7 +321,12 @@ describe("CK remediation budget and relation matrix", () => {
       });
       pinned.push(note.acceptedRecordIds[0]);
     }
-    await checkpoint(t, projectId, taskId, "Synthetic obsolete checkpoint step");
+    await checkpoint(
+      t,
+      projectId,
+      taskId,
+      "Synthetic obsolete checkpoint step",
+    );
     await progress(t, projectId, taskId, "done", null);
 
     for (const diagnostics of [false, true]) {
@@ -331,7 +342,9 @@ describe("CK remediation budget and relation matrix", () => {
         expect(JSON.stringify(work).length).toBeLessThanOrEqual(budget);
         expect(work.project.id).toBe(projectId);
         expect(work.taskId).toBe(taskId);
-        expect(work.latestNextAction ?? work.resumeCapsule?.nextAction ?? null).toBeNull();
+        expect(
+          work.latestNextAction ?? work.resumeCapsule?.nextAction ?? null,
+        ).toBeNull();
         for (const item of work.constraints?.items ?? []) {
           expect(item.status).toBe("accepted");
         }
@@ -399,18 +412,12 @@ describe("CK remediation budget and relation matrix", () => {
   });
 });
 
-
 describe("CK remediation cross-surface utility corpus", () => {
   it("preserves terminal state while exposing a newer checkpoint only as an explicit follow-up", async () => {
     const { t, projectId, taskId } = await setup();
     await progress(t, projectId, taskId, "done", null);
     await new Promise((resolve) => setTimeout(resolve, 4));
-    await checkpoint(
-      t,
-      projectId,
-      taskId,
-      "Synthetic follow-up after closure",
-    );
+    await checkpoint(t, projectId, taskId, "Synthetic follow-up after closure");
 
     const resumed = await call(t, "resume_task", { projectId, taskId });
     expect(resumed.dossier).toMatchObject({
@@ -490,7 +497,6 @@ describe("CK remediation cross-surface utility corpus", () => {
   });
 });
 
-
 describe("F02 bounded context deduplication", () => {
   it("keeps one full current-state body and preserves working-memory pointers at 10k", async () => {
     const { t, projectId, taskId } = await setup();
@@ -539,5 +545,114 @@ describe("F02 bounded context deduplication", () => {
     expect(work.facts.deduplicatedCurrentStateCount).toBeGreaterThanOrEqual(1);
     expect(work.workingMemory.returned).toBeGreaterThan(0);
     expect(JSON.stringify(work).length).toBeLessThanOrEqual(10_000);
+  });
+});
+
+describe("Codex review continuity regressions", () => {
+  it("does not label an older checkpoint as a post-closure follow-up and points stateRecordId at the task record", async () => {
+    const { t, projectId, taskId } = await setup();
+    await checkpoint(t, projectId, taskId, "Synthetic pre-closure checkpoint");
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    await call(t, "edit_record", {
+      recordId: taskId,
+      revision: 1,
+      taskStatus: "done",
+      ...identity(),
+    });
+
+    const resumed = await call(t, "resume_task", { projectId, taskId });
+    expect(resumed.dossier).toMatchObject({
+      state: "done",
+      stateSource: "task_record",
+      nextAction: null,
+      followUp: null,
+    });
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 10_000,
+    });
+    expect(work.resumeCapsule).toMatchObject({
+      state: "done",
+      stateSource: "task_record",
+      stateRecordId: taskId,
+      nextAction: null,
+      followUp: null,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    await checkpoint(
+      t,
+      projectId,
+      taskId,
+      "Synthetic genuine post-closure follow-up",
+    );
+    const after = await call(t, "resume_task", { projectId, taskId });
+    expect(after.dossier.followUp).toMatchObject({
+      nextAction: "Synthetic genuine post-closure follow-up",
+    });
+    expect(after.dossier.warnings.join(" ")).toContain("follow-up");
+  });
+
+  it("points a reported-progress capsule at the progress record", async () => {
+    const { t, projectId, taskId } = await setup();
+    const reported = await progress(
+      t,
+      projectId,
+      taskId,
+      "in_progress",
+      "Synthetic current step",
+    );
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 10_000,
+    });
+    expect(work.resumeCapsule).toMatchObject({
+      state: "in_progress",
+      stateSource: "reported_progress",
+      stateRecordId: reported.progress.recordId,
+      nextAction: "Synthetic current step",
+    });
+  });
+
+  it("uses direct record recovery for deduplicated current-state pointers", async () => {
+    const { t, projectId, taskId } = await setup();
+    const current = await call(t, "add_owner_note", {
+      projectId,
+      recordType: "fact",
+      subject: "Synthetic compact pointer",
+      statement:
+        "Current state synthetic pointer. " +
+        "Synthetic compact evidence body. ".repeat(50),
+      ...identity(),
+    });
+    for (let i = 0; i < 4; i++) {
+      await call(t, "capture_work", {
+        projectId,
+        taskId,
+        outcome:
+          `Synthetic bounded report ${i}. ` +
+          "Background working memory. ".repeat(40),
+        ...identity(),
+      });
+    }
+    for (const budget of [6_000, 10_000]) {
+      const work = await call(t, "get_work_context", {
+        projectId,
+        taskId,
+        task: "synthetic compact pointer",
+        limitPerSection: 5,
+        totalContextBudgetChars: budget,
+      });
+      const pointer = work.facts?.items?.find(
+        (item: { recordId: string }) =>
+          item.recordId === current.acceptedRecordIds[0],
+      );
+      if (pointer?.currentStateRef) {
+        expect(pointer.recovery).toMatchObject({ tool: "get_record" });
+      }
+      expect(JSON.stringify(work).length).toBeLessThanOrEqual(budget);
+    }
   });
 });

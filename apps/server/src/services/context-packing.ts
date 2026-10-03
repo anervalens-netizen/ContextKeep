@@ -76,10 +76,7 @@ export function compactContextRecord(
     freshnessReasons: item.freshnessReasons,
     ...(item.currentStateRef === true ? { currentStateRef: true } : {}),
     detailOmittedForBudget: true,
-    recovery:
-      item.currentStateRef === true
-        ? { section: "currentState", tool: "get_work_context" }
-        : { tool: "get_record" },
+    recovery: { tool: "get_record" },
   };
 }
 

@@ -117,6 +117,30 @@ export function effectiveTaskState(
       : ("unknown" as const),
   };
 }
+function taskRecordStateEstablishedAt(
+  deps: Pick<ServiceDeps, "sqlite">,
+  task: { id: string; taskStatus: string | null },
+): string | null {
+  if (task.taskStatus === null) return null;
+  const changed = deps.sqlite
+    .prepare(
+      `SELECT timestamp FROM audit_events
+       WHERE target_type='record' AND target_id=?
+         AND action IN ('record.edited','record.accepted')
+         AND json_valid(before_ref) AND json_valid(after_ref)
+         AND json_extract(before_ref,'$.taskStatus')
+             IS NOT json_extract(after_ref,'$.taskStatus')
+         AND json_extract(after_ref,'$.taskStatus')=?
+       ORDER BY timestamp DESC,id DESC LIMIT 1`,
+    )
+    .get(task.id, task.taskStatus) as { timestamp: string } | undefined;
+  if (changed) return changed.timestamp;
+  const created = deps.sqlite
+    .prepare("SELECT created_at AS createdAt FROM records WHERE id=?")
+    .get(task.id) as { createdAt: string } | undefined;
+  return created?.createdAt ?? null;
+}
+
 export function effectiveTaskContinuity(
   deps: ServiceDeps,
   projectId: string,
@@ -129,7 +153,9 @@ export function effectiveTaskContinuity(
 ) {
   const task = supplied.task ?? requireTaskScope(deps, projectId, taskId);
   const progress =
-    supplied.progress === undefined ? getTaskProgress(deps, taskId) : supplied.progress;
+    supplied.progress === undefined
+      ? getTaskProgress(deps, taskId)
+      : supplied.progress;
   const checkpoint =
     supplied.checkpoint === undefined
       ? latestCheckpointFor(deps.db, projectId, taskId)
@@ -139,6 +165,17 @@ export function effectiveTaskContinuity(
   const newerCheckpoint =
     !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
   const terminal = state === "done" || state === "cancelled";
+  const stateEstablishedAt =
+    stateSource === "task_record"
+      ? taskRecordStateEstablishedAt(deps, task)
+      : stateSource === "reported_progress"
+        ? (progress?.recordedAt ?? null)
+        : null;
+  const checkpointAfterTerminalState =
+    terminal &&
+    !!checkpoint &&
+    !!stateEstablishedAt &&
+    checkpoint.recordedAt > stateEstablishedAt;
 
   let nextAction: string | null;
   if (terminal && stateSource === "task_record") {
@@ -153,7 +190,7 @@ export function effectiveTaskContinuity(
   }
 
   const followUp =
-    terminal && newerCheckpoint && cp?.nextAction
+    checkpointAfterTerminalState && cp?.nextAction
       ? {
           nextAction: cp.nextAction,
           summary: cp.summary ?? cp.outcome ?? null,
@@ -178,6 +215,7 @@ export function effectiveTaskContinuity(
     followUp,
     summary,
     newerCheckpoint,
+    stateEstablishedAt,
   };
 }
 
@@ -533,11 +571,17 @@ export function taskDossier(
     warnings.push(
       "No structured task progress has been recorded; free text is not a completion signal.",
     );
-  if (newerCheckpoint && progress)
+  if (followUp)
     warnings.push(
-      followUp
-        ? "A checkpoint newer than terminal progress is preserved as a follow-up, not as the current resume instruction. Reconcile it explicitly before starting new work."
-        : "The checkpoint is newer than the explicit progress report; reconcile before acting.",
+      "A checkpoint newer than the terminal task state is preserved as a follow-up, not as the current resume instruction. Reconcile it explicitly before starting new work.",
+    );
+  else if (
+    newerCheckpoint &&
+    progress &&
+    !["done", "cancelled"].includes(state)
+  )
+    warnings.push(
+      "The checkpoint is newer than the explicit progress report; reconcile before acting.",
     );
   if (
     run &&
@@ -562,9 +606,7 @@ export function taskDossier(
     ...(state === "blocked" ? ["blocked_state"] : []),
     ...(blockers.activeCount > 0 ? ["active_blocker"] : []),
     ...(unresolved.total > 0 ? ["unresolved_execution"] : []),
-    ...(health.reconciliationNeeded > 0
-      ? ["continuation_reconciliation"]
-      : []),
+    ...(health.reconciliationNeeded > 0 ? ["continuation_reconciliation"] : []),
     ...(progress?.ownerAction ? ["owner_action"] : []),
   ];
   return {
@@ -746,10 +788,7 @@ function projectAttentionReasons(
     reviewStatus: string;
     evidenceBasis: string;
   }>;
-  const progressByTask = new Map<
-    string,
-    ReturnType<typeof getTaskProgress>
-  >();
+  const progressByTask = new Map<string, ReturnType<typeof getTaskProgress>>();
   for (const row of progressRows) {
     if (progressByTask.has(row.taskId)) continue;
     const value = JSON.parse(row.valueJson) as ProgressValue;
@@ -876,17 +915,19 @@ export function projectDossier(
   const attentionCandidates = attentionRows.filter((row) =>
     attentionReasonIndex.has(row.id),
   );
-  const attentionTasks = attentionCandidates.slice(0, attentionLimit).map((row) => {
-    const digest = taskDigests.get(row.id) ?? digestTask(row);
-    const indexedReasons = attentionReasonIndex.get(row.id) ?? [];
-    return {
-      ...digest,
-      needsAttention: true,
-      attentionReasons: [
-        ...new Set([...digest.attentionReasons, ...indexedReasons]),
-      ],
-    };
-  });
+  const attentionTasks = attentionCandidates
+    .slice(0, attentionLimit)
+    .map((row) => {
+      const digest = taskDigests.get(row.id) ?? digestTask(row);
+      const indexedReasons = attentionReasonIndex.get(row.id) ?? [];
+      return {
+        ...digest,
+        needsAttention: true,
+        attentionReasons: [
+          ...new Set([...digest.attentionReasons, ...indexedReasons]),
+        ],
+      };
+    });
   // Unscoped old checkpoints remain visible, but they are not the current task's blockers.
   const historical = deps.sqlite
     .prepare(

@@ -12,7 +12,7 @@ pnpm build
 pnpm typecheck
 pnpm test:functional
 pnpm test:focused
-pnpm --filter @contextkeep/server test:perf
+pnpm test:performance
 pnpm test:ops
 ```
 

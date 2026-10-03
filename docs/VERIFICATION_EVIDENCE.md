@@ -1,5 +1,6 @@
 # Execution evidence and current validity
-> MCP 2.14 keeps this schema-19 evidence model unchanged and adds an explicit
+
+> MCP 2.15 keeps this schema-19 evidence model unchanged and retains the explicit
 > no-replay reconcile_uncertain_run path for job_start_uncertain. Reconciliation
 > records caller-inspected evidence and does not itself verify success or start an executor.
 

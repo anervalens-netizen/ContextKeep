@@ -1,7 +1,8 @@
 # MCP interface
 
-> Current operational contract: MCP 2.14 / schema 19. MCP 2.13 execution-evidence
-> correlation remains required for new verification; MCP 2.14 adds explicit
+> Current operational contract: MCP 2.15 / schema 19. MCP 2.13 execution-evidence
+> correlation remains required for new verification; MCP 2.15 retains the 2.14
+> task-scope and no-replay contracts and adds the consistency/attention hardening.
 > task-scope guardrails, current-state-first resume, task operational handoffs,
 > compact search mode and no-replay uncertain-run reconciliation. Ordinary
 > non-checkpoint project captures remain compatible. See

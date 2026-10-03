@@ -5,17 +5,35 @@ import { workspaceBindings } from "../db/workspace-schema.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps } from "./import.js";
-import { loadRecordFreshnessContext, loadEvidenceFor, loadEvidenceRefsFor, parseJson, toProjectDto, type EvidenceRefDto } from "./mappers.js";
-import { retrieveRecordMatches, search, type RetrievedRecordMatch } from "./search.js";
+import {
+  loadRecordFreshnessContext,
+  loadEvidenceFor,
+  loadEvidenceRefsFor,
+  parseJson,
+  toProjectDto,
+  type EvidenceRefDto,
+} from "./mappers.js";
+import {
+  retrieveRecordMatches,
+  search,
+  type RetrievedRecordMatch,
+} from "./search.js";
 import { searchRelations } from "./relations.js";
 import { synthesize } from "./synthesis.js";
 import { requireTaskScope } from "./task-scope.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
-import { compactWorkingCheckpoint, latestCheckpointFor } from "./checkpoint-context.js";
+import {
+  compactWorkingCheckpoint,
+  latestCheckpointFor,
+} from "./checkpoint-context.js";
 import { getBlockerState } from "./blockers.js";
 import { effectiveTaskContinuity } from "./operational-dossier.js";
 import { selectContextRows } from "./context-selection.js";
-import { fitWorkContext, type WorkContextDiagnostics, type WorkContextSectionDiagnostic } from "./context-budget.js";
+import {
+  fitWorkContext,
+  type WorkContextDiagnostics,
+  type WorkContextSectionDiagnostic,
+} from "./context-budget.js";
 import {
   classifyRecordFreshness,
   isCurrentStateClaim,
@@ -41,17 +59,32 @@ type WorkContextTaskCache = {
   relations: Map<string, ReturnType<typeof searchRelations>>;
 };
 
-const WORK_CONTEXT_TASK_CACHE = new WeakMap<ServiceDeps, WorkContextTaskCache>();
+const WORK_CONTEXT_TASK_CACHE = new WeakMap<
+  ServiceDeps,
+  WorkContextTaskCache
+>();
 
-function workContextTaskCache(deps: ServiceDeps, generation: string): WorkContextTaskCache {
+function workContextTaskCache(
+  deps: ServiceDeps,
+  generation: string,
+): WorkContextTaskCache {
   const cached = WORK_CONTEXT_TASK_CACHE.get(deps);
   if (cached?.generation === generation) return cached;
-  const created: WorkContextTaskCache = { generation, matches: new Map(), relations: new Map() };
+  const created: WorkContextTaskCache = {
+    generation,
+    matches: new Map(),
+    relations: new Map(),
+  };
   WORK_CONTEXT_TASK_CACHE.set(deps, created);
   return created;
 }
 
-function rememberBounded<T>(cache: Map<string, T>, key: string, value: T, maxEntries = 64): T {
+function rememberBounded<T>(
+  cache: Map<string, T>,
+  key: string,
+  value: T,
+  maxEntries = 64,
+): T {
   cache.set(key, value);
   while (cache.size > maxEntries) {
     const oldest = cache.keys().next().value;
@@ -78,17 +111,32 @@ function queryTokens(value: string): string[] {
 function relevanceScore(row: RecordRow, task: string | undefined): number {
   if (!task) return 0;
   const wanted = new Set(queryTokens(task));
-  const haystack = new Set(queryTokens([row.subject, row.predicate ?? "", row.text, row.valueJson ?? ""].join(" ")));
+  const haystack = new Set(
+    queryTokens(
+      [row.subject, row.predicate ?? "", row.text, row.valueJson ?? ""].join(
+        " ",
+      ),
+    ),
+  );
   let score = 0;
   for (const token of wanted) if (haystack.has(token)) score += 1;
   return score;
 }
 
-function rankForTask(rows: RecordRow[], task: string | undefined, limit: number): RecordRow[] {
+function rankForTask(
+  rows: RecordRow[],
+  task: string | undefined,
+  limit: number,
+): RecordRow[] {
   if (!task) return rows.slice(0, limit);
   return rows
     .map((row, index) => ({ row, score: relevanceScore(row, task), index }))
-    .sort((a, b) => b.score - a.score || observedAt(b.row).localeCompare(observedAt(a.row)) || a.index - b.index)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        observedAt(b.row).localeCompare(observedAt(a.row)) ||
+        a.index - b.index,
+    )
     .filter((item) => item.score > 0)
     .slice(0, limit)
     .map((item) => item.row);
@@ -99,7 +147,11 @@ export interface MemoryToolRunContext {
   projectId: string | null;
 }
 
-function clamp(value: number | undefined, fallback: number, max: number): number {
+function clamp(
+  value: number | undefined,
+  fallback: number,
+  max: number,
+): number {
   return Math.max(1, Math.min(max, value ?? fallback));
 }
 
@@ -107,7 +159,9 @@ function clip(value: string, max: number): string {
   return value.length <= max ? value : `${value.slice(0, max)}…`;
 }
 
-function compactEvidence(evidence: EvidenceDto[]): Array<Record<string, unknown>> {
+function compactEvidence(
+  evidence: EvidenceDto[],
+): Array<Record<string, unknown>> {
   return evidence.slice(0, MAX_EVIDENCE_PER_RECORD).map((item) => ({
     excerptId: item.excerptId,
     sourceId: item.sourceId,
@@ -119,7 +173,9 @@ function compactEvidence(evidence: EvidenceDto[]): Array<Record<string, unknown>
   }));
 }
 
-function evidenceRefs(evidence: EvidenceRefDto[]): Array<Record<string, unknown>> {
+function evidenceRefs(
+  evidence: EvidenceRefDto[],
+): Array<Record<string, unknown>> {
   return evidence.slice(0, MAX_EVIDENCE_PER_RECORD).map((item) => ({
     excerptId: item.excerptId,
     sourceId: item.sourceId,
@@ -140,17 +196,29 @@ export class ContextKeepMemoryService {
   ): string | null {
     if (context.scope === "project") {
       if (!context.projectId) {
-        throw new ApiError(409, "agent_scope_invalid", "Project-scoped context has no project binding.");
+        throw new ApiError(
+          409,
+          "agent_scope_invalid",
+          "Project-scoped context has no project binding.",
+        );
       }
       if (requestedProjectId && requestedProjectId !== context.projectId) {
-        throw new ApiError(403, "agent_scope_violation", "This context is scoped to a different project.");
+        throw new ApiError(
+          403,
+          "agent_scope_violation",
+          "This context is scoped to a different project.",
+        );
       }
       return context.projectId;
     }
 
     if (!requestedProjectId) {
       if (required) {
-        throw new ApiError(400, "agent_project_required", "Choose a project for this operation in all-project scope.");
+        throw new ApiError(
+          400,
+          "agent_project_required",
+          "Choose a project for this operation in all-project scope.",
+        );
       }
       return null;
     }
@@ -160,18 +228,31 @@ export class ContextKeepMemoryService {
       .from(projects)
       .where(eq(projects.id, requestedProjectId))
       .get();
-    if (!exists) throw new ApiError(404, "project_not_found", "Project not found.");
+    if (!exists)
+      throw new ApiError(404, "project_not_found", "Project not found.");
     return requestedProjectId;
   }
 
-  listProjects(context: MemoryToolRunContext, requestedLimit?: number): Record<string, unknown> {
+  listProjects(
+    context: MemoryToolRunContext,
+    requestedLimit?: number,
+  ): Record<string, unknown> {
     if (context.scope === "project") {
       const projectId = this.projectId(context, undefined, true)!;
-      const row = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
+      const row = this.deps.db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .get();
       return { scope: "project", projects: row ? [toProjectDto(row)] : [] };
     }
     const limit = clamp(requestedLimit, 25, MAX_PROJECTS);
-    const rows = this.deps.db.select().from(projects).orderBy(desc(projects.updatedAt), projects.name).limit(limit).all();
+    const rows = this.deps.db
+      .select()
+      .from(projects)
+      .orderBy(desc(projects.updatedAt), projects.name)
+      .limit(limit)
+      .all();
     return { scope: "all", projects: rows.map(toProjectDto), limit };
   }
 
@@ -180,17 +261,30 @@ export class ContextKeepMemoryService {
     input: { projectId?: string; limit?: number },
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
-    const project = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
-    if (!project) throw new ApiError(404, "project_not_found", "Project not found.");
+    const project = this.deps.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .get();
+    if (!project)
+      throw new ApiError(404, "project_not_found", "Project not found.");
     const limit = clamp(input.limit, 12, MAX_OVERVIEW_RECORDS);
     const rows = this.deps.db
       .select()
       .from(records)
-      .where(and(eq(records.projectId, projectId), eq(records.reviewStatus, "accepted")))
+      .where(
+        and(
+          eq(records.projectId, projectId),
+          eq(records.reviewStatus, "accepted"),
+        ),
+      )
       .orderBy(sql`COALESCE(${records.reviewedAt}, ${records.recordedAt}) DESC`)
       .limit(limit)
       .all();
-    const evidence = loadEvidenceFor(this.deps.db, rows.map((row) => row.id));
+    const evidence = loadEvidenceFor(
+      this.deps.db,
+      rows.map((row) => row.id),
+    );
     const counts = this.deps.sqlite
       .prepare(
         `SELECT type, count(*) AS count
@@ -202,7 +296,9 @@ export class ContextKeepMemoryService {
 
     return {
       project: toProjectDto(project),
-      acceptedCounts: Object.fromEntries(counts.map((row) => [row.type, row.count])),
+      acceptedCounts: Object.fromEntries(
+        counts.map((row) => [row.type, row.count]),
+      ),
       recentCanonicalRecords: rows.map((row) => ({
         recordId: row.id,
         type: row.type,
@@ -221,7 +317,15 @@ export class ContextKeepMemoryService {
 
   getWorkContext(
     context: MemoryToolRunContext,
-    input: { projectId?: string; taskId?: string; limitPerSection?: number; task?: string; totalContextBudgetChars?: number; diagnostics?: boolean; permanentConstraintIds?: string[] },
+    input: {
+      projectId?: string;
+      taskId?: string;
+      limitPerSection?: number;
+      task?: string;
+      totalContextBudgetChars?: number;
+      diagnostics?: boolean;
+      permanentConstraintIds?: string[];
+    },
   ): Record<string, unknown> {
     return readWithDatabaseGeneration(this.deps.db, (generation) =>
       this.getWorkContextSnapshot(context, input, generation),
@@ -234,8 +338,13 @@ export class ContextKeepMemoryService {
     generation: string | null,
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
-    const project = this.deps.db.select().from(projects).where(eq(projects.id, projectId)).get();
-    if (!project) throw new ApiError(404, "project_not_found", "Project not found.");
+    const project = this.deps.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .get();
+    if (!project)
+      throw new ApiError(404, "project_not_found", "Project not found.");
     const limit = clamp(input.limitPerSection, 5, 10);
     const taskScope = input.taskId
       ? requireTaskScope(this.deps, projectId, input.taskId)
@@ -245,13 +354,24 @@ export class ContextKeepMemoryService {
     const contextNow = new Date().toISOString();
     // Share bounded, versioned evidence with brief/search reads. Only selected
     // canonical rows need signals; temporal verdicts are recomputed each call.
-    const freshContext = (rows: RecordRow[]) => loadRecordFreshnessContext(this.deps.db, rows, contextNow);
+    const freshContext = (rows: RecordRow[]) =>
+      loadRecordFreshnessContext(this.deps.db, rows, contextNow);
     const diagnosticsRequested = input.diagnostics === true;
     const canonicalTaskMatchIds = new Set<string>();
     const workingTaskMatchIds = new Set<string>();
-    const taskCache = task && generation !== null ? workContextTaskCache(this.deps, generation) : null;
+    const taskCache =
+      task && generation !== null
+        ? workContextTaskCache(this.deps, generation)
+        : null;
     const taskCachePrefix = task
-      ? [project.id, project.revision, project.contentVersion, project.workingMemoryVersion, task, fetchLimit].join(":")
+      ? [
+          project.id,
+          project.revision,
+          project.contentVersion,
+          project.workingMemoryVersion,
+          task,
+          fetchLimit,
+        ].join(":")
       : "";
     const taskMatches = (
       suffix: string,
@@ -269,23 +389,39 @@ export class ContextKeepMemoryService {
         eq(records.projectId, projectId),
         eq(records.reviewStatus, "accepted"),
         eq(records.type, type),
-        activeActionsOnly ? sql`(${records.taskStatus} IS NULL OR ${records.taskStatus} IN ('open','in_progress','blocked'))` : undefined,
+        activeActionsOnly
+          ? sql`(${records.taskStatus} IS NULL OR ${records.taskStatus} IN ('open','in_progress','blocked'))`
+          : undefined,
       )!;
       const order = activeActionsOnly
         ? sql`CASE ${records.taskStatus} WHEN 'in_progress' THEN 0 WHEN 'blocked' THEN 1 ELSE 2 END, COALESCE(${records.reviewedAt}, ${records.recordedAt}) DESC`
         : sql`COALESCE(${records.reviewedAt}, ${records.recordedAt}) DESC`;
 
-      const recentRows = this.deps.db.select().from(records).where(where).orderBy(order, desc(records.id)).limit(limit).all();
+      const recentRows = this.deps.db
+        .select()
+        .from(records)
+        .where(where)
+        .orderBy(order, desc(records.id))
+        .limit(limit)
+        .all();
       const relevantRows = task
-        ? taskMatches(`accepted:${type}`, () => retrieveRecordMatches(this.deps.db, {
-            q: task,
-            projectId,
-            type,
-            statuses: ["accepted"],
-            limit: fetchLimit,
-            hydrateEvidence: false,
-          })).map((match) => match.row)
-            .filter((row) => !activeActionsOnly || row.taskStatus === null || ["open", "in_progress", "blocked"].includes(row.taskStatus))
+        ? taskMatches(`accepted:${type}`, () =>
+            retrieveRecordMatches(this.deps.db, {
+              q: task,
+              projectId,
+              type,
+              statuses: ["accepted"],
+              limit: fetchLimit,
+              hydrateEvidence: false,
+            }),
+          )
+            .map((match) => match.row)
+            .filter(
+              (row) =>
+                !activeActionsOnly ||
+                row.taskStatus === null ||
+                ["open", "in_progress", "blocked"].includes(row.taskStatus),
+            )
         : [];
       if (diagnosticsRequested && task) {
         for (const row of relevantRows) canonicalTaskMatchIds.add(row.id);
@@ -294,29 +430,61 @@ export class ContextKeepMemoryService {
       // Constraints and active actions are operational guardrails: reserve
       // space for recent mandatory context even if task wording has no lexical
       // overlap. Other sections stay task-relevant.
-      const mandatoryRows = task && (type === "constraint" || activeActionsOnly) ? recentRows : [];
+      const mandatoryRows =
+        task && (type === "constraint" || activeActionsOnly) ? recentRows : [];
       const selectedRows = task
         ? selectContextRows({ relevantRows, mandatoryRows, limit })
         : recentRows.slice(0, limit);
-      const requestedCore = type === "constraint" ? [...new Set(input.permanentConstraintIds ?? [])].slice(0, 5) : [];
-      const coreRows = requestedCore.length ? this.deps.db.select().from(records)
-        .where(and(where, inArray(records.id, requestedCore))).orderBy(records.id).all() : [];
-      const rows = [...coreRows, ...selectedRows.filter((row) => !coreRows.some((core) => core.id === row.id))].slice(0, limit);
-      const evidence = loadEvidenceRefsFor(this.deps.db, rows.map((row) => row.id));
-      const total = Number(this.deps.db.select({ n: sql.raw("count(*)") }).from(records).where(where).get()!.n);
+      const requestedCore =
+        type === "constraint"
+          ? [...new Set(input.permanentConstraintIds ?? [])].slice(0, 5)
+          : [];
+      const coreRows = requestedCore.length
+        ? this.deps.db
+            .select()
+            .from(records)
+            .where(and(where, inArray(records.id, requestedCore)))
+            .orderBy(records.id)
+            .all()
+        : [];
+      const rows = [
+        ...coreRows,
+        ...selectedRows.filter(
+          (row) => !coreRows.some((core) => core.id === row.id),
+        ),
+      ].slice(0, limit);
+      const evidence = loadEvidenceRefsFor(
+        this.deps.db,
+        rows.map((row) => row.id),
+      );
+      const total = Number(
+        this.deps.db
+          .select({ n: sql.raw("count(*)") })
+          .from(records)
+          .where(where)
+          .get()!.n,
+      );
       const recordFreshnessContext = freshContext(rows);
       return {
         total,
-        ...(requestedCore.length ? { permanentCore: {
-          requestedRecordIds: requestedCore,
-          eligibleRecordIds: coreRows.map((row) => row.id),
-          maxRecords: 5,
-          semantics: "Explicit opt-in accepted project constraints only; priority within section and total budgets. No authority changes. Omitted IDs require get_record.",
-        } } : {}),
+        ...(requestedCore.length
+          ? {
+              permanentCore: {
+                requestedRecordIds: requestedCore,
+                eligibleRecordIds: coreRows.map((row) => row.id),
+                maxRecords: 5,
+                semantics:
+                  "Explicit opt-in accepted project constraints only; priority within section and total budgets. No authority changes. Omitted IDs require get_record.",
+              },
+            }
+          : {}),
         truncated: total > rows.length,
         items: rows.map((row) => {
           const refs = evidence.get(row.id) ?? [];
-          const attention = classifyRecordFreshness(row as FreshnessRecord, recordFreshnessContext);
+          const attention = classifyRecordFreshness(
+            row as FreshnessRecord,
+            recordFreshnessContext,
+          );
           return {
             recordId: row.id,
             revision: row.revision,
@@ -350,37 +518,58 @@ export class ContextKeepMemoryService {
       .select()
       .from(records)
       .where(factWhere)
-      .orderBy(sql`COALESCE(${records.reviewedAt}, ${records.recordedAt}) DESC`, desc(records.id))
+      .orderBy(
+        sql`COALESCE(${records.reviewedAt}, ${records.recordedAt}) DESC`,
+        desc(records.id),
+      )
       .limit(limit)
       .all();
     const factRows = task
       ? (() => {
-          const global = taskMatches("accepted:fact", () => retrieveRecordMatches(this.deps.db, {
-            q: task,
-            projectId,
-            type: "fact",
-            statuses: ["accepted"],
-            limit: fetchLimit,
-            hydrateEvidence: false,
-          })).map((match) => match.row).filter((row) => row.predicate !== "lifecycle");
+          const global = taskMatches("accepted:fact", () =>
+            retrieveRecordMatches(this.deps.db, {
+              q: task,
+              projectId,
+              type: "fact",
+              statuses: ["accepted"],
+              limit: fetchLimit,
+              hydrateEvidence: false,
+            }),
+          )
+            .map((match) => match.row)
+            .filter((row) => row.predicate !== "lifecycle");
           const recentRelevant = rankForTask(recentFactRows, task, limit);
           const seen = new Set<string>();
-          return [...global, ...recentRelevant].filter((row) => {
-            if (seen.has(row.id)) return false;
-            seen.add(row.id);
-            return true;
-          }).slice(0, limit);
+          return [...global, ...recentRelevant]
+            .filter((row) => {
+              if (seen.has(row.id)) return false;
+              seen.add(row.id);
+              return true;
+            })
+            .slice(0, limit);
         })()
       : recentFactRows;
     if (diagnosticsRequested && task) {
       for (const row of factRows) canonicalTaskMatchIds.add(row.id);
     }
-    const factTotal = Number(this.deps.db.select({ n: sql.raw("count(*)") }).from(records).where(factWhere).get()!.n);
-    const factEvidence = loadEvidenceRefsFor(this.deps.db, factRows.map((row) => row.id));
+    const factTotal = Number(
+      this.deps.db
+        .select({ n: sql.raw("count(*)") })
+        .from(records)
+        .where(factWhere)
+        .get()!.n,
+    );
+    const factEvidence = loadEvidenceRefsFor(
+      this.deps.db,
+      factRows.map((row) => row.id),
+    );
     const recordFreshnessContext = freshContext(factRows);
     const mapFact = (row: RecordRow) => {
       const refs = factEvidence.get(row.id) ?? [];
-      const attention = classifyRecordFreshness(row as FreshnessRecord, recordFreshnessContext);
+      const attention = classifyRecordFreshness(
+        row as FreshnessRecord,
+        recordFreshnessContext,
+      );
       return {
         recordId: row.id,
         revision: row.revision,
@@ -416,7 +605,8 @@ export class ContextKeepMemoryService {
       total: currentFacts.length,
       truncated: currentFacts.length > limit,
       items: currentFacts.slice(0, limit).map(mapFact),
-      semantics: "Subset of selected facts, not a project-wide census. Zero selected does not mean zero existing. Current-state claims are timestamped observations. A newer working observation marks accepted state stale and requires owner review; working memory is never auto-promoted.",
+      semantics:
+        "Subset of selected facts, not a project-wide census. Zero selected does not mean zero existing. Current-state claims are timestamped observations. A newer working observation marks accepted state stale and requires owner review; working memory is never auto-promoted.",
     };
 
     const recentWorkWhere = and(
@@ -447,7 +637,9 @@ export class ContextKeepMemoryService {
     const taskWorkById = new Map(
       projectRecentWorkRows.map((row) => [row.id, row]),
     );
-    const missingTaskWorkIds = taskWorkIds.filter((id) => !taskWorkById.has(id));
+    const missingTaskWorkIds = taskWorkIds.filter(
+      (id) => !taskWorkById.has(id),
+    );
     if (missingTaskWorkIds.length > 0) {
       const extra = this.deps.db
         .select()
@@ -500,7 +692,10 @@ export class ContextKeepMemoryService {
     if (diagnosticsRequested && task) {
       for (const row of rankedRecentWorkRows) workingTaskMatchIds.add(row.id);
     }
-    const recentWorkEvidence = loadEvidenceRefsFor(this.deps.db, rankedRecentWorkRows.map((row) => row.id));
+    const recentWorkEvidence = loadEvidenceRefsFor(
+      this.deps.db,
+      rankedRecentWorkRows.map((row) => row.id),
+    );
     const recentWorkTotal = input.taskId
       ? Number(
           (
@@ -538,11 +733,16 @@ export class ContextKeepMemoryService {
 
     const recentWork = {
       total: recentWorkTotal,
-      truncated: recentWorkTotal > rankedRecentWorkRows.length || (task !== undefined && rankedRecentWorkRows.length === limit),
+      truncated:
+        recentWorkTotal > rankedRecentWorkRows.length ||
+        (task !== undefined && rankedRecentWorkRows.length === limit),
       items: rankedRecentWorkRows.map((row) => {
         const refs = recentWorkEvidence.get(row.id) ?? [];
         const checkpoint = checkpointFromRow(row);
-        const attention = classifyRecordFreshness(row as FreshnessRecord, recordFreshnessContext);
+        const attention = classifyRecordFreshness(
+          row as FreshnessRecord,
+          recordFreshnessContext,
+        );
         return {
           recordId: row.id,
           revision: row.revision,
@@ -574,8 +774,12 @@ export class ContextKeepMemoryService {
     const latestCheckpoint =
       continuity?.checkpoint ??
       latestCheckpointFor(this.deps.db, projectId, input.taskId);
-    const blockerState = getBlockerState(this.deps, projectId, { taskId: input.taskId });
-    const latestBlockers = blockerState.active.map((item) => item.text).slice(0, 20);
+    const blockerState = getBlockerState(this.deps, projectId, {
+      taskId: input.taskId,
+    });
+    const latestBlockers = blockerState.active
+      .map((item) => item.text)
+      .slice(0, 20);
     const compactBlockerState = {
       activeCount: blockerState.activeCount,
       resolvedCount: blockerState.resolvedCount,
@@ -598,20 +802,33 @@ export class ContextKeepMemoryService {
 
     const taskRelations = task
       ? (() => {
-          if (!taskCache) return searchRelations(this.deps, { projectId, q: task, scope: "all", limit: 5 });
+          if (!taskCache)
+            return searchRelations(this.deps, {
+              projectId,
+              q: task,
+              scope: "all",
+              limit: 5,
+            });
           const key = `${taskCachePrefix}:relations`;
           const cached = taskCache.relations.get(key);
           if (cached) return cached;
           return rememberBounded(
             taskCache.relations,
             key,
-            searchRelations(this.deps, { projectId, q: task, scope: "all", limit: 5 }),
+            searchRelations(this.deps, {
+              projectId,
+              q: task,
+              scope: "all",
+              limit: 5,
+            }),
           );
         })()
       : null;
     if (diagnosticsRequested && taskRelations) {
-      for (const relation of taskRelations.canonicalRelations) canonicalTaskMatchIds.add(relation.recordId);
-      for (const relation of taskRelations.workingRelations) workingTaskMatchIds.add(relation.recordId);
+      for (const relation of taskRelations.canonicalRelations)
+        canonicalTaskMatchIds.add(relation.recordId);
+      for (const relation of taskRelations.workingRelations)
+        workingTaskMatchIds.add(relation.recordId);
     }
     const relations = taskRelations
       ? {
@@ -627,7 +844,8 @@ export class ContextKeepMemoryService {
             status: "proposed",
             truthStatus: "not_canonical_requires_review",
           })),
-          semantics: "Task-aware relations are bounded to five matches and keep accepted canonical records separate from proposed working records.",
+          semantics:
+            "Task-aware relations are bounded to five matches and keep accepted canonical records separate from proposed working records.",
         }
       : undefined;
 
@@ -663,7 +881,10 @@ export class ContextKeepMemoryService {
             }
           : undefined,
         checkpointRef: item.checkpoint
-          ? { recordId: item.recordId, recovery: { tool: "get_record", includeUnreviewed: true } }
+          ? {
+              recordId: item.recordId,
+              recovery: { tool: "get_record", includeUnreviewed: true },
+            }
           : null,
       })),
     };
@@ -675,40 +896,76 @@ export class ContextKeepMemoryService {
       total: recentHandoffTotal,
       truncated: recentHandoffTotal > recentHandoffRows.length,
       items: recentHandoffRows.map((handoff) => {
-        const included = parseJson<unknown[]>(handoff.includedRecordIdsJson, []);
-        const truncationNotes = parseJson<unknown[]>(handoff.truncationNotesJson, []);
+        const included = parseJson<unknown[]>(
+          handoff.includedRecordIdsJson,
+          [],
+        );
+        const truncationNotes = parseJson<unknown[]>(
+          handoff.truncationNotesJson,
+          [],
+        );
         return {
           handoffId: handoff.id,
           createdAt: handoff.createdAt,
           sourceRevision: handoff.sourceRevision,
           sourceContentVersion: handoff.sourceContentVersion,
-          objective: handoff.objective === null ? null : clip(handoff.objective, 1_000),
+          objective:
+            handoff.objective === null ? null : clip(handoff.objective, 1_000),
           includedRecordCount: Array.isArray(included) ? included.length : 0,
-          truncationNoteCount: Array.isArray(truncationNotes) ? truncationNotes.length : 0,
+          truncationNoteCount: Array.isArray(truncationNotes)
+            ? truncationNotes.length
+            : 0,
         };
       }),
     };
 
-    const canonicalEligibleTotal = goals.total + actions.total + constraints.total + openQuestions.total + facts.total;
+    const canonicalEligibleTotal =
+      goals.total +
+      actions.total +
+      constraints.total +
+      openQuestions.total +
+      facts.total;
     const workingEligibleTotal = recentWork.total;
     const diagnosticReasons: ContextDiagnosticReason[] = [];
     if (diagnosticsRequested) {
       if (canonicalEligibleTotal === 0 && workingEligibleTotal === 0) {
         diagnosticReasons.push("no_data");
-      } else if (task && canonicalTaskMatchIds.size === 0 && workingTaskMatchIds.size > 0) {
+      } else if (
+        task &&
+        canonicalTaskMatchIds.size === 0 &&
+        workingTaskMatchIds.size > 0
+      ) {
         diagnosticReasons.push("unreviewed_only");
-      } else if (task && canonicalTaskMatchIds.size === 0 && workingTaskMatchIds.size === 0) {
+      } else if (
+        task &&
+        canonicalTaskMatchIds.size === 0 &&
+        workingTaskMatchIds.size === 0
+      ) {
         diagnosticReasons.push("no_relevant_match");
       }
     }
 
-    const canonicalSections = [goals, actions, constraints, openQuestions, facts];
+    const canonicalSections = [
+      goals,
+      actions,
+      constraints,
+      openQuestions,
+      facts,
+    ];
     const selectedStaleIds = diagnosticsRequested
-      ? [...new Set(canonicalSections.flatMap((value) =>
-          value.items
-            .filter((item) => item.stale === true && (!task || canonicalTaskMatchIds.has(item.recordId)))
-            .map((item) => item.recordId),
-        ))]
+      ? [
+          ...new Set(
+            canonicalSections.flatMap((value) =>
+              value.items
+                .filter(
+                  (item) =>
+                    item.stale === true &&
+                    (!task || canonicalTaskMatchIds.has(item.recordId)),
+                )
+                .map((item) => item.recordId),
+            ),
+          ),
+        ]
       : [];
     if (selectedStaleIds.length > 0 && !diagnosticReasons.includes("stale")) {
       diagnosticReasons.push("stale");
@@ -778,12 +1035,16 @@ export class ContextKeepMemoryService {
         canonicalCursor: project.contentVersion,
         workingCursor: project.workingMemoryVersion,
         canonical: { cursor: project.contentVersion, status: "canonical" },
-        working: { cursor: project.workingMemoryVersion, status: "unreviewed_working_memory" },
+        working: {
+          cursor: project.workingMemoryVersion,
+          status: "unreviewed_working_memory",
+        },
       },
       objective: project.description,
       task: task ?? null,
       taskId: input.taskId ?? null,
-      goalSemantics: "goals are current accepted decision records; unstated goals are never inferred",
+      goalSemantics:
+        "goals are current accepted decision records; unstated goals are never inferred",
       goals,
       actions,
       constraints,
@@ -809,9 +1070,11 @@ export class ContextKeepMemoryService {
             followUp: continuity.followUp,
             ownerAction: continuity.progress?.ownerAction ?? null,
             stateRecordId:
-              continuity.progress?.recordId ??
-              continuity.checkpoint?.recordId ??
-              continuity.task.id,
+              continuity.stateSource === "task_record"
+                ? continuity.task.id
+                : continuity.stateSource === "reported_progress"
+                  ? (continuity.progress?.recordId ?? continuity.task.id)
+                  : continuity.task.id,
           }
         : null,
       latestBlockers,
@@ -823,12 +1086,20 @@ export class ContextKeepMemoryService {
         blocked: blockerState.activeCount > 0,
         truncated: false,
         unknown: [
-          ...(task && facts.items.length === 0 ? ["no_task_relevant_accepted_facts"] : []),
-          ...(task && rankedRecentWorkRows.length === 0 ? ["no_task_relevant_working_memory"] : []),
+          ...(task && facts.items.length === 0
+            ? ["no_task_relevant_accepted_facts"]
+            : []),
+          ...(task && rankedRecentWorkRows.length === 0
+            ? ["no_task_relevant_working_memory"]
+            : []),
         ],
       },
       generatedAt: new Date().toISOString(),
-      limits: { perSection: limit, evidenceRefsPerRecord: MAX_EVIDENCE_PER_RECORD, textCharsPerRecord: 1_000 },
+      limits: {
+        perSection: limit,
+        evidenceRefsPerRecord: MAX_EVIDENCE_PER_RECORD,
+        textCharsPerRecord: 1_000,
+      },
     };
     // CK-A03: every normal/compact/minimal branch returns through the MCP
     // registry's single shared McpWorkContextResult validator. Do not parse a
@@ -846,8 +1117,15 @@ export class ContextKeepMemoryService {
     const rows = this.deps.db
       .select()
       .from(records)
-      .where(and(eq(records.projectId, projectId), inArray(records.reviewStatus, ["accepted", "superseded"])))
-      .orderBy(sql`COALESCE(${records.sourceEventAt}, ${records.recordedAt}) DESC`)
+      .where(
+        and(
+          eq(records.projectId, projectId),
+          inArray(records.reviewStatus, ["accepted", "superseded"]),
+        ),
+      )
+      .orderBy(
+        sql`COALESCE(${records.sourceEventAt}, ${records.recordedAt}) DESC`,
+      )
       .limit(limit)
       .all();
     const workspaces = this.deps.db
@@ -861,8 +1139,15 @@ export class ContextKeepMemoryService {
         lastObservedActivity: workspaceBindings.lastObservedActivity,
       })
       .from(workspaceBindings)
-      .where(and(eq(workspaceBindings.projectId, projectId), eq(workspaceBindings.ignored, 0)))
-      .orderBy(sql`COALESCE(${workspaceBindings.lastObservedActivity}, ${workspaceBindings.lastGitActivity}, ${workspaceBindings.updatedAt}) DESC`)
+      .where(
+        and(
+          eq(workspaceBindings.projectId, projectId),
+          eq(workspaceBindings.ignored, 0),
+        ),
+      )
+      .orderBy(
+        sql`COALESCE(${workspaceBindings.lastObservedActivity}, ${workspaceBindings.lastGitActivity}, ${workspaceBindings.updatedAt}) DESC`,
+      )
       .limit(5)
       .all();
 
@@ -884,7 +1169,15 @@ export class ContextKeepMemoryService {
 
   searchContext(
     context: MemoryToolRunContext,
-    input: { q: string; compact?: boolean; projectId?: string; includeHistorical?: boolean; match?: "terms" | "phrase"; scope?: "canonical" | "working" | "all"; limit?: number },
+    input: {
+      q: string;
+      compact?: boolean;
+      projectId?: string;
+      includeHistorical?: boolean;
+      match?: "terms" | "phrase";
+      scope?: "canonical" | "working" | "all";
+      limit?: number;
+    },
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
     const limit = clamp(input.limit, 10, MAX_SEARCH_RECORDS);
@@ -897,15 +1190,30 @@ export class ContextKeepMemoryService {
       includeHistorical: input.includeHistorical === true,
       limit,
     });
-    const compactSearchRecord = (record: (typeof result.records)[number], working: boolean) => {
+    const compactSearchRecord = (
+      record: (typeof result.records)[number],
+      working: boolean,
+    ) => {
       const freshness = record.freshness ?? {
-        authority: working ? "working" : record.reviewStatus === "superseded" ? "historical" : "canonical",
-        currentness: record.isOverdue ? "review_due" : working ? "unknown" : "not_applicable",
+        authority: working
+          ? "working"
+          : record.reviewStatus === "superseded"
+            ? "historical"
+            : "canonical",
+        currentness: record.isOverdue
+          ? "review_due"
+          : working
+            ? "unknown"
+            : "not_applicable",
         progress: record.taskStatus,
         provenance: record.evidenceBasis,
         stale: record.isOverdue,
         requiresReview: working || record.isOverdue,
-        reasons: record.isOverdue ? ["review_overdue"] : working ? ["unreviewed_proposal"] : [],
+        reasons: record.isOverdue
+          ? ["review_overdue"]
+          : working
+            ? ["unreviewed_proposal"]
+            : [],
         supportRecordIds: [],
         possiblyRelatedRecordIds: [],
       };
@@ -927,8 +1235,12 @@ export class ContextKeepMemoryService {
         isOverdue: record.isOverdue,
         status: working ? "proposed" : record.reviewStatus,
         provenance: record.evidenceBasis,
-        memoryStatus: working ? "unreviewed_working_memory" : "canonical_memory",
-        truthStatus: working ? "not_canonical_requires_review" : "canonical_accepted_or_historical",
+        memoryStatus: working
+          ? "unreviewed_working_memory"
+          : "canonical_memory",
+        truthStatus: working
+          ? "not_canonical_requires_review"
+          : "canonical_accepted_or_historical",
         stale: freshness.stale,
         requiresReview: freshness.requiresReview,
         freshnessReasons: freshness.reasons,
@@ -937,8 +1249,12 @@ export class ContextKeepMemoryService {
         evidence: compactEvidence(record.evidence),
       };
     };
-    const canonicalRecords = result.records.map((record) => compactSearchRecord(record, false));
-    const workingRecords = result.workingRecords.map((record) => compactSearchRecord(record, true));
+    const canonicalRecords = result.records.map((record) =>
+      compactSearchRecord(record, false),
+    );
+    const workingRecords = result.workingRecords.map((record) =>
+      compactSearchRecord(record, true),
+    );
     return {
       completeness: result.completeness,
       query: result.query,
@@ -951,8 +1267,10 @@ export class ContextKeepMemoryService {
       ...(input.compact === true ? { compact: true } : { canonicalRecords }),
       workingRecords,
       semantics: {
-        canonical: "accepted records are truth-bearing subject to historical/stale labels",
-        working: "unreviewed agent_report proposals only; never auto-promoted or blended into canonical records",
+        canonical:
+          "accepted records are truth-bearing subject to historical/stale labels",
+        working:
+          "unreviewed agent_report proposals only; never auto-promoted or blended into canonical records",
       },
       limit,
     };
@@ -960,7 +1278,12 @@ export class ContextKeepMemoryService {
 
   synthesizeContext(
     context: MemoryToolRunContext,
-    input: { question: string; projectId?: string; includeHistorical?: boolean; limit?: number },
+    input: {
+      question: string;
+      projectId?: string;
+      includeHistorical?: boolean;
+      limit?: number;
+    },
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
     const limit = clamp(input.limit, 12, MAX_SYNTHESIS_CLAIMS);
@@ -989,18 +1312,39 @@ export class ContextKeepMemoryService {
     };
   }
 
-  getRecordWithEvidence(context: MemoryToolRunContext, recordId: string): Record<string, unknown> {
+  getRecordWithEvidence(
+    context: MemoryToolRunContext,
+    recordId: string,
+  ): Record<string, unknown> {
     const row = this.deps.db
       .select()
       .from(records)
-      .where(and(eq(records.id, recordId), inArray(records.reviewStatus, ["accepted", "superseded"])))
+      .where(
+        and(
+          eq(records.id, recordId),
+          inArray(records.reviewStatus, ["accepted", "superseded"]),
+        ),
+      )
       .get();
-    if (!row) throw new ApiError(404, "agent_record_not_found", "Accepted or historical record not found.");
+    if (!row)
+      throw new ApiError(
+        404,
+        "agent_record_not_found",
+        "Accepted or historical record not found.",
+      );
     if (context.scope === "project" && row.projectId !== context.projectId) {
-      throw new ApiError(403, "agent_scope_violation", "This record belongs to a different project.");
+      throw new ApiError(
+        403,
+        "agent_scope_violation",
+        "This record belongs to a different project.",
+      );
     }
     const project = row.projectId
-      ? this.deps.db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, row.projectId)).get()
+      ? this.deps.db
+          .select({ id: projects.id, name: projects.name })
+          .from(projects)
+          .where(eq(projects.id, row.projectId))
+          .get()
       : undefined;
     const evidence = loadEvidenceFor(this.deps.db, [row.id]).get(row.id) ?? [];
     return {
@@ -1047,16 +1391,16 @@ export class ContextKeepMemoryService {
          LIMIT ?`,
       )
       .all(projectId, projectId, limit) as Array<{
-        id: string;
-        kind: string;
-        title: string | null;
-        importedAt: string;
-        eventAt: string | null;
-        provenanceBasis: string;
-        redactionState: string;
-        excerptCount: number;
-        connectors: string | null;
-      }>;
+      id: string;
+      kind: string;
+      title: string | null;
+      importedAt: string;
+      eventAt: string | null;
+      provenanceBasis: string;
+      redactionState: string;
+      excerptCount: number;
+      connectors: string | null;
+    }>;
     return {
       projectId,
       sources: rows.map((row) => ({
@@ -1090,7 +1434,9 @@ export class ContextKeepMemoryService {
     const order = ` ORDER BY COALESCE(so.external_updated_at, s.event_at, s.imported_at) DESC, so.id ASC LIMIT ?`;
     const rows = projectId
       ? this.deps.sqlite
-          .prepare(`${select} WHERE s.project_id = ? OR wb.project_id = ?${order}`)
+          .prepare(
+            `${select} WHERE s.project_id = ? OR wb.project_id = ?${order}`,
+          )
           .all(projectId, projectId, limit)
       : this.deps.sqlite.prepare(`${select}${order}`).all(limit);
 
