@@ -61,7 +61,7 @@ The shared task view preserves explicitly cleared next steps, includes task-scop
 blocker-resolution history, and distinguishes subscription configuration from real
 delivery status. Project cards keep loaded pages current after pagination errors.
 Event delivery supports generation-safe renewal and bounded graceful shutdown.
-The host widget advertises v5 while retaining reads of installed v2/v3/v4 resources.
+The host widget advertises v6 while retaining legacy reads of installed v2/v3/v4/v5 resources.
 
 Private monitoring can use authenticated `GET /api/health`. It reports a real
 SQLite application/schema read, not merely successful delivery of the application's HTML. Production

@@ -735,7 +735,9 @@ export class ContextKeepMemoryService {
       total: recentWorkTotal,
       truncated:
         recentWorkTotal > rankedRecentWorkRows.length ||
-        (task !== undefined && rankedRecentWorkRows.length === limit),
+        (!input.taskId &&
+          task !== undefined &&
+          rankedRecentWorkRows.length === limit),
       items: rankedRecentWorkRows.map((row) => {
         const refs = recentWorkEvidence.get(row.id) ?? [];
         const checkpoint = checkpointFromRow(row);

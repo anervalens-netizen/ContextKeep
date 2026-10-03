@@ -183,7 +183,7 @@ export function effectiveTaskContinuity(
   } else if (progress) {
     nextAction =
       newerCheckpoint && !terminal
-        ? (cp?.nextAction ?? progress.nextAction)
+        ? (cp?.nextAction ?? null)
         : progress.nextAction;
   } else {
     nextAction = cp?.nextAction ?? null;

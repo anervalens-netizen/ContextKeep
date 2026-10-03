@@ -100,10 +100,16 @@ export function projectResumeContext(context: {
   cachedAt?: string | null;
 }): ResumeProjection {
   const checkpoint = checkpointFrom(context.latestCheckpoint);
+  const hasLatestNextAction = Object.prototype.hasOwnProperty.call(
+    context,
+    "latestNextAction",
+  );
   const nextAction =
     typeof context.latestNextAction === "string"
       ? context.latestNextAction
-      : (checkpoint?.checkpoint?.nextAction ?? null);
+      : hasLatestNextAction && context.latestNextAction === null
+        ? null
+        : (checkpoint?.checkpoint?.nextAction ?? null);
   const blockers = Array.isArray(context.latestBlockers)
     ? context.latestBlockers.filter(
         (item): item is string => typeof item === "string",

@@ -656,3 +656,70 @@ describe("Codex review continuity regressions", () => {
     }
   });
 });
+
+describe("final Codex task-context regressions", () => {
+  it("lets a newer checkpoint explicitly clear an active progress next action", async () => {
+    const { t, projectId, taskId } = await setup();
+    await progress(
+      t,
+      projectId,
+      taskId,
+      "in_progress",
+      "Synthetic progress step that must be cleared",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    await call(t, "capture_work", {
+      projectId,
+      taskId,
+      outcome: "Synthetic checkpoint clears the step",
+      checkpoint: {
+        summary: "Synthetic cleared checkpoint",
+        nextAction: null,
+        blockers: [],
+      },
+      ...identity(),
+    });
+
+    const resumed = await call(t, "resume_task", { projectId, taskId });
+    expect(resumed.dossier.state).toBe("in_progress");
+    expect(resumed.dossier.nextAction).toBeNull();
+
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 10_000,
+    });
+    expect(work.latestNextAction).toBeNull();
+    expect(work.resumeCapsule.nextAction).toBeNull();
+  });
+
+  it("marks an exact task-scoped working-memory page complete when total equals limit", async () => {
+    const { t, projectId, taskId } = await setup();
+    for (let i = 0; i < 5; i++) {
+      await call(t, "capture_work", {
+        projectId,
+        taskId,
+        outcome: `Synthetic exact-page report ${i}`,
+        ...identity(),
+      });
+    }
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      limitPerSection: 5,
+      totalContextBudgetChars: 60_000,
+    });
+    expect(work.recentWork).toMatchObject({
+      total: 5,
+      returned: 5,
+      omitted: 0,
+      truncated: false,
+    });
+    expect(work.workingMemory).toMatchObject({
+      total: 5,
+      returned: 5,
+      omitted: 0,
+      truncated: false,
+    });
+  });
+});
