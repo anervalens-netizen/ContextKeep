@@ -10,6 +10,9 @@ scheduler. HTTP, PWA and MCP use the same service functions.
 2. Select an existing action ID. A conversation/session ID is not a task ID.
 3. Read `resume_task` and, when more canonical detail is required,
    `get_work_context` with the same `taskId` and a bounded context budget.
+   Task-scoped working memory contains only reports linked to that selected task;
+   project-wide accepted constraints, decisions and evidence-backed relations remain
+   separately labeled context rather than being presented as task evidence.
 4. Include `taskId` in work captures, checkpoints and run reservations.
 5. Report explicit operational progress using `report_task_progress`, supplying
    the current `taskRevision` and `expectedProgressRecordId` (null only when none
@@ -44,11 +47,14 @@ when a host does not support that context channel.
   valid. Cancellation is distinct from success.
 
 A new task without explicit progress is unknown, even when its free text says
-"completed". A more recent checkpoint is shown as newer evidence, not silently
-converted to an accepted status. An old project-wide checkpoint without a task
-binding remains visible as historical context and cannot replace a selected
-task's next step. Reported and accepted task states may disagree; the dossier
-shows the distinction rather than changing either implicitly.
+"completed". Explicit progress owns the current next action, including an explicit
+`null`; an older checkpoint cannot revive a cleared instruction. A checkpoint
+written after terminal progress is preserved as a labeled follow-up with
+provenance and a reconciliation warning, not as an implicit reopen or current
+resume command. An old project-wide checkpoint without a task binding remains
+visible as historical context and cannot replace a selected task's next step.
+Reported and accepted task states may disagree; the dossier shows the distinction
+rather than changing either implicitly.
 
 An explicit task-record `done` or `cancelled` status takes precedence over any
 agent progress report. A later audited task-status change
@@ -61,8 +67,13 @@ continuation claim. Changing a report is not an implicit owner reopening.
 
 Resume text includes `historicalVerification`, `currentEvidenceValidity`, and
 all actionable dossier warnings. A historical pass is never presented as proof
-that edited, retracted, or legacy-unbound evidence remains valid. Resume stays
-read-only and instructs the next consumer to reread the selected task.
+that edited, retracted, or legacy-unbound evidence remains valid. Completion and
+attention are separate dimensions: a task may stay `done` while an older run,
+blocker, abandoned continuation or owner action still requires attention. Project
+and portfolio summaries compute that attention independently of the recent-task
+page, including the case where the latest run is valid but an older proof changed.
+Reads and handoffs never reopen or rerun the task because of that projection.
+Resume stays read-only and instructs the next consumer to reread the selected task.
 
 
 `get_operational_timeline` combines record history and retained latest run
@@ -73,7 +84,7 @@ pages must not be described as an empty or complete result. Retired projects are
 excluded by default from portfolio and change summaries.
 
 
-## Usage-hardening contracts (MCP 2.14)
+## Usage-hardening and consistency contracts (MCP 2.15)
 
 New blocker mentions may carry an explicit caller-supplied category:
 blocking, deferred, verification, or legacy, plus an optional logical
@@ -95,7 +106,11 @@ or truncated executor history is never proof that a start did not occur.
 
 search_context remains backward-compatible by default. Callers may request
 compact=true to omit the duplicate canonicalRecords alias while keeping
-records as the canonical result set and workingRecords separate.
+records as the canonical result set and workingRecords separate. Bounded
+`get_work_context` responses also avoid duplicating a current-state record body:
+`currentState` keeps the full selected observation while `facts` keeps its
+identity/provenance pointer. Compact and minimal responses preserve project/task
+identity plus explicit recovery metadata before optional prose.
 
 ## Relationships
 
@@ -149,10 +164,11 @@ store; rollback requires the matching pre-upgrade database recovery copy, not
 only a binary symlink change.
 The production writer remains singular; passive copies must not become writers.
 
-The dossier widget advertises `ui://contextkeep/tasks/v5.html`; older installed
-resource URIs remain readable. Change the advertised version when the bundled
-host UI changes so host caches cannot retain an obsolete interface. A host may
-still require connection-metadata refresh before it discovers newly added tools.
+The dossier widget advertises `ui://contextkeep/tasks/v6.html`; the legacy URI
+and installed v2/v3/v4/v5 resource URIs remain readable. Change the advertised
+version when the bundled host UI changes so host caches cannot retain an obsolete
+interface. A host may still require connection-metadata refresh before it
+discovers newly added tools or a new resource key.
 
 Qualification includes concurrent task/progress writers, stale revisions,
 duplicate/expired claims, wrong-task evidence, outcome/verification separation,

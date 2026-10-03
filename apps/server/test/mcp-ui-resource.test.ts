@@ -30,7 +30,7 @@ it("advertises a new UI cache key while preserving the installed legacy resource
   const tools = (await rpc("tools/list")).result.tools;
   const panel = tools.find((tool: { name: string }) => tool.name === "open_task_panel");
   const uri = panel._meta.ui.resourceUri;
-  expect(uri).toBe("ui://contextkeep/tasks/v5.html");
+  expect(uri).toBe("ui://contextkeep/tasks/v6.html");
   expect(panel._meta["openai/ui"].entrypoints).toEqual([{ type: "global" }, { type: "thread" }]);
   const listed = (await rpc("resources/list")).result.resources;
   expect(listed.map((resource: { uri: string }) => resource.uri)).toEqual([uri]);
@@ -42,7 +42,7 @@ it("advertises a new UI cache key while preserving the installed legacy resource
   expect(current.text).toContain('document.title="Synthetic app"');
   expect(current.text).toContain("body{color:navy}");
   expect(legacy.text).toBe(current.text);
-  for (const olderUri of ["ui://contextkeep/tasks/v2.html", "ui://contextkeep/tasks/v3.html", "ui://contextkeep/tasks/v4.html"]) {
+  for (const olderUri of ["ui://contextkeep/tasks/v2.html", "ui://contextkeep/tasks/v3.html", "ui://contextkeep/tasks/v4.html", "ui://contextkeep/tasks/v5.html"]) {
     expect((await rpc("resources/read", { uri: olderUri })).result.contents[0].text).toBe(current.text);
   }
   expect((await rpc("resources/read", { uri: "ui://contextkeep/unknown" })).error.code).toBe(-32602);

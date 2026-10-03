@@ -6,10 +6,10 @@
 > compact search mode and no-replay uncertain-run reconciliation. Ordinary
 > non-checkpoint project captures remain compatible. See
 > Execution evidence (VERIFICATION_EVIDENCE.md) and
-> Operational dossier (OPERATIONAL_DOSSIER.md). The host widget remains v5;
+> Operational dossier (OPERATIONAL_DOSSIER.md). The host widget is v6;
 > older installed resource reads remain available.
 
-MCP interface version: 2.14.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.15.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
