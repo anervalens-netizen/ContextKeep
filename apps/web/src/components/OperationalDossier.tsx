@@ -220,7 +220,11 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
         {dossier.followUp && (
           <div>
             <dt>Urmărire după închidere</dt>
-            <dd>{dossier.followUp.nextAction}</dd>
+            <dd>
+              {dossier.followUp.nextAction ??
+                dossier.followUp.summary ??
+                "Verifică checkpointul asociat."}
+            </dd>
           </div>
         )}
         {dossier.ownerAction && (

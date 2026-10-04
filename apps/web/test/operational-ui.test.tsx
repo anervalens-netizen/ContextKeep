@@ -13,6 +13,7 @@ import {
 } from "../src/components/TaskPanel.js";
 import {
   ProjectNow,
+  TaskNow,
   type TaskDossier,
   type ProjectDossier,
 } from "../src/components/OperationalDossier.js";
@@ -115,6 +116,28 @@ describe("operational UI", () => {
     });
     expect(onResume).toHaveBeenCalledTimes(1);
   });
+  it("shows an actionless post-closure follow-up summary instead of a blank value", () => {
+    render(
+      <TaskNow
+        dossier={{
+          ...dossier,
+          state: "done",
+          nextAction: null,
+          followUp: {
+            nextAction: null,
+            summary: "Evidence-only follow-up requires reconciliation",
+            checkpointRecordId: "follow-up-checkpoint",
+            recordedAt: "2026-10-04T09:00:00.000Z",
+            provenance: "agent_report",
+          },
+        }}
+      />,
+    );
+    expect(
+      screen.getByText("Evidence-only follow-up requires reconciliation"),
+    ).toBeTruthy();
+  });
+
   it("discards late resume context when another task is selected", async () => {
     let resolve: (v: {
       dossier: TaskDossier;
