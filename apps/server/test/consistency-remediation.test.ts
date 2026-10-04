@@ -870,3 +870,55 @@ describe("same-millisecond continuity ordering", () => {
     expect(resumed.dossier.warnings.join(" ")).toContain("follow-up");
   });
 });
+
+describe("bounded follow-up capsule", () => {
+  it("keeps an oversized post-closure follow-up representable at the 2k context budget", async () => {
+    const { t, projectId, taskId } = await setup();
+    await progress(t, projectId, taskId, "done", null);
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    const captured = await call(t, "capture_work", {
+      projectId,
+      taskId,
+      outcome: "Synthetic oversized follow-up checkpoint",
+      evidenceText: "Synthetic oversized follow-up evidence",
+      title: null,
+      eventAt: null,
+      recordType: "fact",
+      subject: "synthetic-oversized-follow-up",
+      progressUpdates: [],
+      checkpoint: {
+        summary: "S".repeat(7_900),
+        nextAction: "N".repeat(1_900),
+        blockers: [],
+        artifactRefs: [],
+      },
+      ...identity(),
+    });
+
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 2_000,
+      diagnostics: true,
+    });
+    expect(JSON.stringify(work).length).toBeLessThanOrEqual(2_000);
+    expect(work.taskId).toBe(taskId);
+    expect(work.resumeCapsule).toMatchObject({
+      state: "done",
+      nextAction: null,
+      followUp: {
+        checkpointRecordId: captured.outcome.recordId,
+        detailOmittedForBudget: true,
+        recovery: {
+          tool: "get_record",
+          recordId: captured.outcome.recordId,
+          includeUnreviewed: true,
+        },
+      },
+    });
+    expect(work.resumeCapsule.followUp.nextAction.length).toBeLessThanOrEqual(
+      97,
+    );
+    expect(work.resumeCapsule.followUp.summary).toBeUndefined();
+  });
+});

@@ -202,6 +202,19 @@ export function fitWorkContext(
         }
       : undefined;
 
+  const ultraMinimalDiagnostics = () =>
+    diagnostics
+      ? {
+          mode: diagnostics.mode,
+          reasons: diagnostics.reasons,
+          omittedForBudget: true,
+          recovery: {
+            tool: "get_work_context",
+            action: "increase_budget_for_diagnostic_details",
+          },
+        }
+      : undefined;
+
   const finalize = (
     target: Record<string, unknown>,
   ): Record<string, unknown> => {
@@ -213,6 +226,7 @@ export function fitWorkContext(
       diagnostics,
       compactDiagnostics(),
       minimalDiagnostics(),
+      ultraMinimalDiagnostics(),
     ].filter(Boolean);
     for (const variant of variants) {
       const withDiagnostics = { ...target, diagnostics: variant };
@@ -408,6 +422,61 @@ export function fitWorkContext(
     !Array.isArray(candidate.resumeCapsule)
       ? (candidate.resumeCapsule as Record<string, unknown>)
       : null;
+  const followUp =
+    resumeCapsule?.followUp &&
+    typeof resumeCapsule.followUp === "object" &&
+    !Array.isArray(resumeCapsule.followUp)
+      ? (resumeCapsule.followUp as Record<string, unknown>)
+      : null;
+  const compactFollowUp = followUp
+    ? {
+        checkpointRecordId: followUp.checkpointRecordId,
+        nextAction:
+          typeof followUp.nextAction === "string"
+            ? clip(followUp.nextAction, 180)
+            : null,
+        ...(typeof followUp.summary === "string" && followUp.summary.length > 0
+          ? { summary: clip(followUp.summary, 180) }
+          : {}),
+        ...(typeof followUp.recordedAt === "string"
+          ? { recordedAt: followUp.recordedAt }
+          : {}),
+        ...(typeof followUp.provenance === "string"
+          ? { provenance: followUp.provenance }
+          : {}),
+        detailOmittedForBudget:
+          (typeof followUp.nextAction === "string" &&
+            followUp.nextAction.length > 180) ||
+          (typeof followUp.summary === "string" &&
+            followUp.summary.length > 180),
+        recovery:
+          typeof followUp.checkpointRecordId === "string"
+            ? {
+                tool: "get_record",
+                recordId: followUp.checkpointRecordId,
+                includeUnreviewed: true,
+              }
+            : { tool: "get_work_context" },
+      }
+    : null;
+  const minimalFollowUp = followUp
+    ? {
+        checkpointRecordId: followUp.checkpointRecordId,
+        nextAction:
+          typeof followUp.nextAction === "string"
+            ? clip(followUp.nextAction, 96)
+            : null,
+        detailOmittedForBudget: true,
+        recovery:
+          typeof followUp.checkpointRecordId === "string"
+            ? {
+                tool: "get_record",
+                recordId: followUp.checkpointRecordId,
+                includeUnreviewed: true,
+              }
+            : { tool: "get_work_context" },
+      }
+    : null;
   const compactResumeCapsule = resumeCapsule
     ? {
         taskId: resumeCapsule.taskId,
@@ -417,7 +486,7 @@ export function fitWorkContext(
           typeof resumeCapsule.nextAction === "string"
             ? clip(resumeCapsule.nextAction, 300)
             : (resumeCapsule.nextAction ?? null),
-        ...(resumeCapsule.followUp ? { followUp: resumeCapsule.followUp } : {}),
+        ...(compactFollowUp ? { followUp: compactFollowUp } : {}),
         ownerAction:
           typeof resumeCapsule.ownerAction === "string"
             ? clip(resumeCapsule.ownerAction, 220)
@@ -535,9 +604,7 @@ export function fitWorkContext(
           taskId: compactResumeCapsule.taskId,
           state: compactResumeCapsule.state,
           nextAction: compactResumeCapsule.nextAction,
-          ...(compactResumeCapsule.followUp
-            ? { followUp: compactResumeCapsule.followUp }
-            : {}),
+          ...(minimalFollowUp ? { followUp: minimalFollowUp } : {}),
         }
       : null,
     freshness,
