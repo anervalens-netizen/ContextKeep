@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
 
 const token = randomUUID();
@@ -11,6 +11,7 @@ const identity = () => ({
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   for (const t of tracked.splice(0)) await t.cleanup();
 });
 
@@ -811,4 +812,61 @@ describe("attention pagination and ordinary task pages", () => {
     expect(new Set(returnedIds).size).toBe(12);
     expect(returnedIds).toEqual(expect.arrayContaining(ids));
   }, 30_000);
+});
+
+describe("same-millisecond continuity ordering", () => {
+  it("recognizes a checkpoint captured after an accepted task closure even at the same timestamp", async () => {
+    const { t, projectId, taskId } = await setup();
+    const accepted = await call(t, "review_records", {
+      items: [{ recordId: taskId, revision: 1 }],
+      action: "accept",
+      ownerAction: true,
+      ...identity(),
+    });
+    const acceptedTask = accepted.records?.find(
+      (record: { recordId?: string; id?: string }) =>
+        (record.recordId ?? record.id) === taskId,
+    );
+    const revision =
+      acceptedTask?.revision ??
+      (
+        await call(t, "get_record", {
+          recordId: taskId,
+          includeUnreviewed: false,
+        })
+      ).revision;
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2030-01-01T12:00:00.000Z"));
+    await call(t, "capture_work", {
+      projectId,
+      taskId,
+      outcome: "Synthetic accepted task closure",
+      evidenceText: "Synthetic accepted task closure evidence",
+      title: null,
+      eventAt: null,
+      recordType: "fact",
+      subject: "synthetic-closure",
+      progressUpdates: [{ recordId: taskId, revision, taskStatus: "done" }],
+      ...identity(),
+    });
+    const laterCheckpoint = await checkpoint(
+      t,
+      projectId,
+      taskId,
+      "Synthetic same-millisecond follow-up",
+    );
+
+    const resumed = await call(t, "resume_task", { projectId, taskId });
+    expect(resumed.dossier).toMatchObject({
+      state: "done",
+      stateSource: "task_record",
+      nextAction: null,
+      followUp: {
+        nextAction: "Synthetic same-millisecond follow-up",
+        checkpointRecordId: laterCheckpoint.outcome.recordId,
+      },
+    });
+    expect(resumed.dossier.warnings.join(" ")).toContain("follow-up");
+  });
 });

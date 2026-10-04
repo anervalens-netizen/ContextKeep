@@ -117,28 +117,66 @@ export function effectiveTaskState(
       : ("unknown" as const),
   };
 }
-function taskRecordStateEstablishedAt(
+type EventOrder = { timestamp: string; auditRowId: number | null };
+
+function recordCreationOrder(
+  deps: Pick<ServiceDeps, "sqlite">,
+  recordId: string,
+  fallbackTimestamp: string | null,
+): EventOrder | null {
+  const audit = deps.sqlite
+    .prepare(
+      `SELECT rowid AS auditRowId,timestamp FROM audit_events
+       WHERE target_type='record' AND target_id=?
+         AND action='record.edited'
+         AND json_valid(detail_json)
+         AND json_extract(detail_json,'$.operation')='record.create'
+       ORDER BY rowid DESC LIMIT 1`,
+    )
+    .get(recordId) as { auditRowId: number; timestamp: string } | undefined;
+  if (audit) return audit;
+  return fallbackTimestamp
+    ? { timestamp: fallbackTimestamp, auditRowId: null }
+    : null;
+}
+
+function taskRecordStateEstablishedOrder(
   deps: Pick<ServiceDeps, "sqlite">,
   task: { id: string; taskStatus: string | null },
-): string | null {
+): EventOrder | null {
   if (task.taskStatus === null) return null;
   const changed = deps.sqlite
     .prepare(
-      `SELECT timestamp FROM audit_events
+      `SELECT rowid AS auditRowId,timestamp FROM audit_events
        WHERE target_type='record' AND target_id=?
          AND action IN ('record.edited','record.accepted')
          AND json_valid(before_ref) AND json_valid(after_ref)
          AND json_extract(before_ref,'$.taskStatus')
              IS NOT json_extract(after_ref,'$.taskStatus')
          AND json_extract(after_ref,'$.taskStatus')=?
-       ORDER BY timestamp DESC,id DESC LIMIT 1`,
+       ORDER BY rowid DESC LIMIT 1`,
     )
-    .get(task.id, task.taskStatus) as { timestamp: string } | undefined;
-  if (changed) return changed.timestamp;
+    .get(task.id, task.taskStatus) as
+    { auditRowId: number; timestamp: string } | undefined;
+  if (changed) return changed;
   const created = deps.sqlite
     .prepare("SELECT created_at AS createdAt FROM records WHERE id=?")
     .get(task.id) as { createdAt: string } | undefined;
-  return created?.createdAt ?? null;
+  return recordCreationOrder(deps, task.id, created?.createdAt ?? null);
+}
+
+function eventAfter(
+  candidate: EventOrder | null,
+  baseline: EventOrder | null,
+): boolean {
+  if (!candidate || !baseline) return false;
+  if (candidate.timestamp !== baseline.timestamp)
+    return candidate.timestamp > baseline.timestamp;
+  return (
+    candidate.auditRowId !== null &&
+    baseline.auditRowId !== null &&
+    candidate.auditRowId > baseline.auditRowId
+  );
 }
 
 export function effectiveTaskContinuity(
@@ -162,20 +200,24 @@ export function effectiveTaskContinuity(
       : supplied.checkpoint;
   const { state, stateSource } = effectiveTaskState(deps, task, progress);
   const cp = checkpoint?.checkpoint;
+  const checkpointOrder = checkpoint
+    ? recordCreationOrder(deps, checkpoint.recordId, checkpoint.recordedAt)
+    : null;
+  const progressOrder = progress
+    ? recordCreationOrder(deps, progress.recordId, progress.recordedAt)
+    : null;
   const newerCheckpoint =
-    !!checkpoint && (!progress || checkpoint.recordedAt > progress.recordedAt);
+    !!checkpoint && (!progress || eventAfter(checkpointOrder, progressOrder));
   const terminal = state === "done" || state === "cancelled";
-  const stateEstablishedAt =
+  const stateEstablishedOrder =
     stateSource === "task_record"
-      ? taskRecordStateEstablishedAt(deps, task)
+      ? taskRecordStateEstablishedOrder(deps, task)
       : stateSource === "reported_progress"
-        ? (progress?.recordedAt ?? null)
+        ? progressOrder
         : null;
+  const stateEstablishedAt = stateEstablishedOrder?.timestamp ?? null;
   const checkpointAfterTerminalState =
-    terminal &&
-    !!checkpoint &&
-    !!stateEstablishedAt &&
-    checkpoint.recordedAt > stateEstablishedAt;
+    terminal && eventAfter(checkpointOrder, stateEstablishedOrder);
 
   let nextAction: string | null;
   if (terminal && stateSource === "task_record") {
@@ -194,9 +236,9 @@ export function effectiveTaskContinuity(
       ? {
           nextAction: cp.nextAction,
           summary: cp.summary ?? cp.outcome ?? null,
-          checkpointRecordId: checkpoint.recordId,
-          recordedAt: checkpoint.recordedAt,
-          provenance: checkpoint.provenance,
+          checkpointRecordId: checkpoint!.recordId,
+          recordedAt: checkpoint!.recordedAt,
+          provenance: checkpoint!.provenance,
         }
       : null;
 
