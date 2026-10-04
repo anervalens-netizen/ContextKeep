@@ -11,7 +11,7 @@ export interface TaskDossier {
   summary: string | null;
   nextAction: string | null;
   followUp?: {
-    nextAction: string;
+    nextAction: string | null;
     summary: string | null;
     checkpointRecordId: string;
     recordedAt: string;
@@ -73,7 +73,7 @@ export interface TaskDigest {
   summary: string | null;
   nextAction: string | null;
   followUp?: {
-    nextAction: string;
+    nextAction: string | null;
     summary: string | null;
     checkpointRecordId: string;
     recordedAt: string;

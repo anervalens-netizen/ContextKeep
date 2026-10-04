@@ -994,3 +994,53 @@ describe("portfolio attention batching", () => {
     ).toBe(true);
   });
 });
+
+describe("actionless post-closure follow-up", () => {
+  it("keeps a newer terminal checkpoint with null nextAction visible in dossier, attention and resume text", async () => {
+    const { t, projectId, taskId } = await setup();
+    await progress(t, projectId, taskId, "done", null);
+    await new Promise((resolve) => setTimeout(resolve, 4));
+    const checkpointResult = await call(t, "capture_work", {
+      projectId,
+      taskId,
+      outcome: "Synthetic evidence-only post-closure checkpoint",
+      checkpoint: {
+        summary: "Synthetic follow-up evidence requires reconciliation",
+        nextAction: null,
+        blockers: [],
+        artifactRefs: ["synthetic://follow-up-proof"],
+      },
+      ...identity(),
+    });
+
+    const resumed = await call(t, "resume_task", { projectId, taskId });
+    expect(resumed.dossier.followUp).toMatchObject({
+      nextAction: null,
+      summary: "Synthetic follow-up evidence requires reconciliation",
+      checkpointRecordId: checkpointResult.outcome.recordId,
+    });
+    expect(resumed.dossier.needsAttention).toBe(true);
+    expect(resumed.dossier.attentionReasons).toContain(
+      "post_closure_follow_up",
+    );
+    expect(resumed.resumeText).toContain(
+      `Post-closure follow-up checkpoint: ${checkpointResult.outcome.recordId}`,
+    );
+    expect(resumed.resumeText).toContain(
+      "Post-closure follow-up summary: Synthetic follow-up evidence requires reconciliation",
+    );
+    expect(resumed.resumeText).toContain(
+      "Post-closure follow-up action: No explicit action",
+    );
+
+    const project = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 10,
+    });
+    const attention = project.attention.tasks.find(
+      (item: { taskId: string }) => item.taskId === taskId,
+    );
+    expect(attention?.attentionReasons).toContain("post_closure_follow_up");
+  });
+});

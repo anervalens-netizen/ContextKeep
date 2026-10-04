@@ -240,9 +240,9 @@ export function effectiveTaskContinuity(
   }
 
   const followUp =
-    checkpointAfterTerminalState && cp?.nextAction
+    checkpointAfterTerminalState && cp
       ? {
-          nextAction: cp.nextAction,
+          nextAction: cp.nextAction ?? null,
           summary: cp.summary ?? cp.outcome ?? null,
           checkpointRecordId: checkpoint!.recordId,
           recordedAt: checkpoint!.recordedAt,
@@ -745,6 +745,13 @@ export function resumeTask(
     `State source: ${dossier.stateProvenance.recordId}; provenance=${dossier.stateProvenance.evidenceBasis}; review=${dossier.stateProvenance.reviewStatus}; recordedAt=${dossier.stateProvenance.recordedAt}.`,
     `Latest summary: ${dossier.summary ?? "No recent report."}`,
     `Next action: ${dossier.nextAction ?? "Not specified; inspect the linked evidence."}`,
+    ...(dossier.followUp
+      ? [
+          `Post-closure follow-up checkpoint: ${dossier.followUp.checkpointRecordId}; recordedAt=${dossier.followUp.recordedAt}; provenance=${dossier.followUp.provenance}.`,
+          `Post-closure follow-up summary: ${dossier.followUp.summary ?? "No summary provided."}`,
+          `Post-closure follow-up action: ${dossier.followUp.nextAction ?? "No explicit action; inspect and reconcile the checkpoint before starting new work."}`,
+        ]
+      : []),
     ...(dossier.ownerAction ? [`Owner input: ${dossier.ownerAction}`] : []),
     `Active blockers: ${dossier.blockers.activeCount}; showing ${dossier.blockers.items.length}.`,
     ...dossier.blockers.items.map(
