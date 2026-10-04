@@ -61,7 +61,9 @@ function parseBlockerId(blockerId: string): {
   return { recordId: match[1]!, index };
 }
 
-function parseResolutionValue(valueJson: string | null): ResolutionValue | null {
+function parseResolutionValue(
+  valueJson: string | null,
+): ResolutionValue | null {
   if (!valueJson) return null;
   try {
     const value = JSON.parse(valueJson) as Record<string, unknown>;
@@ -79,7 +81,8 @@ function parseResolutionValue(valueJson: string | null): ResolutionValue | null 
       kind: "blocker_resolution",
       blockerId: value.blockerId,
       disposition: value.disposition,
-      actionRecordId: typeof value.actionRecordId === "string" ? value.actionRecordId : null,
+      actionRecordId:
+        typeof value.actionRecordId === "string" ? value.actionRecordId : null,
       actor: value.actor,
       resolvedAt: value.resolvedAt,
       checkpointRevision: value.checkpointRevision,
@@ -89,17 +92,30 @@ function parseResolutionValue(valueJson: string | null): ResolutionValue | null 
   }
 }
 
-function checkpointBlockersForProject(deps: ServiceDeps, projectId: string, taskId?: string): CheckpointBlocker[] {
-  const rows = deps.sqlite.prepare(`
-    SELECT id, revision, review_status AS reviewStatus, recorded_at AS recordedAt,
-           value_json AS valueJson
-    FROM records
-    WHERE project_id=?
-      AND value_json IS NOT NULL
-      AND json_valid(value_json)=1
-      AND json_extract(value_json, '$.kind')='working_checkpoint'
-    ORDER BY recorded_at ASC, id ASC
-  `).all(projectId) as Array<{
+function projectPlaceholders(projectIds: string[]): string {
+  return projectIds.map(() => "?").join(",");
+}
+
+function checkpointBlockersForProjects(
+  deps: ServiceDeps,
+  projectIds: string[],
+  taskId?: string,
+): CheckpointBlocker[] {
+  if (projectIds.length === 0) return [];
+  const rows = deps.sqlite
+    .prepare(
+      `
+      SELECT id, revision, review_status AS reviewStatus, recorded_at AS recordedAt,
+             value_json AS valueJson
+      FROM records
+      WHERE project_id IN (${projectPlaceholders(projectIds)})
+        AND value_json IS NOT NULL
+        AND json_valid(value_json)=1
+        AND json_extract(value_json, '$.kind')='working_checkpoint'
+      ORDER BY recorded_at ASC, id ASC
+    `,
+    )
+    .all(...projectIds) as Array<{
     id: string;
     revision: number;
     reviewStatus: string;
@@ -130,27 +146,49 @@ function checkpointBlockersForProject(deps: ServiceDeps, projectId: string, task
   return blockers;
 }
 
-function resolutionRowsForProject(deps: ServiceDeps, projectId: string): ResolutionRow[] {
-  return deps.sqlite.prepare(`
-    SELECT r.id AS recordId, r.review_status AS reviewStatus,
-           r.evidence_basis AS evidenceBasis, r.recorded_at AS recordedAt,
-           r.text, r.value_json AS valueJson,
-           (SELECT count(*) FROM record_evidence re WHERE re.record_id=r.id) AS evidenceCount
-    FROM records r
-    WHERE r.project_id=?
-      AND r.predicate='blocker_resolution'
-      AND r.review_status IN ('proposed','accepted')
-    ORDER BY r.recorded_at DESC, r.id DESC
-  `).all(projectId) as ResolutionRow[];
-}
-
-export function activeBlockerCountsByTask(
+function checkpointBlockersForProject(
   deps: ServiceDeps,
   projectId: string,
+  taskId?: string,
+): CheckpointBlocker[] {
+  return checkpointBlockersForProjects(deps, [projectId], taskId);
+}
+
+function resolutionRowsForProjects(
+  deps: ServiceDeps,
+  projectIds: string[],
+): ResolutionRow[] {
+  if (projectIds.length === 0) return [];
+  return deps.sqlite
+    .prepare(
+      `
+      SELECT r.id AS recordId, r.review_status AS reviewStatus,
+             r.evidence_basis AS evidenceBasis, r.recorded_at AS recordedAt,
+             r.text, r.value_json AS valueJson,
+             (SELECT count(*) FROM record_evidence re WHERE re.record_id=r.id) AS evidenceCount
+      FROM records r
+      WHERE r.project_id IN (${projectPlaceholders(projectIds)})
+        AND r.predicate='blocker_resolution'
+        AND r.review_status IN ('proposed','accepted')
+      ORDER BY r.recorded_at DESC, r.id DESC
+    `,
+    )
+    .all(...projectIds) as ResolutionRow[];
+}
+
+function resolutionRowsForProject(
+  deps: ServiceDeps,
+  projectId: string,
+): ResolutionRow[] {
+  return resolutionRowsForProjects(deps, [projectId]);
+}
+
+export function activeBlockerCountsByTaskForProjects(
+  deps: ServiceDeps,
+  projectIds: string[],
 ): Map<string, number> {
-  requireProject(deps, projectId);
-  const blockers = checkpointBlockersForProject(deps, projectId);
-  const resolutions = resolutionRowsForProject(deps, projectId);
+  const blockers = checkpointBlockersForProjects(deps, projectIds);
+  const resolutions = resolutionRowsForProjects(deps, projectIds);
   const resolved = new Set<string>();
   for (const row of resolutions) {
     const value = parseResolutionValue(row.valueJson);
@@ -170,6 +208,14 @@ export function activeBlockerCountsByTask(
   return counts;
 }
 
+export function activeBlockerCountsByTask(
+  deps: ServiceDeps,
+  projectId: string,
+): Map<string, number> {
+  requireProject(deps, projectId);
+  return activeBlockerCountsByTaskForProjects(deps, [projectId]);
+}
+
 export function getBlockerState(
   deps: ServiceDeps,
   projectId: string,
@@ -178,7 +224,10 @@ export function getBlockerState(
   requireProject(deps, projectId);
   const blockers = checkpointBlockersForProject(deps, projectId, page.taskId);
   const resolutions = resolutionRowsForProject(deps, projectId);
-  const resolutionByBlocker = new Map<string, { row: ResolutionRow; value: ResolutionValue }>();
+  const resolutionByBlocker = new Map<
+    string,
+    { row: ResolutionRow; value: ResolutionValue }
+  >();
   for (const row of resolutions) {
     const value = parseResolutionValue(row.valueJson);
     if (!value || resolutionByBlocker.has(value.blockerId)) continue;
@@ -187,7 +236,9 @@ export function getBlockerState(
 
   const historyAll = blockers.map((blocker) => {
     const resolution = resolutionByBlocker.get(blocker.blockerId);
-    const checkpointActive = blocker.checkpointStatus === "proposed" || blocker.checkpointStatus === "accepted";
+    const checkpointActive =
+      blocker.checkpointStatus === "proposed" ||
+      blocker.checkpointStatus === "accepted";
     return {
       ...blocker,
       status: resolution
@@ -214,19 +265,28 @@ export function getBlockerState(
 
   const activeAll = historyAll
     .filter((item) => item.status === "active")
-    .sort((a, b) => b.checkpointRecordedAt.localeCompare(a.checkpointRecordedAt) || b.blockerId.localeCompare(a.blockerId));
+    .sort(
+      (a, b) =>
+        b.checkpointRecordedAt.localeCompare(a.checkpointRecordedAt) ||
+        b.blockerId.localeCompare(a.blockerId),
+    );
   const resolvedAll = historyAll
     .filter((item) => item.status === "resolved" || item.status === "withdrawn")
-    .sort((a, b) =>
-      (b.resolution?.recordedAt ?? b.checkpointRecordedAt).localeCompare(a.resolution?.recordedAt ?? a.checkpointRecordedAt) ||
-      b.blockerId.localeCompare(a.blockerId)
+    .sort(
+      (a, b) =>
+        (b.resolution?.recordedAt ?? b.checkpointRecordedAt).localeCompare(
+          a.resolution?.recordedAt ?? a.checkpointRecordedAt,
+        ) || b.blockerId.localeCompare(a.blockerId),
     );
-  const orderedHistory = [...historyAll].sort((a, b) =>
-    b.checkpointRecordedAt.localeCompare(a.checkpointRecordedAt) || b.blockerId.localeCompare(a.blockerId)
+  const orderedHistory = [...historyAll].sort(
+    (a, b) =>
+      b.checkpointRecordedAt.localeCompare(a.checkpointRecordedAt) ||
+      b.blockerId.localeCompare(a.blockerId),
   );
   const offset = Math.max(0, page.offset ?? 0);
   const limit = Math.min(50, Math.max(1, page.limit ?? 25));
-  const nextOffset = (total: number) => offset + limit < total ? offset + limit : null;
+  const nextOffset = (total: number) =>
+    offset + limit < total ? offset + limit : null;
 
   return {
     projectId,
@@ -248,20 +308,27 @@ export function getBlockerState(
   };
 }
 
-function findBlockerAcrossProjects(deps: ServiceDeps, blockerId: string): {
+function findBlockerAcrossProjects(
+  deps: ServiceDeps,
+  blockerId: string,
+): {
   projectId: string | null;
   reviewStatus: string;
 } | null {
   const parsed = parseBlockerId(blockerId);
   if (!parsed) return null;
-  const row = deps.sqlite.prepare(
-    "SELECT project_id AS projectId, review_status AS reviewStatus, revision, value_json AS valueJson FROM records WHERE id=?",
-  ).get(parsed.recordId) as {
-    projectId: string | null;
-    reviewStatus: string;
-    revision: number;
-    valueJson: string | null;
-  } | undefined;
+  const row = deps.sqlite
+    .prepare(
+      "SELECT project_id AS projectId, review_status AS reviewStatus, revision, value_json AS valueJson FROM records WHERE id=?",
+    )
+    .get(parsed.recordId) as
+    | {
+        projectId: string | null;
+        reviewStatus: string;
+        revision: number;
+        valueJson: string | null;
+      }
+    | undefined;
   if (!row) return null;
   const checkpoint = parseWorkingCheckpoint(row.valueJson);
   if (!checkpoint || parsed.index >= checkpoint.blockers.length) return null;
@@ -284,41 +351,78 @@ export function resolveBlocker(
   return deps.sqlite.transaction(() => {
     requireProject(deps, input.projectId);
     const parsed = parseBlockerId(input.blockerId);
-    if (!parsed) throw new ApiError(400, "invalid_blocker_id", "Blocker id is not a valid ContextKeep blocker reference.");
+    if (!parsed)
+      throw new ApiError(
+        400,
+        "invalid_blocker_id",
+        "Blocker id is not a valid ContextKeep blocker reference.",
+      );
 
     const target = requireRecord(deps, parsed.recordId);
     if (target.projectId !== input.projectId) {
-      throw new ApiError(409, "blocker_project_mismatch", "Blocker belongs to another project.");
+      throw new ApiError(
+        409,
+        "blocker_project_mismatch",
+        "Blocker belongs to another project.",
+      );
     }
     if (target.revision !== input.checkpointRevision) {
-      throw new ApiError(409, "blocker_stale_reference", "Blocker checkpoint revision changed; refresh blocker state before resolving.");
+      throw new ApiError(
+        409,
+        "blocker_stale_reference",
+        "Blocker checkpoint revision changed; refresh blocker state before resolving.",
+      );
     }
     const checkpoint = parseWorkingCheckpoint(target.valueJson);
     if (!checkpoint || parsed.index >= checkpoint.blockers.length) {
-      throw new ApiError(409, "blocker_stale_reference", "Blocker no longer exists at this checkpoint revision.");
+      throw new ApiError(
+        409,
+        "blocker_stale_reference",
+        "Blocker no longer exists at this checkpoint revision.",
+      );
     }
-    if (target.reviewStatus !== "proposed" && target.reviewStatus !== "accepted") {
-      throw new ApiError(409, "blocker_not_active", "Blocker checkpoint is no longer active.");
+    if (
+      target.reviewStatus !== "proposed" &&
+      target.reviewStatus !== "accepted"
+    ) {
+      throw new ApiError(
+        409,
+        "blocker_not_active",
+        "Blocker checkpoint is no longer active.",
+      );
     }
 
     const existing = resolutionRowsForProject(deps, input.projectId)
       .map((row) => ({ row, value: parseResolutionValue(row.valueJson) }))
       .find((item) => item.value?.blockerId === input.blockerId);
     if (existing?.value) {
-      throw new ApiError(409, "blocker_already_resolved", "Blocker already has an active explicit resolution.", {
-        blockerId: input.blockerId,
-        resolutionRecordId: existing.row.recordId,
-        disposition: existing.value.disposition,
-      });
+      throw new ApiError(
+        409,
+        "blocker_already_resolved",
+        "Blocker already has an active explicit resolution.",
+        {
+          blockerId: input.blockerId,
+          resolutionRecordId: existing.row.recordId,
+          disposition: existing.value.disposition,
+        },
+      );
     }
 
     if (input.actionRecordId) {
       const action = requireRecord(deps, input.actionRecordId);
       if (action.projectId !== input.projectId) {
-        throw new ApiError(409, "blocker_action_project_mismatch", "Linked action belongs to another project.");
+        throw new ApiError(
+          409,
+          "blocker_action_project_mismatch",
+          "Linked action belongs to another project.",
+        );
       }
       if (action.type !== "action" || action.reviewStatus !== "accepted") {
-        throw new ApiError(409, "blocker_action_requires_accepted_action", "Linked blocker action must be an accepted action record.");
+        throw new ApiError(
+          409,
+          "blocker_action_requires_accepted_action",
+          "Linked blocker action must be an accepted action record.",
+        );
       }
     }
 
@@ -332,25 +436,36 @@ export function resolveBlocker(
       resolvedAt,
       checkpointRevision: input.checkpointRevision,
     };
-    const captured = captureWork(deps, {
-      projectId: input.projectId,
-      ...(checkpoint.taskId ? { taskId: checkpoint.taskId } : {}),
-      outcome: input.resolution,
-      evidenceText: `Blocker ${input.blockerId} resolution evidence:\n${input.evidenceText ?? input.resolution}`,
-      title: `Blocker resolution: ${checkpoint.blockers[parsed.index]!.slice(0, 120)}`,
-      eventAt: resolvedAt,
-      recordType: "fact",
-      subject: `blocker-resolution:${input.blockerId}`,
-      progressUpdates: [],
-      predicate: "blocker_resolution",
-      structuredValueJson: value,
-      dedupIdentity: `blocker_resolution:${input.blockerId}:${input.disposition}`,
-      authorLabel: ctx.actor,
-    }, ctx);
+    const captured = captureWork(
+      deps,
+      {
+        projectId: input.projectId,
+        ...(checkpoint.taskId ? { taskId: checkpoint.taskId } : {}),
+        outcome: input.resolution,
+        evidenceText: `Blocker ${input.blockerId} resolution evidence:\n${input.evidenceText ?? input.resolution}`,
+        title: `Blocker resolution: ${checkpoint.blockers[parsed.index]!.slice(0, 120)}`,
+        eventAt: resolvedAt,
+        recordType: "fact",
+        subject: `blocker-resolution:${input.blockerId}`,
+        progressUpdates: [],
+        predicate: "blocker_resolution",
+        structuredValueJson: value,
+        dedupIdentity: `blocker_resolution:${input.blockerId}:${input.disposition}`,
+        authorLabel: ctx.actor,
+      },
+      ctx,
+    );
 
     const state = getBlockerState(deps, input.projectId);
-    const resolved = state.resolved.find((item) => item.blockerId === input.blockerId);
-    if (!resolved) throw new ApiError(500, "blocker_resolution_readback_failed", "Resolution was written but did not read back.");
+    const resolved = state.resolved.find(
+      (item) => item.blockerId === input.blockerId,
+    );
+    if (!resolved)
+      throw new ApiError(
+        500,
+        "blocker_resolution_readback_failed",
+        "Resolution was written but did not read back.",
+      );
 
     return {
       projectId: input.projectId,
@@ -370,10 +485,23 @@ export function resolveBlocker(
   })();
 }
 
-export function validateBlockerProject(deps: ServiceDeps, projectId: string, blockerId: string): void {
+export function validateBlockerProject(
+  deps: ServiceDeps,
+  projectId: string,
+  blockerId: string,
+): void {
   const found = findBlockerAcrossProjects(deps, blockerId);
-  if (!found) throw new ApiError(404, "blocker_not_found", "Blocker reference was not found.");
+  if (!found)
+    throw new ApiError(
+      404,
+      "blocker_not_found",
+      "Blocker reference was not found.",
+    );
   if (found.projectId !== projectId) {
-    throw new ApiError(409, "blocker_project_mismatch", "Blocker belongs to another project.");
+    throw new ApiError(
+      409,
+      "blocker_project_mismatch",
+      "Blocker belongs to another project.",
+    );
   }
 }

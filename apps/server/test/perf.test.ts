@@ -386,6 +386,7 @@ function seedAttentionProjectionPerfFixture(
   projectId: string,
   taskCount = 100,
   runsPerTask = 10,
+  namespace = 0,
 ) {
   const db = t.app.ck.deps.sqlite;
   const insertRecord = db.prepare(
@@ -404,7 +405,8 @@ function seedAttentionProjectionPerfFixture(
   );
   db.transaction(() => {
     for (let i = 0; i < taskCount; i++) {
-      const taskId = `10000000-0000-4000-8000-${i
+      const taskNumber = namespace * 10_000 + i;
+      const taskId = `10000000-0000-4000-8000-${taskNumber
         .toString(16)
         .padStart(12, "0")}`;
       const taskAt = new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString();
@@ -425,7 +427,7 @@ function seedAttentionProjectionPerfFixture(
         taskAt,
       );
       for (let j = 0; j < runsPerTask; j++) {
-        const n = i * runsPerTask + j;
+        const n = namespace * 100_000 + i * runsPerTask + j;
         const proofId = `20000000-0000-4000-8000-${n
           .toString(16)
           .padStart(12, "0")}`;
@@ -453,7 +455,7 @@ function seedAttentionProjectionPerfFixture(
           runId,
           projectId,
           taskId,
-          `attention-op-${n}`,
+          `attention-op-${namespace}-${n}`,
           "a".repeat(64),
           "synthetic",
           "owner",
@@ -499,6 +501,57 @@ describe("CK attention projection performance", () => {
         )}ms over ${samples.length} samples (100 tasks + 1k terminal proof records)`,
       );
       expect(latencyP95).toBeLessThanOrEqual(100);
+    } finally {
+      await t.cleanup();
+    }
+  }, 180_000);
+});
+
+describe("CK portfolio attention performance", () => {
+  it("keeps a 20-project page bounded with one bulk attention projection", async () => {
+    const t = await makeTestApp();
+    try {
+      for (let i = 0; i < 20; i++) {
+        const project = (
+          await t.post("/api/projects", {
+            name: `Synthetic portfolio performance ${i}`,
+          })
+        ).json<{ id: string }>();
+        seedAttentionProjectionPerfFixture(t, project.id, 25, 2, i + 1);
+      }
+
+      const { portfolioOverview } =
+        await import("../src/services/operational-dossier.js");
+      for (let i = 0; i < 3; i++) {
+        const warm = portfolioOverview(t.app.ck.deps, 0, 20, false);
+        expect(warm.items).toHaveLength(20);
+        expect(
+          warm.items.every(
+            (item: { attentionCount: number }) => item.attentionCount === 25,
+          ),
+        ).toBe(true);
+      }
+
+      const samples: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        const startedAt = performance.now();
+        const result = portfolioOverview(t.app.ck.deps, 0, 20, false);
+        samples.push(performance.now() - startedAt);
+        expect(result.items).toHaveLength(20);
+        expect(
+          result.items.every(
+            (item: { attentionCount: number; attentionTasks: unknown[] }) =>
+              item.attentionCount === 25 && item.attentionTasks.length === 3,
+          ),
+        ).toBe(true);
+      }
+      const latencyP95 = p95(samples);
+      console.log(
+        `[perf] portfolio attention p95 = ${latencyP95.toFixed(
+          2,
+        )}ms over ${samples.length} samples (20 projects + 500 tasks + 1k terminal proof records)`,
+      );
+      expect(latencyP95).toBeLessThanOrEqual(300);
     } finally {
       await t.cleanup();
     }

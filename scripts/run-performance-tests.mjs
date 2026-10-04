@@ -15,6 +15,7 @@ const checks = [
   ["task-aware work context", "task-aware get_work_context"],
   ["working-memory search", "explicit working-memory search"],
   ["attention projection", "attention projection performance"],
+  ["portfolio attention", "portfolio attention performance"],
   ["FTS5 search", "FTS5 dedicated performance qualification"],
 ];
 

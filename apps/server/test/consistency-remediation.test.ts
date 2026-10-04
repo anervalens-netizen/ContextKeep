@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
+import { portfolioOverview } from "../src/services/operational-dossier.js";
 
 const token = randomUUID();
 const tracked: TestApp[] = [];
@@ -99,7 +100,7 @@ async function progress(
     summary: `Synthetic ${status}`,
     nextAction,
     ownerAction: null,
-    evidenceText: "Synthetic evidence only",
+    evidenceText: `Synthetic evidence for task ${taskId}`,
     ...identity(),
   });
 }
@@ -868,6 +869,31 @@ describe("same-millisecond continuity ordering", () => {
       },
     });
     expect(resumed.dossier.warnings.join(" ")).toContain("follow-up");
+    expect(resumed.dossier.attentionReasons).toContain(
+      "post_closure_follow_up",
+    );
+    expect(resumed.dossier.needsAttention).toBe(true);
+
+    const project = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 10,
+    });
+    const attention = project.attention.tasks.find(
+      (item: { taskId: string }) => item.taskId === taskId,
+    );
+    expect(attention?.attentionReasons).toContain("post_closure_follow_up");
+
+    const portfolio = await call(t, "get_portfolio", { limit: 20 });
+    const portfolioProject = portfolio.items.find(
+      (item: { id: string }) => item.id === projectId,
+    );
+    const portfolioAttention = portfolioProject.attentionTasks.find(
+      (item: { taskId: string }) => item.taskId === taskId,
+    );
+    expect(portfolioAttention?.attentionReasons).toContain(
+      "post_closure_follow_up",
+    );
   });
 });
 
@@ -920,5 +946,51 @@ describe("bounded follow-up capsule", () => {
       97,
     );
     expect(work.resumeCapsule.followUp.summary).toBeUndefined();
+  });
+});
+
+describe("portfolio attention batching", () => {
+  it("scans project-wide run attention once for the portfolio page instead of once per project", async () => {
+    const t = await makeTestApp({ mcpToken: token });
+    tracked.push(t);
+    for (let i = 0; i < 3; i++) {
+      const project = await call(t, "create_project", {
+        name: `Synthetic portfolio project ${i}`,
+        ...identity(),
+      });
+      const taskId = await createTask(
+        t,
+        project.id,
+        `Synthetic portfolio attention ${i}`,
+      );
+      await progress(
+        t,
+        project.id,
+        taskId,
+        "blocked",
+        `Synthetic portfolio action ${i}`,
+      );
+    }
+
+    const prepare = vi.spyOn(t.app.ck.deps.sqlite, "prepare");
+    const portfolio = portfolioOverview(t.app.ck.deps, 0, 20, false);
+    expect(portfolio.items).toHaveLength(3);
+    expect(portfolio.items.every((item) => item.attentionCount >= 1)).toBe(
+      true,
+    );
+
+    const sql = prepare.mock.calls.map(([statement]) => String(statement));
+    expect(
+      sql.filter((statement) =>
+        /FROM workflow_runs\s+WHERE project_id=\?\s+ORDER BY task_id/m.test(
+          statement,
+        ),
+      ),
+    ).toHaveLength(0);
+    expect(
+      sql.some((statement) =>
+        /FROM workflow_runs[\s\S]+WHERE project_id IN \(/m.test(statement),
+      ),
+    ).toBe(true);
   });
 });
