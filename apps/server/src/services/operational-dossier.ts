@@ -859,7 +859,15 @@ function latestCheckpointsForProjects(
       `SELECT r.project_id AS projectId,tr.task_id AS taskId,r.id,
               r.revision,r.recorded_at AS recordedAt,
               r.review_status AS reviewStatus,
-              r.evidence_basis AS evidenceBasis,r.value_json AS valueJson
+              r.evidence_basis AS evidenceBasis,r.value_json AS valueJson,
+              COALESCE(
+                (SELECT max(a.rowid) FROM audit_events a
+                 WHERE a.target_type='record' AND a.target_id=r.id
+                   AND a.action='record.edited'
+                   AND json_valid(a.detail_json)
+                   AND json_extract(a.detail_json,'$.operation')='record.create'),
+                0
+              ) AS creationOrder
        FROM records r
        JOIN workflow_task_records tr ON tr.record_id=r.id
        WHERE r.project_id IN (${sqlPlaceholders(projectIds)})
@@ -867,7 +875,7 @@ function latestCheckpointsForProjects(
          AND r.review_status IN ('accepted','proposed')
          AND json_valid(r.value_json)
          AND json_extract(r.value_json,'$.kind')='working_checkpoint'
-       ORDER BY tr.task_id,r.recorded_at DESC,r.id DESC`,
+       ORDER BY tr.task_id,r.recorded_at DESC,creationOrder DESC,r.id DESC`,
     )
     .all(...projectIds) as Array<{
     projectId: string;
@@ -878,6 +886,7 @@ function latestCheckpointsForProjects(
     reviewStatus: "accepted" | "proposed";
     evidenceBasis: string;
     valueJson: string;
+    creationOrder: number;
   }>;
   for (const row of rows) {
     if (result.has(row.taskId)) continue;

@@ -1044,3 +1044,109 @@ describe("actionless post-closure follow-up", () => {
     expect(attention?.attentionReasons).toContain("post_closure_follow_up");
   });
 });
+
+describe("checkpoint selection uses durable event order", () => {
+  it("selects the post-closure checkpoint when same-timestamp UUID order points at the older checkpoint", async () => {
+    const { t, projectId, taskId } = await setup();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const timestamp = "2030-01-01T12:00:00.000Z";
+    vi.setSystemTime(new Date(timestamp));
+    const sqlite = t.app.ck.deps.sqlite;
+
+    const insertCheckpoint = (recordId: string, label: string) => {
+      const value = JSON.stringify({
+        kind: "working_checkpoint",
+        taskId,
+        summary: label,
+        outcome: label,
+        nextAction: label,
+        blockers: [],
+        blockerMetadata: [],
+        artifactRefs: [],
+        capturedAt: timestamp,
+      });
+      sqlite
+        .prepare(
+          `INSERT INTO records
+           (id,project_id,type,subject,predicate,value_json,text,review_status,
+            evidence_basis,task_status,record_dedup_hash,recorded_at,
+            source_event_at,effective_from,effective_to,reviewed_at,review_due_at,
+            volatile,revision,created_at,updated_at)
+           VALUES (?,?,'fact',?,NULL,?,?,'proposed','agent_report',NULL,?,?,NULL,
+                   NULL,NULL,NULL,NULL,0,1,?,?)`,
+        )
+        .run(
+          recordId,
+          projectId,
+          label,
+          value,
+          label,
+          `checkpoint-order-${recordId}`,
+          timestamp,
+          timestamp,
+          timestamp,
+        );
+      sqlite
+        .prepare(
+          "INSERT INTO workflow_task_records(task_id,record_id) VALUES (?,?)",
+        )
+        .run(taskId, recordId);
+      sqlite
+        .prepare(
+          `INSERT INTO audit_events
+           (id,actor,action,target_type,target_id,timestamp,before_ref,after_ref,
+            detail_json,request_id)
+           VALUES (?,'synthetic','record.edited','record',?,?,NULL,NULL,?,?)`,
+        )
+        .run(
+          randomUUID(),
+          recordId,
+          timestamp,
+          JSON.stringify({ operation: "record.create" }),
+          randomUUID(),
+        );
+    };
+
+    const preClosureId = "ffffffff-ffff-4fff-8fff-fffffffffff0";
+    const postClosureId = "00000000-0000-4000-8000-000000000001";
+    insertCheckpoint(preClosureId, "PRE-CLOSURE SHOULD NOT WIN");
+
+    await call(t, "edit_record", {
+      recordId: taskId,
+      revision: 1,
+      taskStatus: "done",
+      ...identity(),
+    });
+
+    insertCheckpoint(postClosureId, "POST-CLOSURE FOLLOW-UP");
+
+    const resumed = await call(t, "resume_task", { projectId, taskId });
+    expect(resumed.dossier).toMatchObject({
+      state: "done",
+      nextAction: null,
+      followUp: {
+        checkpointRecordId: postClosureId,
+        nextAction: "POST-CLOSURE FOLLOW-UP",
+      },
+    });
+
+    const work = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 60_000,
+    });
+    expect(work.latestCheckpoint.recordId).toBe(postClosureId);
+    expect(work.resumeCapsule.followUp.checkpointRecordId).toBe(postClosureId);
+
+    const dossier = await call(t, "get_project_dossier", {
+      projectId,
+      offset: 0,
+      limit: 10,
+    });
+    expect(
+      dossier.attention.tasks.find(
+        (item: { taskId: string }) => item.taskId === taskId,
+      )?.attentionReasons,
+    ).toContain("post_closure_follow_up");
+  });
+});

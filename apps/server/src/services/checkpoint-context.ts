@@ -39,6 +39,15 @@ export function compactWorkingCheckpoint(
   };
 }
 
+const checkpointCreationOrder = sql<number>`COALESCE(
+  (SELECT max(a.rowid) FROM audit_events a
+   WHERE a.target_type='record' AND a.target_id=${records.id}
+     AND a.action='record.edited'
+     AND json_valid(a.detail_json)
+     AND json_extract(a.detail_json,'$.operation')='record.create'),
+  0
+)`;
+
 /** Latest eligible checkpoint is independent of task ranking and the proposed-only working index. */
 export function latestCheckpointFor(
   db: Db,
@@ -59,7 +68,11 @@ export function latestCheckpointFor(
         sql`CASE WHEN json_valid(${records.valueJson}) = 1 THEN json_extract(${records.valueJson}, '$.kind') ELSE NULL END = 'working_checkpoint'`,
       ),
     )
-    .orderBy(desc(records.recordedAt), desc(records.id))
+    .orderBy(
+      desc(records.recordedAt),
+      desc(checkpointCreationOrder),
+      desc(records.id),
+    )
     .limit(1)
     .get();
   if (

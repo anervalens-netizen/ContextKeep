@@ -127,3 +127,38 @@ it("uses the resume capsule when legacy pointers were omitted for budget", () =>
     }).nextAction,
   ).toBeNull();
 });
+
+it("preserves and renders a budgeted post-closure follow-up from the resume capsule", () => {
+  const projection = projectResumeContext({
+    project: { id: "project-fixture", name: "Fixture" },
+    latestNextAction: null,
+    resumePointersOmittedForBudget: true,
+    resumeCapsule: {
+      nextAction: null,
+      followUp: {
+        checkpointRecordId: "follow-up-fixture",
+        nextAction: null,
+        summary: "Reconcile the later checkpoint.",
+        recordedAt: "2026-10-04T10:00:00.000Z",
+        provenance: "agent_report",
+        detailOmittedForBudget: true,
+        recovery: {
+          tool: "get_record",
+          recordId: "follow-up-fixture",
+          includeUnreviewed: true,
+        },
+      },
+    },
+  });
+  expect(projection.followUp).toMatchObject({
+    checkpointRecordId: "follow-up-fixture",
+    nextAction: null,
+    summary: "Reconcile the later checkpoint.",
+  });
+  const text = renderResumeText(projection);
+  expect(text).toContain("Post-closure follow-up");
+  expect(text).toContain("follow-up-fixture");
+  expect(text).toContain("Reconcile the later checkpoint.");
+  expect(text).toContain("Follow-up action: none");
+  expect(text).toContain("RECOVERY:");
+});
