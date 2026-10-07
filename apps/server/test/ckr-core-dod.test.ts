@@ -127,7 +127,8 @@ describe("CKR core Definition of Done edge cases", () => {
     const tied = "2030-01-01T00:00:00.000Z";
     t.app.ck.handle.sqlite.prepare("UPDATE records SET recorded_at=? WHERE id IN (?,?)")
       .run(tied, first.outcome.recordId, second.outcome.recordId);
-    const expected = [first.outcome.recordId, second.outcome.recordId].sort().reverse()[0];
+    // Equal timestamps use the durable creation order, never random UUID order.
+    const expected = second.outcome.recordId;
     const context = await ok(t, "get_work_context", { projectId, task: "unrelated task wording", totalContextBudgetChars: 20000 });
     expect(context.latestCheckpoint.recordId).toBe(expected);
   });

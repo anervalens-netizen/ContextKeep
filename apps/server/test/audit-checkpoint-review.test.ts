@@ -158,9 +158,12 @@ describe("A01 checkpoint review does not rewind agent resume", () => {
     const f = await fixture();
     const first = await f.capture("First", "2026-09-24T01:00:00.000Z");
     const second = await f.capture("Second", "2026-09-24T01:00:00.000Z");
-    const latest = [first, second].sort().at(-1)!;
-    await f.review([latest], "accept");
-    expect((await f.context()).latestCheckpoint?.recordId).toBe(latest);
+    expect((await f.context()).latestCheckpoint?.recordId).toBe(second);
+    // Reviewing the older record must not make its later audit event a creation.
+    await f.review([first], "accept");
+    expect((await f.context()).latestCheckpoint?.recordId).toBe(second);
+    await f.review([second], "accept");
+    expect((await f.context()).latestCheckpoint?.recordId).toBe(second);
   });
   it("returns a newer proposal without promoting it over or blending it into canonical records", async () => {
     const f = await fixture();
