@@ -17,6 +17,8 @@ overrides:
   "brace-expansion@5.0.9": "5.0.12"
   # GHSA-gfhx-hw2g-v5hg: build-only serializer function-body escaping fix.
   "serialize-javascript@7.1.1": "7.1.2"
+  # GHSA-68fv-2mgg-jv7q: patch the vulnerable source-map implementation.
+  "source-map-js@<1.2.2": "1.2.2"
 
 onlyBuiltDependencies:
   - better-sqlite3
