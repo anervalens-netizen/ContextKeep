@@ -828,4 +828,41 @@ class RuntimeDataIdentityTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'Duplicate runtime environment key'):self.verify()
 
 
+retention=load('contextkeep-minimal-retention')
+
+class RetentionIntegrityTests(unittest.TestCase):
+    def fixture(self, root, runtime):
+        runtime.mkdir(); kit=runtime/"runtime-fixture.tar.gz";kit.write_bytes(b"runtime")
+        for i in range(6):
+            manifest={"db_sha256":hashlib.sha256(b"database").hexdigest(),"runtime_kit":kit.name,"runtime_sha256":retention.digest(kit)}
+            with tarfile.open(root/("snapshot-20261008T12%02d00Z.tar.gz"%i),"w:gz") as out:
+                for name,data in [("store.sqlite",b"database"),("manifest.json",json.dumps(manifest).encode())]:
+                    member=tarfile.TarInfo(name);member.size=len(data);out.addfile(member,io.BytesIO(data))
+        return kit
+    def test_separate_runtime_root_and_dry_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=P(d);runtime=root/"kits";self.fixture(root,runtime)
+            before=sorted(p.name for p in root.glob("snapshot-*"))
+            result=retention.prune_root(root,runtime_root=runtime,dry_run=True)
+            self.assertEqual(before,sorted(p.name for p in root.glob("snapshot-*")))
+            self.assertEqual(len(result["kept_snapshots"]),4)
+            retention.prune_root(root,runtime_root=runtime)
+            self.assertEqual(len(list(root.glob("snapshot-*"))),4)
+            self.assertEqual(len(list(runtime.glob("runtime-*"))),1)
+    def test_bad_runtime_hash_preserves_all_generations(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=P(d);runtime=root/"kits";kit=self.fixture(root,runtime);kit.write_bytes(b"corrupt")
+            with self.assertRaises(ValueError):retention.prune_root(root,runtime_root=runtime)
+            self.assertEqual(len(list(root.glob("snapshot-*"))),6)
+    def test_nas_keeps_one_matching_pair_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=P(d);runtime=root/"kits";kit=self.fixture(root,runtime)
+            kit.write_bytes(b"corrupt")
+            with self.assertRaises(ValueError):backup.prune(root,single=True,runtime_root=runtime)
+            self.assertEqual(len(list(root.glob("snapshot-*"))),6)
+            kit.write_bytes(b"runtime");backup.prune(root,single=True,runtime_root=runtime)
+            self.assertEqual(len(list(root.glob("snapshot-*"))),1)
+            self.assertTrue(kit.exists())
+
+
 if __name__=='__main__':unittest.main()

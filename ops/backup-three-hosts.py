@@ -73,7 +73,34 @@ def ensure_runtime_kit(kit,release,home,node):
         os.replace(part,kit)
     finally:
         part.unlink(missing_ok=True)
-def prune(root):
+def prune(root, single=False, runtime_root=None):
+    runtime_root = runtime_root or root
+    import hashlib, json, re, tarfile
+    if single:
+        # Only NAS: one complete snapshot and its matching runtime kit.
+        rows=sorted(root.glob('snapshot-????????T??????Z.tar.gz'),reverse=True)
+        if not rows:raise ValueError('No NAS snapshot; retention aborted')
+        current=rows[0]
+        if current.is_symlink():raise ValueError('Unsafe NAS snapshot')
+        with tarfile.open(current,'r:gz') as archive:
+            manifest=json.load(archive.extractfile('manifest.json'))
+            with archive.extractfile('store.sqlite') as stream:
+                if hashlib.file_digest(stream,'sha256').hexdigest()!=manifest['db_sha256']:
+                    raise ValueError('NAS snapshot database hash mismatch')
+        kit_name=manifest['runtime_kit']
+        if not re.fullmatch(r'runtime-[A-Za-z0-9._-]+\.tar\.gz',kit_name):
+            raise ValueError('Unsafe runtime kit name')
+        kit=runtime_root/kit_name
+        if kit.is_symlink():raise ValueError('Unsafe runtime kit')
+        with kit.open('rb') as stream:
+            if hashlib.file_digest(stream,'sha256').hexdigest()!=manifest['runtime_sha256']:
+                raise ValueError('NAS runtime kit hash mismatch')
+        for old in rows[1:]:
+            if not old.is_symlink():old.unlink()
+        for old in runtime_root.glob('runtime-*.tar.gz'):
+            if old!=kit and not old.is_symlink() and old.stat().st_mtime<=current.stat().st_mtime:
+                old.unlink()
+        return
     rows=sorted(root.glob('snapshot-*.tar.gz'),reverse=True)
     keep=set(rows[:96]);days=set()
     for p in rows:
@@ -81,6 +108,37 @@ def prune(root):
         if day not in days and len(days)<30: keep.add(p);days.add(day)
     for p in rows:
         if p not in keep: p.unlink()
+    # Snapshot retention runs every backup; immutable runtime garbage collection
+    # is daily so it does not reread all historical archives every 15 minutes.
+    import time
+    marker=root/'.runtime-prune-last'
+    if marker.exists() and 0 <= time.time()-marker.stat().st_mtime < 86400:
+        return
+    # Runtime archives are shared by many snapshots. Remove only unreferenced
+    # archives after every retained snapshot has a matching, verified runtime.
+    runtime_refs={}
+    for snapshot in keep:
+        with tarfile.open(snapshot,'r:gz') as archive:
+            manifest=json.load(archive.extractfile('manifest.json'))
+        name=manifest['runtime_kit']
+        if not re.fullmatch(r'runtime-[A-Za-z0-9._-]+\.tar\.gz',name):
+            raise ValueError('Unsafe retained runtime kit name')
+        expected=manifest['runtime_sha256']
+        if name in runtime_refs and runtime_refs[name]!=expected:
+            raise ValueError('Conflicting retained runtime identity')
+        runtime_refs[name]=expected
+    for name,expected in runtime_refs.items():
+        kit=runtime_root/name
+        if kit.is_symlink():raise ValueError('Unsafe retained runtime kit')
+        with kit.open('rb') as stream:
+            if hashlib.file_digest(stream,'sha256').hexdigest()!=expected:
+                raise ValueError('Retained runtime kit hash mismatch')
+    if keep:
+        cutoff=max(p.stat().st_mtime for p in keep)
+        for kit in runtime_root.glob('runtime-*.tar.gz'):
+            if kit.name not in runtime_refs and not kit.is_symlink() and kit.stat().st_mtime<=cutoff:
+                kit.unlink()
+    marker.touch()
 def running_node(run,proc_root=P('/proc')):
     """Bundle the actual service interpreter, never an unrelated PATH default."""
     pid=run(['systemctl','--user','show','contextkeep.service','--property=MainPID','--value'])
@@ -177,6 +235,19 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now,profile=None
                 for n in ['contextkeep.service','contextkeep.service.d','contextkeep-mcp-tunnel.service','contextkeep-backup.service','contextkeep-backup.timer']:
                     p=HOME/'.config/systemd/user'/n
                     if p.exists():t.add(p,arcname='systemd/'+n)
+                # Keep the installed retention hook and unit drop-in in the
+                # recovery archive. A fresh host must be able to reproduce the
+                # effective 4-recent + 3-daily policy, not the pre-hook default.
+                for name, archive_name in [
+                    ('.local/bin/contextkeep-minimal-retention.py', 'ops/contextkeep-minimal-retention.py'),
+                    ('.config/systemd/user/contextkeep-backup.service.d/minimal-retention.conf',
+                     'systemd/contextkeep-backup.service.d/minimal-retention.conf'),
+                ]:
+                    installed=HOME/name
+                    if installed.exists():
+                        if not installed.is_file() or installed.is_symlink():
+                            raise ValueError('Unsafe installed retention component: '+str(installed))
+                        t.add(installed,arcname=archive_name,recursive=False)
                 for n in ['ops','docs/operations','docs/archive/trackers/CK_DR_TRACKER-2026-09-24.md']:
                     p=REPO/n
                     if p.exists():t.add(p,arcname='source/'+n)
@@ -184,7 +255,7 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now,profile=None
         finally:
             part.unlink(missing_ok=True)
     ah=digest(archive)
-    status={**manifest,'snapshot':archive.name,'snapshot_sha256':ah,'cadence_minutes':15,'retention':'96 recent + 30 daily snapshots; runtime kits retained','copies':{'server':{'ok':True,'verified_at':now.isoformat(),'path':str(archive),'sha256':ah}}}
+    status={**manifest,'snapshot':archive.name,'snapshot_sha256':ah,'cadence_minutes':15,'retention':'NAS: one verified snapshot and matching runtime; server/Dell: 96 recent + 30 daily snapshots','copies':{'server':{'ok':True,'verified_at':now.isoformat(),'path':str(archive),'sha256':ah}}}
     if STATUS.exists():
         old=json.loads(STATUS.read_text())
         if 'restore_test' in old:status['restore_test']=old['restore_test']
@@ -213,12 +284,12 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now,profile=None
                         finally:
                             part.unlink(missing_ok=True)
                     if digest(out)!=h:raise ValueError('NAS hash mismatch: '+p.name)
-                path=str(dest/archive.name);prune(dest)
+                path=str(dest/archive.name);prune(dest,single=True)
             status['copies'][target]={'ok':True,'verified_at':now.isoformat(),'path':path,'sha256':ah,'runtime_sha256':kit_hash}
         except Exception as e:
             status['copies'][target]={'ok':False,'error':type(e).__name__+': '+str(e)[:250]}
         write(STATUS,status)
-    prune(BASE)
+    prune(BASE,runtime_root=kit_dir)
     # Retention only affects this job's timestamped snapshots, never live data.
     if status['copies'].get('dell',{}).get('ok'):
         try:

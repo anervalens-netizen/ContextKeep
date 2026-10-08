@@ -110,3 +110,25 @@ a later environment file can override a service-level Environment directive.
 Changing the interval does not disable backups or manual housekeeping, which
 uses the same protective policy. Restore the chosen interval only after
 qualifying the policy and verifying the running release and database identity.
+
+
+## Compact three-host retention
+
+The operator may install `ops/contextkeep-minimal-retention.py` as the post-backup
+hook for a compact policy: four recent snapshots plus one daily snapshot for
+three prior days on the primary and standby. The NAS keeps one verified snapshot
+and its matching runtime archive. Each retained snapshot and referenced runtime
+must pass its hash checks before the hook deletes older generations. A dry run
+reports the proposed changes without removing archives.
+
+Install the helper under the configured operator home on both hosts. Configure
+an `ExecStartPost` with `--orchestrate --config <private-profile> --json` in the
+backup user service. The profile supplies the real paths and hosts; do not commit
+it. The backup archive includes the installed helper and drop-in so the effective
+policy can be recovered. Without this optional hook, the base primary/standby
+policy remains 96 recent and 30 daily snapshots; the published final status names
+the policy actually applied. Keep the helper, backup script and recovery kit in
+sync when deploying operational changes.
+
+Validate with `python3 ops/contextkeep-minimal-retention.py --self-test` and the
+operational recovery suite. A retention test is not a full application restore.
