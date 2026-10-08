@@ -73,3 +73,36 @@ and authenticated readiness, then create new matching recovery copies. A binary
 rollback alone cannot downgrade a migrated database. Operational profiles and
 restore/deploy receipts remain private; these instructions do not authorize
 replacing an installed profile with a repository template.
+
+## Operational retention
+
+Generic proposal retention never archives task identities, structured memory
+(including unknown or malformed metadata), explicit task state, or records
+referenced by workflow tables. This includes closed tasks, historical evidence,
+verification receipts and paused projects. Accepted truth and owner declarations
+retain their existing protection. Resolving a blocker does not make its
+checkpoint eligible for generic retention.
+
+Inspect one read-only page without starting the server or running migrations:
+
+```sh
+node --import ./apps/server/node_modules/tsx/dist/esm/index.mjs \\
+  apps/server/src/cli/housekeeping-preview.ts \\
+  --db /path/to/existing/store.sqlite --days 30 --limit 100
+```
+
+Follow `nextCursor` using `--cursor`; keep the same `--days`. Counts are per
+page, not whole-database totals. The cursor preserves the observation cutoff;
+revisions are read fresh on each page. Optional `--at` accepts an ISO timestamp
+for isolated future-date qualification. Never apply simulated future retention
+to production. Preview uses an existing SQLite file opened read-only and does
+not load environment configuration, bootstrap a schema or run background jobs.
+Application retention rechecks revision and current workflow references inside
+the write transaction; preview is not an authorization to archive a stale row.
+
+Operators can suspend automatic housekeeping with
+`CK_HOUSEKEEPING_INTERVAL_MINUTES=0`. Verify the effective process setting:
+a later environment file can override a service-level Environment directive.
+Changing the interval does not disable backups or manual housekeeping, which
+uses the same protective policy. Restore the chosen interval only after
+qualifying the policy and verifying the running release and database identity.

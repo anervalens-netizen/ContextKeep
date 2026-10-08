@@ -217,7 +217,7 @@ describe("CKR-18 explicit blocker identity and resolution", () => {
     }
   });
 
-  it("housekeeping protects unresolved blockers, then archives the resolved old checkpoint while retaining resolution history", async () => {
+  it("housekeeping retains both resolved checkpoints and resolution history", async () => {
     const { t, projects: [projectId] } = await setup("CKR18 housekeeping");
     const blocked = await checkpoint(t, projectId!, ["aged blocker"], "aged-blocker");
     await checkpoint(t, projectId!, [], "newer-useful-checkpoint");
@@ -233,7 +233,7 @@ describe("CKR-18 explicit blocker identity and resolution", () => {
       { actor: "test:ckr18", requestId: null },
       Date.parse("2026-09-21T00:00:00.000Z"),
     );
-    expect(before.skipped).toContainEqual({ recordId: blockedId, reason: "unresolved_blocker" });
+    expect(before.skipped).toContainEqual({ recordId: blockedId, reason: "structured_memory" });
 
     const state = await call(t, "list_blockers", { projectId });
     const resolved = await call(t, "resolve_blocker", {
@@ -251,13 +251,14 @@ describe("CKR-18 explicit blocker identity and resolution", () => {
       { actor: "test:ckr18", requestId: null },
       Date.parse("2026-09-21T00:00:00.000Z"),
     );
-    expect(after.archivedRecordIds).toContain(blockedId);
+    expect(after.archivedRecordIds).not.toContain(blockedId);
+    expect(after.skipped).toContainEqual({ recordId: blockedId, reason: "structured_memory" });
     expect(after.skipped).toContainEqual({ recordId: resolved.resolutionRecordId, reason: "blocker_resolution_history" });
 
     const finalState = await call(t, "list_blockers", { projectId });
     expect(finalState.active).toHaveLength(0);
     expect(finalState.resolved).toHaveLength(1);
-    expect(finalState.history[0].checkpointStatus).toBe("rejected");
+    expect(finalState.history[0].checkpointStatus).toBe("proposed");
     expect(finalState.history[0].status).toBe("resolved");
   });
 });
