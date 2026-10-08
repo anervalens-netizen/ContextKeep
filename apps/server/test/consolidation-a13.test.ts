@@ -55,7 +55,7 @@ describe("CK-A13 common runtime metadata and bounded MCP diagnostics", () => {
     expect(meta.runtime).toEqual({
       buildSha: BUILD_SHA,
       applicationVersion: "0.1.0",
-      mcpVersion: "2.15.0",
+      mcpVersion: "2.15.1",
       mcpContractVersion: "mcp-first-v1",
       schemaVersion: 19,
       protocols: {

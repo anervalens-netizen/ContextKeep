@@ -51,7 +51,7 @@ describe("CKR housekeeping and backup Definition of Done", () => {
     expect(retry.archivedRecordIds).toContain(fails);
   });
 
-  it("protects the newest useful checkpoint even when it is outside the aged candidate set", async () => {
+  it("protects historical checkpoints as well as the newest checkpoint outside the aged candidate set", async () => {
     const t = await makeTestApp({ adapters: "manual" }); tracked.push(t);
     const p = await t.post("/api/projects", { name: "CKR checkpoint retention" });
     const projectId = p.json<{ id: string }>().id;
@@ -68,7 +68,8 @@ describe("CKR housekeeping and backup Definition of Done", () => {
     const latestCheckpoint = cp("new checkpoint");
     t.app.ck.handle.sqlite.prepare("UPDATE records SET created_at='2020-01-01T00:00:00.000Z',updated_at='2020-01-01T00:00:00.000Z' WHERE id=?").run(oldCheckpoint);
     const result = runMemoryHousekeeping(t.app.ck.deps, { housekeepingProposalRetentionDays: 30 }, undefined, Date.parse("2026-09-21T00:00:00Z"));
-    expect(result.archivedRecordIds).toContain(oldCheckpoint);
+    expect(result.archivedRecordIds).not.toContain(oldCheckpoint);
+    expect((t.app.ck.handle.sqlite.prepare("SELECT review_status FROM records WHERE id=?").get(oldCheckpoint) as any).review_status).toBe("proposed");
     expect((t.app.ck.handle.sqlite.prepare("SELECT review_status FROM records WHERE id=?").get(latestCheckpoint) as any).review_status).toBe("proposed");
   });
 
