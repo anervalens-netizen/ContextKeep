@@ -303,6 +303,22 @@ try {
           ),
           true,
         );
+        if (["global", "english"].includes(mode)) {
+          for (const width of [375, 768, 1280]) {
+            await page.setViewportSize({ width, height: 1200 });
+            const geometry = await frameElement.evaluate(() => {
+              const button = document.querySelector(".ck-task-controls form button");
+              const range = document.createRange();
+              range.selectNodeContents(button);
+              const lines = new Set([...range.getClientRects()].map(rect => Math.round(rect.top)));
+              return { lines: lines.size, buttonWidth: button.getBoundingClientRect().width,
+                fits: document.documentElement.scrollWidth <= window.innerWidth };
+            });
+            assert.equal(geometry.lines, 1, `search label wraps at ${width}px`);
+            assert.ok(geometry.buttonWidth >= 44, `search target too narrow at ${width}px`);
+            assert.equal(geometry.fits, true, `panel overflows at ${width}px`);
+          }
+        }
         const calls = await page.evaluate(() => window.calls);
         assert.equal(
           calls.some(c => c.name === "get_task" && c.args.projectId === "demo-project" && c.args.taskId === "demo-task"),

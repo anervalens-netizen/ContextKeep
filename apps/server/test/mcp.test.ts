@@ -710,7 +710,7 @@ describe("MCP complete memory workflow", () => {
     expect(result.structuredContent.error.issues[0].message).toContain("15");
     const cap=await ok(t,"get_capabilities",{});
     expect(cap.tools).toHaveLength(60);
-    expect(cap.version).toBe("2.17.0");
+    expect(cap.version).toBe("2.17.1");
     expect(cap.applicationVersion).toBe("0.1.0");
     expect(cap.schemaVersion).toBe(19);
     expect(cap.contractVersion).toBe("mcp-first-v1");

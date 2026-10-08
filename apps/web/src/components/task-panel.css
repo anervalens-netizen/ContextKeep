@@ -198,6 +198,7 @@
   font-size: 12px;
 }
 .ck-filter-controls {
+  align-self: flex-end;
   display: flex;
   gap: 8px;
   margin-top: 12px;
@@ -314,8 +315,9 @@
   display: flex;
   align-items: end;
   gap: 8px;
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 100%;
 }
 .ck-task-controls input {
   box-sizing: border-box;
@@ -327,4 +329,27 @@
   margin-top: 5px;
   color: inherit;
   background: inherit;
+}
+
+.ck-task-controls form label {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.ck-task-controls form button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.ck-refresh-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ck-context-actions > strong,
+.ck-context-actions > small {
+  display: block;
+}
+.ck-context-buttons button {
+  min-height: 44px;
 }
