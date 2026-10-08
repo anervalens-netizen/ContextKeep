@@ -1,6 +1,6 @@
 import { taskSelectionPredicate, type TaskSelection } from "./task-selection.js";
 import { enqueueExecutionEvent } from "./workflow-events.js";
-import { taskDossier, getTaskProgress, effectiveTaskState } from "./operational-dossier.js";
+import { taskDossier, getTaskProgress, effectiveTaskState, taskNavigationPage } from "./operational-dossier.js";
 import { randomUUID } from "node:crypto";
 import { captureWork } from "./capture-work.js";
 import { writeAudit } from "./audit.js";
@@ -486,7 +486,9 @@ export function listTasks(
   limit = 50,
   selection: TaskSelection = "all_actions",
   q?: string,
+  view?: "recent" | "attention" | "active",
 ) {
+  if(view) return taskNavigationPage(deps,projectId,offset,limit,selection,view,q);
   const query = q?.trim();
   const search = query ? " AND instr(lower(r.subject),lower(?)) > 0" : "";
   const parameters = query ? [projectId, query] : [projectId];

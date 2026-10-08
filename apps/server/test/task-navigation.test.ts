@@ -464,3 +464,45 @@ describe("explicit task identity and compatible navigation", () => {
     ).toEqual(resumed.dossier.attention);
   });
 });
+
+it("filters before pagination using effective state and shared attention, retaining terminal unresolved executions",async()=>{
+  const {app,projectId}=await setup();
+  const ids:string[]=[];
+  for(let i=0;i<4;i++) {
+    const created=await call(app,"create_task",{projectId,title:"Candidate "+i,objective:"Synthetic navigation filter",...identity()});
+    ids.push(created.taskId);
+    if(i<3)await call(app,"report_task_progress",{projectId,taskId:created.taskId,taskRevision:1,expectedProgressRecordId:null,
+      status:i<2?"done":"blocked",summary:"Synthetic reported state",nextAction:null,ownerAction:null,evidenceText:"Synthetic evidence",...identity()});
+  }
+  await call(app,"reserve_run",{projectId,taskId:ids[0],operationKey:"synthetic-navigation-live",inputHash:"d".repeat(64),
+    device:"fixture",identity:"owner",criteria:["Inspect existing synthetic run"],...identity()});
+  const scope={projectId,selection:"actual_tasks",limit:1};
+  const first=await call(app,"list_tasks",{...scope,view:"active"});
+  const second=await call(app,"list_tasks",{...scope,view:"active",offset:first.nextOffset});
+  expect(first.total).toBe(2);expect(second.total).toBe(2);expect(second.nextOffset).toBeNull();
+  expect(new Set([...first.items,...second.items].map((r:{id:string})=>r.id))).toEqual(new Set([ids[2],ids[3]]));
+  const attention=await call(app,"list_tasks",{...scope,view:"attention",limit:50});
+  const dossier=await call(app,"get_project_dossier",{projectId,selection:"actual_tasks"});
+  expect(attention.total).toBe(dossier.attention.count);
+  expect(new Set(attention.items.map((r:{id:string})=>r.id))).toEqual(new Set(dossier.attention.tasks.map((r:{taskId:string})=>r.taskId)));
+  expect(attention.items.some((r:{id:string;effectiveState:string})=>r.id===ids[0]&&r.effectiveState==="done")).toBe(true);
+  const filteredDossier=await call(app,"get_project_dossier",{...scope,view:"active",q:"Candidate 2"});
+  expect(filteredDossier.pagination.total).toBe(1);
+  expect(filteredDossier.tasks.map((r:{taskId:string})=>r.taskId)).toEqual([ids[2]]);
+  // Search limits the main cards; project-wide attention must not lose another task.
+  expect(filteredDossier.attention.count).toBe(attention.total);
+  expect(filteredDossier.attention.tasks.some((r:{taskId:string})=>r.taskId===ids[0])).toBe(true);
+  const emptyDossier=await call(app,"get_project_dossier",{...scope,view:"active",q:"no matching title"});
+  expect(emptyDossier.pagination.total).toBe(0);
+  expect(emptyDossier.tasks).toEqual([]);
+  expect(emptyDossier.attention.count).toBe(attention.total);
+  const match=await call(app,"list_tasks",{...scope,view:"active",q:"Candidate 2"});
+  expect(match.total).toBe(1);expect(match.items[0].id).toBe(ids[2]);expect(match.nextOffset).toBeNull();
+  expect((await call(app,"list_tasks",{...scope,view:"active",q:"%"})).total).toBe(0);
+  const recent=await call(app,"list_tasks",{...scope,view:"recent",limit:50});
+  expect(recent.total).toBe(4);
+  expect(recent.items.map((r:{lastActivityAt:string})=>r.lastActivityAt)).toEqual(recent.items.map((r:{lastActivityAt:string})=>r.lastActivityAt).sort().reverse());
+  const before=recent.total;
+  expect((await call(app,"list_tasks",{projectId})).total).toBe(before);
+  await call(app,"list_tasks",{...scope,view:"unknown"},true);
+});

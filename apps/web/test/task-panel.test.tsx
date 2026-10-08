@@ -151,14 +151,61 @@ it("offers bounded reuse search and ignores a page from an obsolete filter", asy
   });
   render(<TaskPanel projectId="project" transport={{projects:async()=>[],tasks,task:async()=>view}} />);
   await screen.findByRole("option",{name:/Verify synthetic/});
-  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks"});
+  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",view:"recent"});
   fireEvent.click(screen.getByRole("button",{name:"More tasks"}));
   fireEvent.change(screen.getByLabelText("Search tasks"),{target:{value:"Matched"}});
   fireEvent.click(screen.getByRole("button",{name:"Caută"}));
   await screen.findByRole("option",{name:/Matched candidate/});
-  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",q:"Matched"});
+  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",view:"recent",q:"Matched"});
   resolvePage({items:[{...task,id:"late",subject:"Obsolete page"}],nextOffset:null});
   await waitFor(()=>expect(screen.queryByRole("option",{name:/Obsolete page/})).toBeNull());
   fireEvent.change(screen.getByLabelText("Task selection"),{target:{value:"all_actions"}});
-  await waitFor(()=>expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"all_actions",q:"Matched"}));
+  await waitFor(()=>expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"all_actions",view:"recent",q:"Matched"}));
+});
+
+it("uses the saved landing view and requests a fresh bounded list when changing views",async()=>{
+ const tasks=vi.fn(async()=>({items:[task],nextOffset:null}));
+ render(<TaskPanel projectId="project" initialLandingView="attention" transport={{projects:async()=>[],tasks,task:async()=>view}}/>);
+ await screen.findByRole("option",{name:/Verify synthetic/});
+ expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",view:"attention"});
+ fireEvent.click(screen.getByRole("button",{name:"Active",exact:true}));
+ await waitFor(()=>expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",view:"active"}));
+ expect(screen.getByRole("button",{name:"Active",exact:true}).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("retries a failed task list without changing selection and navigates back with breadcrumbs",async()=>{
+  const tasks=vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue({items:[task],nextOffset:null});
+  render(<TaskPanel transport={{projects:async()=>[{id:"project",name:"Synthetic"}],tasks,task:async()=>view}}/>);
+  await screen.findByRole("option",{name:"Synthetic"});
+  fireEvent.change(screen.getByLabelText("Project"),{target:{value:"project"}});
+  await screen.findByRole("button",{name:"Reîncearcă lista"});
+  fireEvent.click(screen.getByRole("button",{name:"Reîncearcă lista"}));
+  await screen.findByRole("option",{name:/Verify synthetic/});
+  expect(tasks).toHaveBeenCalledTimes(2);
+  fireEvent.change(screen.getByLabelText("Task"),{target:{value:"task-a"}});
+  await screen.findByText("Verification: pending");
+  fireEvent.click(screen.getByRole("button",{name:"Synthetic",exact:true}));
+  await waitFor(()=>expect(screen.queryByText("Verification: pending")).toBeNull());
+  fireEvent.click(screen.getByRole("button",{name:"Proiecte",exact:true}));
+  expect((screen.getByLabelText("Project") as HTMLSelectElement).value).toBe("");
+});
+
+it("freezes selection while a host operation is in flight and unlocks after acknowledgement",async()=>{
+ const transport:TaskTransport={projects:async()=>[{id:"project",name:"Synthetic"}],
+ tasks:async()=>({items:[task,{...task,id:"task-b",subject:"Other"}],nextOffset:null}),task:async()=>view};
+ const ui=render(<TaskPanel transport={transport} hostActions={{pending:false}}/>);
+ await screen.findByRole("option",{name:"Synthetic"});
+ fireEvent.change(screen.getByLabelText("Project"),{target:{value:"project"}});
+ await screen.findByRole("option",{name:/Verify synthetic/});
+ fireEvent.change(screen.getByLabelText("Task"),{target:{value:"task-a"}});
+ await screen.findByText("Verification: pending");
+ ui.rerender(<TaskPanel transport={transport} hostActions={{pending:true}}/>);
+ expect((screen.getByLabelText("Project") as HTMLSelectElement).disabled).toBe(true);
+ expect((screen.getByLabelText("Task") as HTMLSelectElement).disabled).toBe(true);
+ fireEvent.change(screen.getByLabelText("Task"),{target:{value:"task-b"}});
+ expect((screen.getByLabelText("Task") as HTMLSelectElement).value).toBe("task-a");
+ fireEvent.click(screen.getByRole("button",{name:"Proiecte",exact:true}));
+ expect((screen.getByLabelText("Project") as HTMLSelectElement).value).toBe("project");
+ ui.rerender(<TaskPanel transport={transport} hostActions={{pending:false}}/>);
+ expect((screen.getByLabelText("Task") as HTMLSelectElement).disabled).toBe(false);
 });

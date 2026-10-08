@@ -924,13 +924,8 @@ function latestCheckpointsForProjects(
   return result;
 }
 
-function projectAttentionReasonsForProjects(
-  deps: ServiceDeps,
-  projectIds: string[],
-  rows: TaskRow[],
-): Map<string, string[]> {
-  const reasons = new Map<string, string[]>();
-  if (projectIds.length === 0) return reasons;
+function taskProgressForProjects(deps: ServiceDeps, projectIds: string[]) {
+  if(projectIds.length===0)return new Map<string,ReturnType<typeof getTaskProgress>>();
   const progressRows = deps.sqlite
     .prepare(
       `SELECT tr.task_id AS taskId,r.id AS recordId,r.value_json AS valueJson,
@@ -968,6 +963,17 @@ function projectAttentionReasonsForProjects(
     });
   }
 
+  return progressByTask;
+}
+
+function projectAttentionReasonsForProjects(
+  deps: ServiceDeps,
+  projectIds: string[],
+  rows: TaskRow[],
+  progressByTask = taskProgressForProjects(deps,projectIds),
+): Map<string, string[]> {
+  const reasons = new Map<string, string[]>();
+  if (projectIds.length === 0) return reasons;
   const checkpoints = latestCheckpointsForProjects(deps, projectIds);
   const blockerCategories = activeBlockerCategoriesByTaskForProjects(deps, projectIds);
   const lifecycles = new Map((deps.sqlite.prepare(
@@ -1078,16 +1084,20 @@ export function projectDossier(
   attentionOffset: number | null = null,
   attentionLimit = 10,
   selection: TaskSelection = "all_actions",
+  view?: "recent" | "attention" | "active",
+  q?: string,
 ) {
   const project = requireProject(deps, projectId);
-  const rows = taskRows(deps, projectId, offset, limit, selection);
-  const total = (
+  const navigation=view ? taskNavigationPage(deps,projectId,offset,limit,selection,view,q) : null;
+  const rows = navigation?.items ?? taskRows(deps, projectId, offset, limit, selection);
+  const projectTotal = (
     deps.sqlite
       .prepare(
         `SELECT count(*) AS n FROM records r WHERE project_id=? AND type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}`,
       )
       .get(projectId) as { n: number }
   ).n;
+  const total = navigation?.total ?? projectTotal;
   const goals = deps.sqlite
     .prepare(
       `SELECT id AS recordId,subject,text,review_status AS reviewStatus,recorded_at AS recordedAt
@@ -1110,9 +1120,9 @@ export function projectDossier(
   const attention = includeAttention
     ? (() => {
         const attentionRows =
-          offset === 0 && rows.length === total
+          !navigation && offset === 0 && rows.length === projectTotal
             ? rows
-            : taskRows(deps, projectId, 0, total, selection);
+            : taskRows(deps, projectId, 0, projectTotal, selection);
         const attentionReasonIndex = projectAttentionReasons(
           deps,
           projectId,
@@ -1496,4 +1506,28 @@ export function operationalTimeline(
     semantics:
       "Evidence-backed records and latest retained run observations. Review status is preserved; this is not automatic acceptance or a complete process log.",
   };
+}
+
+
+// Navigation filters use the same effective state and attention classifier as dossiers.
+// Only the selected project's identities are inspected; returned pages stay bounded.
+export function taskNavigationPage(
+  deps: ServiceDeps, projectId: string, offset: number, limit: number,
+  selection: TaskSelection, view: "recent" | "attention" | "active", q?: string,
+) {
+  requireProject(deps,projectId);
+  const query=q?.trim().toLowerCase();
+  const rows=taskRowsForProjects(deps,[projectId],selection)
+    .filter(row=>!query || row.subject.toLowerCase().includes(query));
+  const progressByTask=taskProgressForProjects(deps,[projectId]);
+  const attention=view==="attention" ? projectAttentionReasonsForProjects(deps,[projectId],rows,progressByTask) : null;
+  const candidates=rows.map(row=>{
+    const operationalProgress=progressByTask.get(row.id) ?? null;
+    const state=effectiveTaskState(deps,row,operationalProgress);
+    return {...row,operationalProgress,effectiveState:state.state,stateSource:state.stateSource};
+  }).filter(row=>view==="active" ? !["done","cancelled"].includes(row.effectiveState)
+    : view==="attention" ? attention!.has(row.id) : true);
+  const total=candidates.length;
+  return {selection,view,items:candidates.slice(offset,offset+limit),total,offset,limit,
+    nextOffset:offset+limit<total?offset+limit:null};
 }

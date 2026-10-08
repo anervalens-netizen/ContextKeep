@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { usePanelText } from "../lib/panel-locale.js";
+import type { PanelPreferences } from "@contextkeep/shared";
+import { schedulePanelRefresh } from "../lib/panel-refresh.js";
+import {
+  TaskContextActions,
+  type TaskHostActions,
+} from "./TaskContextActions.js";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./task-panel.css";
 import {
   TaskNow,
@@ -55,12 +62,23 @@ export type TaskView = {
 };
 export interface TaskTransport {
   projects(): Promise<Project[]>;
+  projectPage?: (
+    offset?: number,
+  ) => Promise<{ projects: Project[]; nextOffset: number | null }>;
   overview?: (
     projectId: string,
     offset?: number,
     attentionOffset?: number,
+    options?: {
+      selection?: "actual_tasks" | "all_actions";
+      view?: "recent" | "attention" | "active";
+      q?: string;
+    },
   ) => Promise<ProjectDossier>;
-  portfolio?: (offset?: number) => Promise<PortfolioPage>;
+  portfolio?: (
+    offset?: number,
+    selection?: "actual_tasks" | "all_actions",
+  ) => Promise<PortfolioPage>;
   resume?: (
     projectId: string,
     taskId: string,
@@ -78,7 +96,11 @@ export interface TaskTransport {
   tasks(
     projectId: string,
     offset?: number,
-    options?: { selection?: "actual_tasks" | "all_actions"; q?: string },
+    options?: {
+      selection?: "actual_tasks" | "all_actions";
+      q?: string;
+      view?: "recent" | "attention" | "active";
+    },
   ): Promise<{ items: Task[]; nextOffset: number | null }>;
   task(projectId: string, taskId: string, offset?: number): Promise<TaskView>;
 }
@@ -88,26 +110,63 @@ export function TaskPanel({
   selection,
   onSelection,
   onResume,
+  hostActions,
+  refreshIntervalMs = 15000,
+  initialTaskVisibility = "actual_tasks",
+  contextBudget = "balanced",
+  initialLandingView = "recent",
 }: {
   transport: TaskTransport;
   projectId?: string;
   selection?: TaskSelection;
   onSelection?: (s: TaskSelection) => void;
   onResume?: (s: TaskSelection, text: string) => void;
+  hostActions?: TaskHostActions;
+  refreshIntervalMs?: number | null;
+  initialTaskVisibility?: "actual_tasks" | "all_actions";
+  contextBudget?: PanelPreferences["contextBudget"];
+  initialLandingView?: PanelPreferences["landingView"];
 }) {
+  const tr = usePanelText();
   const [projects, setProjects] = useState<Project[]>([]),
     [projectId, setProjectId] = useState(
       fixedProject ?? selection?.projectId ?? "",
     ),
     [taskId, setTaskId] = useState(selection?.taskId ?? "");
   const [offset, setOffset] = useState(0);
-  const [taskFilter, setTaskFilter] = useState<"actual_tasks" | "all_actions">("actual_tasks");
+  const [listRetry, setListRetry] = useState(0);
+  const [projectsFailed, setProjectsFailed] = useState(false);
+  const [nextProjects, setNextProjects] = useState<number | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const projectsPending = useRef(false);
+  const [taskFilter, setTaskFilter] = useState<"actual_tasks" | "all_actions">(
+    initialTaskVisibility,
+  );
+  const [taskView, setTaskView] = useState(initialLandingView);
+  useEffect(
+    () => setTaskFilter(initialTaskVisibility),
+    [initialTaskVisibility],
+  );
+  useEffect(() => setTaskView(initialLandingView), [initialLandingView]);
   const [searchDraft, setSearchDraft] = useState("");
   const [taskQuery, setTaskQuery] = useState("");
+  const loadPortfolio = useCallback(
+    (offset?: number) => transport.portfolio!(offset, taskFilter),
+    [transport, taskFilter],
+  );
+  const loadOverview = useCallback(
+    (id: string, offset?: number, attentionOffset?: number) =>
+      transport.overview!(id, offset, attentionOffset, {
+        selection: taskFilter,
+        view: taskView,
+        ...(taskQuery ? { q: taskQuery } : {}),
+      }),
+    [transport, taskFilter, taskView, taskQuery],
+  );
   const [moreLoading, setMoreLoading] = useState(false);
   const morePending = useRef(false);
   const listGeneration = useRef(0);
-  const listKey = `${projectId}:${taskFilter}:${taskQuery}`;
+  const listKey = `${projectId}:${taskFilter}:${taskView}:${taskQuery}`;
   const currentListKey = useRef(listKey);
   currentListKey.current = listKey;
   const [resumeText, setResumeText] = useState("");
@@ -127,24 +186,37 @@ export function TaskPanel({
   const [tasksStatus, setTasksStatus] = useState<
     "idle" | "loading" | "loaded" | "error"
   >("idle");
+  const refreshTask = useRef<(() => Promise<void>) | null>(null);
+  const [observedAt, setObservedAt] = useState<string | null>(null);
   const serial = useRef(0),
     selectionCallback = useRef(onSelection);
   selectionCallback.current = onSelection;
   useEffect(() => {
     let active = true;
+    setProjectsFailed(false);
     if (!fixedProject)
-      transport
-        .projects()
+      (transport.projectPage
+        ? transport.projectPage(0)
+        : transport
+            .projects()
+            .then((projects) => ({ projects, nextOffset: null }))
+      )
         .then((p) => {
-          if (active) setProjects(p);
+          if (active) {
+            setProjects(p.projects);
+            setNextProjects(p.nextOffset);
+          }
         })
         .catch(() => {
-          if (active) setError("Could not load projects.");
+          if (active) {
+            setProjectsFailed(true);
+            setError(tr("Could not load projects."));
+          }
         });
     return () => {
       active = false;
     };
-  }, [transport, fixedProject]);
+  }, [transport, fixedProject, listRetry]);
   useEffect(() => {
     if (fixedProject) {
       setProjectId(fixedProject);
@@ -169,7 +241,11 @@ export function TaskPanel({
     setTasksStatus(projectId ? "loading" : "idle");
     if (projectId)
       transport
-        .tasks(projectId, 0, { selection: taskFilter, ...(taskQuery ? {q: taskQuery} : {}) })
+        .tasks(projectId, 0, {
+          selection: taskFilter,
+          view: taskView,
+          ...(taskQuery ? { q: taskQuery } : {}),
+        })
         .then((r) => {
           if (active) {
             setTasks(r.items);
@@ -180,19 +256,22 @@ export function TaskPanel({
         .catch(() => {
           if (active) {
             setTasksStatus("error");
-            setError("Could not load tasks.");
+            setError(tr("Could not load tasks."));
           }
         });
     return () => {
       active = false;
     };
-  }, [transport, projectId, taskFilter, taskQuery]);
+  }, [transport, projectId, taskFilter, taskView, taskQuery, listRetry]);
   useEffect(() => {
     const request = ++serial.current;
     let stopped = false,
       pending = false;
     setView(null);
     setError("");
+    setObservedAt(null);
+    setLoading(false);
+    refreshTask.current = null;
     if (!projectId || !taskId) return;
     const refresh = async () => {
       if (pending || stopped) return;
@@ -202,6 +281,7 @@ export function TaskPanel({
         const next = await transport.task(projectId, taskId, offset);
         if (stopped || serial.current !== request) return;
         setView(next);
+        setObservedAt(new Date().toISOString());
         setError("");
         selectionCallback.current?.({
           projectId,
@@ -211,39 +291,81 @@ export function TaskPanel({
         });
       } catch {
         if (!stopped && serial.current === request)
-          setError("Could not refresh task. Displayed data may be stale.");
+          setError(tr("Could not refresh task. Displayed data may be stale."));
       } finally {
         pending = false;
         if (!stopped && serial.current === request) setLoading(false);
       }
     };
+    refreshTask.current = refresh;
     void refresh();
-    const timer = setInterval(() => {
-      if (document.visibilityState !== "hidden") void refresh();
-    }, 15000);
+    const stop = schedulePanelRefresh(() => void refresh(), refreshIntervalMs);
     return () => {
       stopped = true;
-      clearInterval(timer);
+      refreshTask.current = null;
+      stop();
     };
-  }, [transport, projectId, taskId, offset]);
+  }, [transport, projectId, taskId, offset, refreshIntervalMs]);
+  async function moreProjects() {
+    if (
+      !transport.projectPage ||
+      nextProjects === null ||
+      projectsPending.current
+    )
+      return;
+    projectsPending.current = true;
+    setProjectsLoading(true);
+    try {
+      const page = await transport.projectPage(nextProjects);
+      setProjects((previous) => [
+        ...previous,
+        ...page.projects.filter(
+          (p) => !previous.some((existing) => existing.id === p.id),
+        ),
+      ]);
+      setNextProjects(page.nextOffset);
+    } catch {
+      setError(tr("Could not load more projects."));
+    } finally {
+      projectsPending.current = false;
+      setProjectsLoading(false);
+    }
+  }
   async function moreTasks() {
     if (nextTasks === null || morePending.current) return;
-    const key = listKey, generation = listGeneration.current;
+    const key = listKey,
+      generation = listGeneration.current;
     morePending.current = true;
     setMoreLoading(true);
     try {
       const r = await transport.tasks(projectId, nextTasks, {
-        selection: taskFilter, ...(taskQuery ? {q: taskQuery} : {}),
+        selection: taskFilter,
+        view: taskView,
+        ...(taskQuery ? { q: taskQuery } : {}),
       });
-      if (key === currentListKey.current && generation === listGeneration.current) {
-        setTasks(v => [...v, ...r.items.filter(item => !v.some(existing => existing.id === item.id))]);
+      if (
+        key === currentListKey.current &&
+        generation === listGeneration.current
+      ) {
+        setTasks((v) => [
+          ...v,
+          ...r.items.filter(
+            (item) => !v.some((existing) => existing.id === item.id),
+          ),
+        ]);
         setNextTasks(r.nextOffset);
       }
     } catch {
-      if (key === currentListKey.current && generation === listGeneration.current)
-        setError("Could not load more tasks.");
+      if (
+        key === currentListKey.current &&
+        generation === listGeneration.current
+      )
+        setError(tr("Could not load more tasks."));
     } finally {
-      if (key === currentListKey.current && generation === listGeneration.current) {
+      if (
+        key === currentListKey.current &&
+        generation === listGeneration.current
+      ) {
         morePending.current = false;
         setMoreLoading(false);
       }
@@ -268,7 +390,7 @@ export function TaskPanel({
       );
     } catch {
       if (selectedKey.current === key)
-        setError("Contextul de reluare nu poate fi pregătit.");
+        setError(tr("Contextul de reluare nu poate fi pregătit."));
     } finally {
       if (selectedKey.current === key) setResuming(false);
     }
@@ -277,23 +399,60 @@ export function TaskPanel({
     <section className="ck-task-panel">
       <header>
         <span className="ck-task-eyebrow">CONTEXTKEEP</span>
-        <h2>Task dossier</h2>
-        <p>Checkpoint, execution and verification in one place.</p>
+        <h2>{tr("Task dossier")}</h2>
+        <p>{tr("Checkpoint, execution and verification in one place.")}</p>
       </header>
+      <nav aria-label="Breadcrumb" className="ck-filter-controls">
+        {!fixedProject && (
+          <button
+            disabled={hostActions?.pending}
+            onClick={() => {
+              if (hostActions?.pending) return;
+              setProjectId("");
+              setTaskId("");
+              setView(null);
+            }}
+          >
+            {tr("Proiecte")}
+          </button>
+        )}
+        {projectId && (
+          <button
+            disabled={hostActions?.pending}
+            onClick={() => {
+              if (hostActions?.pending) return;
+              setTaskId("");
+              setView(null);
+            }}
+          >
+            {projects.find((p) => p.id === projectId)?.name ??
+              tr("Proiectul selectat")}
+          </button>
+        )}
+        {taskId && (
+          <span aria-current="page">
+            {view?.task.subject ??
+              tasks.find((t) => t.id === taskId)?.subject ??
+              tr("Taskul selectat")}
+          </span>
+        )}
+      </nav>
       <div className="ck-task-controls">
         {!fixedProject && (
           <label>
-            Project
+            {tr(" Project ")}
             <select
-              aria-label="Project"
+              aria-label={tr("Project")}
+              disabled={hostActions?.pending}
               value={projectId}
               onChange={(e) => {
+                if (hostActions?.pending) return;
                 setProjectId(e.target.value);
                 setTaskId("");
                 setView(null);
               }}
             >
-              <option value="">Select a project</option>
+              <option value="">{tr("Select a project")}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -302,48 +461,138 @@ export function TaskPanel({
             </select>
           </label>
         )}
+        {nextProjects !== null && (
+          <button
+            disabled={projectsLoading}
+            onClick={() => void moreProjects()}
+          >
+            {tr("More projects")}
+          </button>
+        )}
+        <nav aria-label={tr("Task views")} className="ck-filter-controls">
+          {(["recent", "attention", "active"] as const).map((value) => (
+            <button
+              key={value}
+              aria-pressed={taskView === value}
+              onClick={() => setTaskView(value)}
+            >
+              {
+                {
+                  recent: tr("Recente"),
+                  attention: tr("Atenție"),
+                  active: tr("Active"),
+                }[value]
+              }
+            </button>
+          ))}
+        </nav>
         <label>
-          Afișare
-          <select aria-label="Task selection" value={taskFilter} onChange={e => setTaskFilter(e.target.value as "actual_tasks" | "all_actions")}>
-            <option value="actual_tasks">Taskuri</option>
-            <option value="all_actions">Toate acțiunile</option>
+          {tr(" Afișare ")}
+          <select
+            aria-label={tr("Task selection")}
+            value={taskFilter}
+            onChange={(e) =>
+              setTaskFilter(e.target.value as "actual_tasks" | "all_actions")
+            }
+          >
+            <option value="actual_tasks">{tr("Taskuri")}</option>
+            <option value="all_actions">{tr("Toate acțiunile")}</option>
           </select>
         </label>
-        <form onSubmit={e => {e.preventDefault(); setTaskQuery(searchDraft.trim());}}>
-          <label>Caută taskul<input aria-label="Search tasks" value={searchDraft} maxLength={200} onChange={e => setSearchDraft(e.target.value)} /></label>
-          <button type="submit" disabled={!projectId}>Caută</button>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setTaskQuery(searchDraft.trim());
+          }}
+        >
+          <label>
+            {tr("Caută taskul")}
+            <input
+              aria-label={tr("Search tasks")}
+              value={searchDraft}
+              maxLength={200}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={!projectId}>
+            {tr("Caută")}
+          </button>
         </form>
         <label>
-          Task
+          {tr(" Task ")}
           <select
-            aria-label="Task"
+            aria-label={tr("Task")}
+            disabled={hostActions?.pending}
             value={taskId}
             onChange={(e) => {
+              if (hostActions?.pending) return;
               setTaskId(e.target.value);
               setView(null);
             }}
           >
-            <option value="">Select a task</option>
+            <option value="">{tr("Select a task")}</option>
             {tasks.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.subject.slice(0, 160)} · {t.effectiveState ?? t.taskStatus ?? "unknown"} · {t.reviewStatus}
+                {t.subject.slice(0, 160)} ·{" "}
+                {t.effectiveState ?? t.taskStatus ?? "unknown"} ·{" "}
+                {t.reviewStatus}
               </option>
             ))}
           </select>
         </label>
         {nextTasks !== null && (
-          <button disabled={moreLoading} onClick={() => void moreTasks()}>More tasks</button>
+          <button disabled={moreLoading} onClick={() => void moreTasks()}>
+            {tr("More tasks")}
+          </button>
         )}
       </div>
-      {error && <p role="alert">{error}</p>}
+      {taskId && (
+        <div className="ck-refresh-controls">
+          <button
+            disabled={loading}
+            onClick={() => void refreshTask.current?.()}
+          >
+            {tr("Actualizează taskul")}
+          </button>
+          {observedAt && (
+            <small>
+              {tr("Citit la ")}
+              <time dateTime={observedAt}>
+                {new Date(observedAt).toLocaleTimeString()}
+              </time>
+            </small>
+          )}
+        </div>
+      )}
+      {error && <p role="alert">{tr(error)}</p>}
+      {(projectsFailed || tasksStatus === "error") && (
+        <button
+          onClick={() => {
+            setError("");
+            setListRetry((value) => value + 1);
+          }}
+        >
+          {tr("Reîncearcă lista")}
+        </button>
+      )}
       {!projectId && transport.portfolio && (
-        <PortfolioNow load={transport.portfolio} onProject={setProjectId} />
+        <PortfolioNow
+          load={loadPortfolio}
+          onProject={(id) => {
+            if (!hostActions?.pending) setProjectId(id);
+          }}
+          refreshIntervalMs={refreshIntervalMs}
+        />
       )}
       {projectId && !taskId && transport.overview && (
         <ProjectNow
           projectId={projectId}
-          load={transport.overview}
-          onTask={setTaskId}
+          load={loadOverview}
+          serverFiltered
+          refreshIntervalMs={refreshIntervalMs}
+          onTask={(id) => {
+            if (!hostActions?.pending) setTaskId(id);
+          }}
         />
       )}
       {projectId && !taskId && transport.activity && (
@@ -352,30 +601,48 @@ export function TaskPanel({
       {!view && tasksStatus !== "error" && (
         <p className="ck-task-muted">
           {tasksStatus === "loading"
-            ? "Loading tasks…"
+            ? tr("Loading tasks…")
             : loading
-              ? "Loading task…"
+              ? tr("Loading task…")
               : tasksStatus === "loaded" && tasks.length === 0
-                ? "No matching tasks. Try another search or view all actions."
-                : "Choose a task to inspect its state."}
+                ? tr(
+                    "No matching tasks. Try another search or view all actions.",
+                  )
+                : tr("Choose a task to inspect its state.")}
         </p>
       )}
       {view && (
         <>
           {view.dossier && <TaskNow dossier={view.dossier} />}
+          {transport.resume && hostActions && (
+            <TaskContextActions
+              selection={{
+                projectId,
+                taskId,
+                revision: view.task.revision,
+                stateToken: view.dossier?.stateToken,
+              }}
+              title={view.task.subject}
+              resume={transport.resume}
+              host={hostActions}
+              contextBudget={contextBudget}
+            />
+          )}
           {transport.resume && (
             <div className="ck-resume-controls">
               <button disabled={resuming} onClick={() => void prepareResume()}>
-                {resuming ? "Se pregătește…" : "Reia lucrarea"}
+                {resuming ? tr("Se pregătește…") : tr("Reia lucrarea")}
               </button>
               <small>
-                Pregătește contextul actual. Nu pornește nicio execuție.
+                {tr(
+                  " Pregătește contextul actual. Nu pornește nicio execuție. ",
+                )}
               </small>
               {resumeText && (
                 <label>
-                  Context de reluare
+                  {tr(" Context de reluare ")}
                   <textarea
-                    aria-label="Resume context"
+                    aria-label={tr("Resume context")}
                     readOnly
                     value={resumeText}
                     rows={9}
@@ -386,28 +653,29 @@ export function TaskPanel({
             </div>
           )}
           <details className="ck-original-task">
-            <summary>Obiectivul și starea inițială</summary>
+            <summary>{tr("Obiectivul și starea inițială")}</summary>
             <div className="ck-task-state">
               <strong>{view.task.text ?? view.task.subject}</strong>
-              <span>{view.task.taskStatus ?? "No progress recorded"}</span>
+              <span>{view.task.taskStatus ?? tr("No progress recorded")}</span>
               <span>
-                {view.task.reviewStatus} · revision {view.task.revision}
+                {view.task.reviewStatus} {tr(" · revision ")}
+                {view.task.revision}
               </span>
             </div>
           </details>
           {!view.dossier && (
             <article>
-              <h3>Resume</h3>
+              <h3>{tr("Resume")}</h3>
               <p>
                 {view.latestCheckpoint?.checkpoint?.summary ??
-                  "No checkpoint for this task."}
+                  tr("No checkpoint for this task.")}
               </p>
               {view.latestCheckpoint && (
                 <>
                   <p>
-                    <b>Next:</b>{" "}
+                    <b>{tr("Next:")}</b>{" "}
                     {view.latestCheckpoint.checkpoint?.nextAction ??
-                      "Not specified"}
+                      tr("Not specified")}
                   </p>
                   <small>
                     {view.latestCheckpoint.status} ·{" "}
@@ -422,7 +690,7 @@ export function TaskPanel({
           )}
           {view.blockers.active.length > 0 && (
             <article>
-              <h3>Blockers</h3>
+              <h3>{tr("Blockers")}</h3>
               <ul>
                 {view.blockers.active.map((b) => (
                   <li key={b.blockerId}>{b.text}</li>
@@ -431,18 +699,21 @@ export function TaskPanel({
             </article>
           )}
           <article>
-            <h3>Executions</h3>
+            <h3>{tr("Executions")}</h3>
             {view.runs.length === 0 ? (
-              <p>No runs recorded.</p>
+              <p>{tr("No runs recorded.")}</p>
             ) : (
               view.runs.map((r) => (
                 <div className="ck-task-run" key={r.id}>
                   <div>
                     <b>{r.status}</b>
-                    <span>Verification: {r.verification}</span>
+                    <span>
+                      {tr("Verification: ")}
+                      {r.verification}
+                    </span>
                   </div>
                   <small>
-                    {r.externalJobId ?? "No executor receipt"} ·{" "}
+                    {r.externalJobId ?? tr("No executor receipt")} ·{" "}
                     {new Date(r.updatedAt).toLocaleString()}
                   </small>
                   <ul>
@@ -462,9 +733,9 @@ export function TaskPanel({
             />
           ) : (
             <article>
-              <h3>Evidence timeline</h3>
+              <h3>{tr("Evidence timeline")}</h3>
               {view.records.length === 0 ? (
-                <p>No reports for this task.</p>
+                <p>{tr("No reports for this task.")}</p>
               ) : (
                 view.records.map((r) => (
                   <details key={r.id}>
@@ -478,23 +749,24 @@ export function TaskPanel({
               )}
             </article>
           )}
-          <nav aria-label="Task history pages">
+          <nav aria-label={tr("Task history pages")}>
             <button
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - 20))}
             >
-              Previous
+              {tr(" Previous ")}
             </button>{" "}
             <button
               disabled={view.pagination.nextOffset === null}
               onClick={() => setOffset(view.pagination.nextOffset ?? offset)}
             >
-              More history
+              {tr(" More history ")}
             </button>
           </nav>
           <small>
-            Execution completion does not complete the task. Agent reports
-            retain their review status.
+            {tr(
+              " Execution completion does not complete the task. Agent reports retain their review status. ",
+            )}
           </small>
         </>
       )}

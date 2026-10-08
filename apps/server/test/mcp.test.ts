@@ -79,13 +79,27 @@ describe("private ContextKeep MCP", () => {
       "list_projects", "get_project", "get_work_context", "get_project_brief", "get_project_timeline", "search_context",
       "get_record", "get_context_delta", "list_blockers", "resolve_blocker", "create_handoff", "create_task_handoff", "reconcile_uncertain_run", "add_owner_note", "add_source", "capture_working_memory", "capture_work", "propose_correction",
     ]));
-    expect(tools).toHaveLength(58);
-    expect(tools.filter((tool: any) => tool.annotations.readOnlyHint)).toHaveLength(27);
+    expect(tools).toHaveLength(60);
+    expect(tools.filter((tool: any) => tool.annotations.readOnlyHint)).toHaveLength(28);
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe("object"); expect(tool.inputSchema.additionalProperties).toBe(false);
       expect(tool.outputSchema).toBeTruthy();
       expect(tool.outputSchema.type).toBe("object");
-      if (!tool.annotations.readOnlyHint) expect(tool.inputSchema.required).toContain("idempotencyKey");
+      // References are rooted at the published schema, not its nested success branch.
+      const checkRefs=(value:unknown):void=>{
+        if(!value || typeof value!=="object")return;
+        const node=value as Record<string,unknown>;
+        if(typeof node.$ref==="string"){
+          expect(node.$ref.startsWith("#/"),tool.name).toBe(true);
+          let target:unknown=tool.outputSchema;
+          for(const part of node.$ref.slice(2).split("/"))target=(target as Record<string,unknown>)?.[part.replace(/~1/g,"/").replace(/~0/g,"~")];
+          expect(target,tool.name+" "+node.$ref).toBeDefined();
+        }
+        for(const child of Object.values(node))checkRefs(child);
+      };
+      checkRefs(tool.outputSchema);
+
+      if (!tool.annotations.readOnlyHint && tool.name !== "settings.update") expect(tool.inputSchema.required).toContain("idempotencyKey");
     }
     const byName = new Map(tools.map((tool: any) => [tool.name, tool]));
     const successSchema = (name: string) => byName.get(name).outputSchema.anyOf[0];
@@ -150,7 +164,7 @@ describe("private ContextKeep MCP", () => {
     const client = new Client({ name: "ContextKeep acceptance", version: "1" });
     try {
       await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`), { requestInit: { headers: { authorization: `Bearer ${TOKEN}` } } }));
-      expect((await client.listTools()).tools).toHaveLength(58);
+      expect((await client.listTools()).tools).toHaveLength(60);
       const result = await client.callTool({ name: "get_project", arguments: { projectId } });
       expect(result.isError).not.toBe(true);
       expect((result.structuredContent as any).project.id).toBe(projectId);
@@ -695,8 +709,8 @@ describe("MCP complete memory workflow", () => {
     expect(result.structuredContent.error.issues[0].path).toBe("limit");
     expect(result.structuredContent.error.issues[0].message).toContain("15");
     const cap=await ok(t,"get_capabilities",{});
-    expect(cap.tools).toHaveLength(58);
-    expect(cap.version).toBe("2.16.0");
+    expect(cap.tools).toHaveLength(60);
+    expect(cap.version).toBe("2.17.0");
     expect(cap.applicationVersion).toBe("0.1.0");
     expect(cap.schemaVersion).toBe(19);
     expect(cap.contractVersion).toBe("mcp-first-v1");

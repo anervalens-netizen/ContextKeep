@@ -1,3 +1,5 @@
+import { usePanelText } from "../lib/panel-locale.js";
+import { schedulePanelRefresh } from "../lib/panel-refresh.js";
 import type { TaskAttention } from "@contextkeep/shared";
 import { useEffect, useRef, useState } from "react";
 
@@ -198,110 +200,128 @@ const deliveryLabel = (status: string) =>
   })[status] ?? "necunoscut";
 const time = (value: string) => new Date(value).toLocaleString();
 export function TaskNow({ dossier }: { dossier: TaskDossier }) {
+  const tr = usePanelText();
   return (
-    <article className="ck-now" aria-label="Current task state">
+    <article className="ck-now" aria-label={tr("Current task state")}>
       <div className="ck-now-heading">
-        <h3>Ce contează acum</h3>
+        <h3>{tr("Ce contează acum")}</h3>
         <span className={`ck-state-tag ck-state-${dossier.state}`}>
-          {stateLabel(dossier.state)}
+          {tr(stateLabel(dossier.state))}
         </span>
       </div>
       <p className="ck-now-summary">
-        {dossier.summary ?? "Nu există încă un raport pentru această lucrare."}
+        {dossier.summary ??
+          tr("Nu există încă un raport pentru această lucrare.")}
       </p>
       {dossier.needsAttention && (
         <p role="status" className="ck-owner-action">
-          Necesită atenție
+          {tr(" Necesită atenție ")}
           {typeof dossier.unresolvedExecutionCount === "number" &&
           dossier.unresolvedExecutionCount > 0
-            ? `: ${dossier.unresolvedExecutionCount} execuții sau dovezi necesită verificare`
+            ? `: ${dossier.unresolvedExecutionCount} ${tr("execuții sau dovezi necesită verificare")}`
             : "."}
         </p>
       )}
       {dossier.attention && dossier.attention.items.length > 0 && (
-        <p aria-label="Attention categories">
-          {[...new Set(dossier.attention.items.map(item => item.category))].map(category => ({
-            actionable_now: "Acțiune necesară", verification_needed: "Verificare necesară",
-            owner_optional: "Opțional pentru proprietar", deferred: "Amânat",
-            historical_integrity: "Istoric de reconciliat",
-          })[category]).join(" · ")}
+        <p aria-label={tr("Attention categories")}>
+          {[...new Set(dossier.attention.items.map((item) => item.category))]
+            .map(
+              (category) =>
+                ({
+                  actionable_now: tr("Acțiune necesară"),
+                  verification_needed: tr("Verificare necesară"),
+                  owner_optional: tr("Opțional pentru proprietar"),
+                  deferred: tr("Amânat"),
+                  historical_integrity: tr("Istoric de reconciliat"),
+                })[category],
+            )
+            .join(" · ")}
         </p>
       )}
       <dl className="ck-now-facts">
         <div>
-          <dt>Pasul următor</dt>
+          <dt>{tr("Pasul următor")}</dt>
           <dd>
             {dossier.lifecycleSuppressed
-              ? "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile."
-              : dossier.nextAction ?? "Nu este precizat. Citește dovezile înainte de a continua."}
+              ? tr(
+                  "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile.",
+                )
+              : (dossier.nextAction ??
+                tr(
+                  "Nu este precizat. Citește dovezile înainte de a continua.",
+                ))}
           </dd>
         </div>
         {dossier.followUp && (
           <div>
-            <dt>Urmărire după închidere</dt>
+            <dt>{tr("Urmărire după închidere")}</dt>
             <dd>
               {dossier.followUp.nextAction ??
                 dossier.followUp.summary ??
-                "Verifică checkpointul asociat."}
+                tr("Verifică checkpointul asociat.")}
             </dd>
           </div>
         )}
         {dossier.ownerAction && (
           <div className="ck-owner-action">
-            <dt>De la tine</dt>
+            <dt>{tr("De la tine")}</dt>
             <dd>{dossier.ownerAction}</dd>
           </div>
         )}
         {dossier.execution && (
           <div>
-            <dt>Ultima execuție</dt>
+            <dt>{tr("Ultima execuție")}</dt>
             <dd>
-              {stateLabel(dossier.execution.status)} ·{" "}
-              {stateLabel(dossier.execution.verification)}
+              {tr(stateLabel(dossier.execution.status))} ·{" "}
+              {tr(stateLabel(dossier.execution.verification))}
             </dd>
           </div>
         )}
         {dossier.execution?.evidenceValidity && (
           <div>
-            <dt>Validitatea dovezii</dt>
-            <dd>{evidenceLabel(dossier.execution.evidenceValidity.status)}</dd>
+            <dt>{tr("Validitatea dovezii")}</dt>
+            <dd>
+              {tr(evidenceLabel(dossier.execution.evidenceValidity.status))}
+            </dd>
           </div>
         )}
         <div>
-          <dt>Continuare pe evenimente</dt>
+          <dt>{tr("Continuare pe evenimente")}</dt>
           <dd>
             {dossier.continuation.ready
-              ? "Configurată și abonată"
+              ? tr("Configurată și abonată")
               : dossier.continuation.policy?.mode &&
                   dossier.continuation.policy.mode !== "off"
-                ? "Politică pregătită; abonarea ChatGPT lipsește"
-                : "Oprită pentru această lucrare"}
+                ? tr("Politică pregătită; abonarea ChatGPT lipsește")
+                : tr("Oprită pentru această lucrare")}
           </dd>
         </div>
         {dossier.continuation.health && (
           <div>
-            <dt>Livrarea evenimentelor</dt>
+            <dt>{tr("Livrarea evenimentelor")}</dt>
             <dd>
               {dossier.continuation.health.lastDelivery
-                ? `Ultimul eveniment: ${deliveryLabel(dossier.continuation.health.lastDelivery.status)} · ${dossier.continuation.health.lastDelivery.attempts} încercări`
-                : "Nicio livrare înregistrată; funcționarea nu este încă demonstrată."}
+                ? `${tr("Ultimul eveniment:")} ${tr(deliveryLabel(dossier.continuation.health.lastDelivery.status))} · ${dossier.continuation.health.lastDelivery.attempts} ${tr("încercări")}`
+                : tr(
+                    "Nicio livrare înregistrată; funcționarea nu este încă demonstrată.",
+                  )}
             </dd>
             {dossier.continuation.health.pendingDeliveries > 0 && (
               <dd>
-                {dossier.continuation.health.pendingDeliveries} livrări în
-                așteptare
+                {dossier.continuation.health.pendingDeliveries}{" "}
+                {tr(" livrări în așteptare ")}
               </dd>
             )}
             {dossier.continuation.health.failedDeliveries > 0 && (
               <dd role="status">
-                {dossier.continuation.health.failedDeliveries} livrări eșuate în
-                istoric
+                {dossier.continuation.health.failedDeliveries}{" "}
+                {tr(" livrări eșuate în istoric ")}
               </dd>
             )}
             {dossier.continuation.health.reconciliationNeeded > 0 && (
               <dd role="status">
-                {dossier.continuation.health.reconciliationNeeded} continuări
-                necesită reconciliere
+                {dossier.continuation.health.reconciliationNeeded}{" "}
+                {tr(" continuări necesită reconciliere ")}
               </dd>
             )}
           </div>
@@ -309,18 +329,22 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
       </dl>
       {dossier.lastReported && (
         <small>
-          Raport: {time(dossier.lastReported.recordedAt)} ·{" "}
+          {tr(" Raport: ")}
+          {time(dossier.lastReported.recordedAt)} ·{" "}
           {dossier.lastReported.reviewStatus} ·{" "}
           {dossier.lastReported.evidenceBasis}
         </small>
       )}
       <small>
-        Starea raportată nu modifică automat progresul acceptat sau deciziile
-        proiectului.
+        {tr(
+          " Starea raportată nu modifică automat progresul acceptat sau deciziile proiectului. ",
+        )}
       </small>
       {dossier.warnings.length > 0 && (
         <details>
-          <summary>{dossier.warnings.length} precizări despre stare</summary>
+          <summary>
+            {dossier.warnings.length} {tr(" precizări despre stare")}
+          </summary>
           {dossier.warnings.map((w) => (
             <p key={w}>{w}</p>
           ))}
@@ -333,6 +357,8 @@ export function ProjectNow({
   projectId,
   load,
   onTask,
+  refreshIntervalMs = 15000,
+  serverFiltered = false,
 }: {
   projectId: string;
   load: (
@@ -341,9 +367,13 @@ export function ProjectNow({
     attentionOffset?: number,
   ) => Promise<ProjectDossier>;
   onTask: (id: string) => void;
+  refreshIntervalMs?: number | null;
+  serverFiltered?: boolean;
 }) {
+  const tr = usePanelText();
   const [data, setData] = useState<ProjectDossier | null>(null),
     [error, setError] = useState("");
+  const [observedAt, setObservedAt] = useState<string | null>(null);
   const [moreBusy, setMoreBusy] = useState(false),
     [filter, setFilter] = useState("active");
   const generation = useRef(0),
@@ -363,6 +393,7 @@ export function ProjectNow({
     setData(null);
     setError("");
     setFilter("active");
+    setObservedAt(null);
     let pageCache: ProjectDossier[] = [];
     function publish(fresh: ProjectDossier[], partial: boolean) {
       if (stopped || generation.current !== g || fresh.length === 0) return;
@@ -446,14 +477,21 @@ export function ProjectNow({
           previousOffset = offset;
         }
         publish(fresh, false);
-        if (!stopped && generation.current === g) setError("");
+        if (!stopped && generation.current === g) {
+          setError("");
+          setObservedAt(new Date().toISOString());
+        }
       } catch {
         if (!stopped && generation.current === g) {
           publish(fresh, true);
           setError(
             fresh.length > 0
-              ? "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi; reîncercarea este automată."
-              : "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+              ? tr(
+                  "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.",
+                )
+              : tr(
+                  "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+                ),
           );
         }
       } finally {
@@ -465,15 +503,13 @@ export function ProjectNow({
     }
     reload.current = refresh;
     void refresh();
-    const timer = setInterval(() => {
-      if (document.visibilityState !== "hidden") void refresh();
-    }, 15_000);
+    const stop = schedulePanelRefresh(() => void refresh(), refreshIntervalMs);
     return () => {
       stopped = true;
       reload.current = null;
-      clearInterval(timer);
+      stop();
     };
-  }, [projectId, load]);
+  }, [projectId, load, refreshIntervalMs]);
   async function more() {
     if (!data || data.pagination.nextOffset === null || pending.current) return;
     await reload.current?.(
@@ -495,21 +531,50 @@ export function ProjectNow({
   }
   const tasks =
     data?.tasks.filter(
-      (t) => filter !== "active" || !["done", "cancelled"].includes(t.state),
+      (t) =>
+        serverFiltered ||
+        filter !== "active" ||
+        !["done", "cancelled"].includes(t.state),
     ) ?? [];
   return (
-    <section className="ck-project-now" aria-label="Current project dossier">
+    <section
+      className="ck-project-now"
+      aria-label={tr("Current project dossier")}
+    >
       <div className="ck-now-heading">
-        <h3>Ce contează acum</h3>
-        {data && <small>{data.pagination.total} lucrări</small>}
+        <h3>{tr("Ce contează acum")}</h3>
+        <button disabled={moreBusy} onClick={() => void reload.current?.()}>
+          {tr("Actualizează dosarul")}
+        </button>
+        {observedAt && (
+          <small>
+            {tr("Citit integral la ")}
+            <time dateTime={observedAt}>
+              {new Date(observedAt).toLocaleTimeString()}
+            </time>
+          </small>
+        )}
+        {data && (
+          <small>
+            {data.pagination.total} {tr(" lucrări")}
+          </small>
+        )}
       </div>
-      {error && <p role="alert">{error}</p>}
-      {!data && !error && <p role="status">Se încarcă starea proiectului…</p>}
+      {error && <p role="alert">{tr(error)}</p>}
+      {!data && !error && (
+        <p role="status">{tr("Se încarcă starea proiectului…")}</p>
+      )}
       {data && (
         <>
           {data.attention && data.attention.count > 0 && (
-            <section aria-label="Needs attention" className="ck-attention-list">
-              <h4>Necesită atenție ({data.attention.count})</h4>
+            <section
+              aria-label={tr("Needs attention")}
+              className="ck-attention-list"
+            >
+              <h4>
+                {tr("Necesită atenție (")}
+                {data.attention.count})
+              </h4>
               <div className="ck-dossier-cards">
                 {data.attention.tasks.map((t) => (
                   <button
@@ -518,7 +583,7 @@ export function ProjectNow({
                     onClick={() => onTask(t.taskId)}
                   >
                     <span className={`ck-state-tag ck-state-${t.state}`}>
-                      {stateLabel(t.state)}
+                      {tr(stateLabel(t.state))}
                     </span>
                     <strong>{t.title}</strong>
                     <span>
@@ -526,7 +591,7 @@ export function ProjectNow({
                         ? `${t.unresolvedExecutionCount} execuții/dovezi necesită verificare`
                         : t.activeBlockers
                           ? `${t.activeBlockers} blocaje active`
-                          : "Este necesară o verificare sau o acțiune."}
+                          : tr("Este necesară o verificare sau o acțiune.")}
                     </span>
                   </button>
                 ))}
@@ -536,25 +601,27 @@ export function ProjectNow({
                   disabled={moreBusy}
                   onClick={() => void moreAttention()}
                 >
-                  Mai multe de verificat
+                  {tr(" Mai multe de verificat ")}
                 </button>
               )}
             </section>
           )}
-          <div className="ck-filter-controls">
-            <button
-              aria-pressed={filter === "active"}
-              onClick={() => setFilter("active")}
-            >
-              Active
-            </button>
-            <button
-              aria-pressed={filter === "all"}
-              onClick={() => setFilter("all")}
-            >
-              Toate
-            </button>
-          </div>
+          {!serverFiltered && (
+            <div className="ck-filter-controls">
+              <button
+                aria-pressed={filter === "active"}
+                onClick={() => setFilter("active")}
+              >
+                {tr(" Active ")}
+              </button>
+              <button
+                aria-pressed={filter === "all"}
+                onClick={() => setFilter("all")}
+              >
+                {tr(" Toate ")}
+              </button>
+            </div>
+          )}
           {tasks.length ? (
             <div className="ck-dossier-cards">
               {tasks.map((t) => (
@@ -564,18 +631,20 @@ export function ProjectNow({
                   onClick={() => onTask(t.taskId)}
                 >
                   <span className={`ck-state-tag ck-state-${t.state}`}>
-                    {stateLabel(t.state)}
+                    {tr(stateLabel(t.state))}
                   </span>
                   <strong>{t.title}</strong>
-                  <span>{t.summary ?? "Nu există un raport recent."}</span>
+                  <span>{t.summary ?? tr("Nu există un raport recent.")}</span>
                   {t.ownerAction && (
                     <span className="ck-owner-action">
-                      De la tine: {t.ownerAction}
+                      {tr(" De la tine: ")}
+                      {t.ownerAction}
                     </span>
                   )}
                   {t.nextAction && (
                     <span className="ck-task-muted">
-                      Urmează: {t.nextAction}
+                      {tr(" Urmează: ")}
+                      {t.nextAction}
                     </span>
                   )}
                   <small>{time(t.lastActivityAt)}</small>
@@ -585,18 +654,22 @@ export function ProjectNow({
           ) : (
             <p>
               {data.pagination.total === 0
-                ? "Nu există lucrări în acest proiect."
-                : "Nicio lucrare activă în pagina încărcată. Verifică și istoricul sau paginile următoare."}
+                ? serverFiltered
+                  ? tr("Nicio lucrare nu corespunde filtrelor selectate.")
+                  : tr("Nu există lucrări în acest proiect.")
+                : tr(
+                    "Nicio lucrare activă în pagina încărcată. Verifică și istoricul sau paginile următoare.",
+                  )}
             </p>
           )}
           {data.pagination.nextOffset !== null && (
             <button disabled={moreBusy} onClick={() => void more()}>
-              Mai multe lucrări
+              {tr(" Mai multe lucrări ")}
             </button>
           )}
           {data.goals.length > 0 && (
             <details>
-              <summary>Decizii și reguli păstrate</summary>
+              <summary>{tr("Decizii și reguli păstrate")}</summary>
               {data.goals.map((g) => (
                 <p key={g.recordId}>{g.text}</p>
               ))}
@@ -604,7 +677,7 @@ export function ProjectNow({
           )}
           {data.links.items.length > 0 && (
             <details>
-              <summary>Legături între proiecte și dispozitive</summary>
+              <summary>{tr("Legături între proiecte și dispozitive")}</summary>
               {data.links.items.map((l) => (
                 <p key={l.recordId}>
                   {l.projectName} · {l.relation} ·{" "}
@@ -614,12 +687,19 @@ export function ProjectNow({
               ))}
             </details>
           )}
-          {(data.projectNotes ?? 0) > 0 && <small>{data.projectNotes} note explicite de proiect.</small>}
-          {(data.legacyUnscopedCheckpoints ?? data.historicalUnscopedCheckpoints) > 0 && (
+          {(data.projectNotes ?? 0) > 0 && (
             <small>
-              {data.legacyUnscopedCheckpoints ?? data.historicalUnscopedCheckpoints} checkpoint-uri vechi nu au
-              lucrare asociată. Sunt istoric, nu următorul pas al tuturor
-              lucrărilor.
+              {data.projectNotes} {tr(" note explicite de proiect.")}
+            </small>
+          )}
+          {(data.legacyUnscopedCheckpoints ??
+            data.historicalUnscopedCheckpoints) > 0 && (
+            <small>
+              {data.legacyUnscopedCheckpoints ??
+                data.historicalUnscopedCheckpoints}{" "}
+              {tr(
+                " checkpoint-uri vechi nu au lucrare asociată. Sunt istoric, nu următorul pas al tuturor lucrărilor. ",
+              )}
             </small>
           )}
         </>
@@ -630,29 +710,73 @@ export function ProjectNow({
 export function PortfolioNow({
   load,
   onProject,
+  refreshIntervalMs = 15000,
 }: {
   load: (offset?: number) => Promise<PortfolioPage>;
   onProject: (id: string) => void;
+  refreshIntervalMs?: number | null;
 }) {
+  const tr = usePanelText();
   const [data, setData] = useState<PortfolioPage | null>(null),
     [error, setError] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [previous, setPrevious] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [observedAt, setObservedAt] = useState<string | null>(null);
+  const reload = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
-    let active = true;
-    void load()
-      .then((d) => {
-        if (active) setData(d);
-      })
-      .catch(() => {
-        if (active) setError("Portofoliul nu este disponibil.");
-      });
+    let active = true,
+      pending = false;
+    setData(null);
+    setObservedAt(null);
+    setError("");
+    async function refresh() {
+      if (!active || pending) return;
+      pending = true;
+      setBusy(true);
+      try {
+        const next = await load(offset);
+        if (!active) return;
+        setData(next);
+        setObservedAt(new Date().toISOString());
+        setError("");
+      } catch {
+        if (active)
+          setError(
+            tr(
+              "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.",
+            ),
+          );
+      } finally {
+        pending = false;
+        if (active) setBusy(false);
+      }
+    }
+    reload.current = refresh;
+    void refresh();
+    const stop = schedulePanelRefresh(() => void refresh(), refreshIntervalMs);
     return () => {
       active = false;
+      reload.current = null;
+      stop();
     };
-  }, [load]);
+  }, [load, offset, refreshIntervalMs]);
   return (
-    <section aria-label="Project portfolio">
-      <h3>Proiectele tale</h3>
-      {error && <p role="alert">{error}</p>}
+    <section aria-label={tr("Project portfolio")}>
+      <h3>{tr("Proiectele tale")}</h3>
+      <button disabled={busy} onClick={() => void reload.current?.()}>
+        {tr("Actualizează portofoliul")}
+      </button>
+      {observedAt && (
+        <small>
+          {tr("Citit la ")}
+          <time dateTime={observedAt}>
+            {new Date(observedAt).toLocaleTimeString()}
+          </time>
+        </small>
+      )}
+      {!data && !error && <p role="status">{tr("Se încarcă proiectele…")}</p>}
+      {error && <p role="alert">{tr(error)}</p>}
       {data && (
         <>
           <div className="ck-dossier-cards">
@@ -664,32 +788,62 @@ export function PortfolioNow({
               >
                 <strong>{p.name}</strong>
                 <small>
-                  {p.lifecycle} · {p.taskCount} lucrări
+                  {p.lifecycle} · {p.taskCount} {tr(" lucrări ")}
                 </small>
                 {typeof p.attentionCount === "number" &&
                   p.attentionCount > 0 && (
                     <span className="ck-owner-action">
-                      Necesită atenție: {p.attentionCount}
+                      {tr(" Necesită atenție: ")}
+                      {p.attentionCount}
                     </span>
                   )}
                 {(p.attentionTasks?.length ? p.attentionTasks : p.tasks)
                   .slice(0, 1)
                   .map((t) => (
                     <span key={t.taskId}>
-                      {stateLabel(t.state)} · {t.summary ?? t.title}
+                      {tr(stateLabel(t.state))} · {t.summary ?? t.title}
                     </span>
                   ))}
               </button>
             ))}
           </div>
-          {data.nextOffset !== null && (
-            <p className="ck-task-muted">
-              Sunt afișate {data.items.length} din {data.total} proiecte. Lista
-              de selecție include toate proiectele.
+          {data.items.length === 0 && (
+            <p>
+              {offset === 0
+                ? tr("Nu există proiecte de afișat.")
+                : tr("Pagina este goală. Revino la pagina anterioară.")}
             </p>
           )}
+          <p className="ck-task-muted">
+            {data.items.length} {tr(" proiecte afișate · ")}
+            {data.total} {tr(" în total")}
+          </p>
         </>
       )}
+      <nav aria-label={tr("Portfolio pages")} className="ck-filter-controls">
+        {previous.length > 0 && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              setOffset(previous[previous.length - 1]!);
+              setPrevious((p) => p.slice(0, -1));
+            }}
+          >
+            {tr("Proiectele anterioare")}
+          </button>
+        )}
+        {data?.nextOffset !== null && data?.nextOffset !== undefined && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              setPrevious((p) => [...p, offset]);
+              setOffset(data.nextOffset!);
+            }}
+          >
+            {tr("Proiectele următoare")}
+          </button>
+        )}
+      </nav>
     </section>
   );
 }
@@ -707,6 +861,7 @@ export function OperationalHistory({
     scope?: string,
   ) => Promise<ActivityPage>;
 }) {
+  const tr = usePanelText();
   const [data, setData] = useState<ActivityPage | null>(null),
     [error, setError] = useState("");
   const [offset, setOffset] = useState(0),
@@ -723,26 +878,26 @@ export function OperationalHistory({
         if (active) setData(d);
       })
       .catch(() => {
-        if (active) setError("Istoricul nu poate fi încărcat.");
+        if (active) setError(tr("Istoricul nu poate fi încărcat."));
       });
     return () => {
       active = false;
     };
   }, [projectId, taskId, offset, scope, load]);
   return (
-    <article aria-label="Operational timeline">
-      <h3>Istoric operațional</h3>
+    <article aria-label={tr("Operational timeline")}>
+      <h3>{tr("Istoric operațional")}</h3>
       <select
-        aria-label="Activity scope"
+        aria-label={tr("Activity scope")}
         value={scope}
         onChange={(e) => setScope(e.target.value)}
       >
-        <option value="all">Toate sursele</option>
-        <option value="canonical">Cunoștințe acceptate</option>
-        <option value="working">Rapoarte de lucru</option>
-        <option value="executions">Execuții</option>
+        <option value="all">{tr("Toate sursele")}</option>
+        <option value="canonical">{tr("Cunoștințe acceptate")}</option>
+        <option value="working">{tr("Rapoarte de lucru")}</option>
+        <option value="executions">{tr("Execuții")}</option>
       </select>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{tr(error)}</p>}
       {data?.items.map((item) => (
         <details key={item.id}>
           <summary>
@@ -754,19 +909,21 @@ export function OperationalHistory({
           <p className="ck-task-evidence">{item.summary}</p>
         </details>
       ))}
-      {data?.total === 0 && <p>Nu există înregistrări pentru filtrul ales.</p>}
+      {data?.total === 0 && (
+        <p>{tr("Nu există înregistrări pentru filtrul ales.")}</p>
+      )}
       <nav>
         <button
           disabled={offset === 0}
           onClick={() => setOffset(Math.max(0, offset - 20))}
         >
-          Anterior
+          {tr(" Anterior ")}
         </button>{" "}
         <button
           disabled={!data || data.nextOffset === null}
           onClick={() => setOffset(data?.nextOffset ?? offset)}
         >
-          Mai vechi
+          {tr(" Mai vechi ")}
         </button>
       </nav>
     </article>

@@ -49,6 +49,8 @@ export function registerDossierTools(
     z.strictObject({
       projectId: uuid,
       ...page,
+      view: z.enum(["recent","attention","active"]).optional(),
+      q: z.string().trim().min(1).max(200).optional(),
       attentionOffset: z.number().int().min(0).optional(),
       attentionLimit: z.number().int().min(1).max(50).default(10),
       selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
@@ -63,6 +65,8 @@ export function registerDossierTools(
         i.attentionOffset ?? null,
         i.attentionLimit,
         i.selection,
+        i.view,
+        i.q,
       ),
     result,
   );

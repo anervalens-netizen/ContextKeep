@@ -34,6 +34,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
     limit: z.coerce.number().int().min(1).max(50).default(20),
     selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
     q: z.string().trim().min(1).max(200).optional(),
+    view: z.enum(["recent","attention","active"]).optional(),
   });
   const dossierPage = page.extend({
     attentionOffset: z.coerce.number().int().min(0).optional(),
@@ -42,7 +43,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/tasks", async (request) => {
     const p = z.object({ id: z.string().uuid() }).parse(request.params);
     const q = page.parse(request.query);
-    return listTasks(deps, p.id, q.offset, q.limit, q.selection, q.q);
+    return listTasks(deps, p.id, q.offset, q.limit, q.selection, q.q, q.view);
   });
   app.get("/api/projects/:id/tasks/:taskId", async (request) => {
     const p = z
@@ -73,6 +74,8 @@ export function registerProjectRoutes(app: FastifyInstance): void {
       q.attentionOffset ?? null,
       q.attentionLimit,
       q.selection,
+      q.view,
+      q.q,
     );
   });
   app.get("/api/projects/:id/tasks/:taskId/resume", async (request, reply) => {

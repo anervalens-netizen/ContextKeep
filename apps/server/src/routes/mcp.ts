@@ -1,3 +1,5 @@
+import path from "node:path";
+import { PANEL_SETTINGS_CAPABILITIES } from "../mcp/panel-settings.js";
 import { WorkflowEvents } from "../services/workflow-events.js";
 import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
@@ -34,6 +36,7 @@ export function registerMcpRoutes(app: FastifyInstance): void {
     buildSha: config.buildSha,
     workflowEvents,
     webDist:config.webDist,
+    preferencesPath:path.join(config.dataDir, "panel-preferences.json"),
   });
   const modernHandler = createMcpHandler(
     factory,
@@ -54,9 +57,15 @@ export function registerMcpRoutes(app: FastifyInstance): void {
         // SDK 2.1.0 drops the draft events capability from its closed modern schema.
         // Decorate only authenticated discovery responses; protocol handlers remain SDK-owned.
         const method=(options?.parsedBody as {method?:string}|undefined)?.method;
-        if(method==="server/discover" && workflowEvents && response.ok && response.headers.get("content-type")?.includes("application/json")) {
+        if(method==="server/discover" && response.ok && response.headers.get("content-type")?.includes("application/json")) {
           const body=await response.json() as {result?:{capabilities?:Record<string,unknown>}};
-          if(body.result?.capabilities)body.result.capabilities.events={};
+          if(body.result?.capabilities) {
+            if(workflowEvents)body.result.capabilities.events={};
+            // SDK2 discovery filters draft extensions; publish the installed native contract on the wire.
+            for (const key of ["extensions", "experimental"] as const) {
+              body.result.capabilities[key] = { ...(body.result.capabilities[key] as Record<string, unknown> ?? {}), ...PANEL_SETTINGS_CAPABILITIES[key] };
+            }
+          }
           const headers=new Headers(response.headers);headers.delete("content-length");
           return new Response(JSON.stringify(body),{status:response.status,headers});
         }

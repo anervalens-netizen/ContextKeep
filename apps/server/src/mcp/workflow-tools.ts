@@ -38,11 +38,12 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
       projectId: scope.projectId,
       selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
       q: z.string().trim().min(1).max(200).optional(),
+      view: z.enum(["recent","attention","active"]).optional(),
       offset: z.number().int().min(0).default(0),
       limit: z.number().int().min(1).max(50).default(50),
     }),
     true,
-    (i) => listTasks(deps, i.projectId, i.offset, i.limit, i.selection, i.q),
+    (i) => listTasks(deps, i.projectId, i.offset, i.limit, i.selection, i.q, i.view),
     result,
   );
   define(

@@ -1,3 +1,9 @@
+import { PanelLocale, translatePanel } from "./lib/panel-locale.js";
+import { PanelPreferences } from "@contextkeep/shared";
+import { PanelSettings } from "./components/PanelSettings.js";
+import { PanelDisplay } from "./lib/panel-display.js";
+import { PanelBootstrap } from "./lib/panel-bootstrap.js";
+import { HostOperationFence } from "./lib/host-operation-fence.js";
 import { createRoot } from "react-dom/client";
 import {
   App,
@@ -12,14 +18,27 @@ import {
 } from "./components/TaskPanel.js";
 const app = new App({ name: "ContextKeep task dossier", version: "1.0.0" });
 const extensions = new OpenAIExtensions(app);
-let selection: TaskSelection | undefined,
-  lastSelection = "";
+const display = new PanelDisplay();
+function requestFullscreen() {
+  if (!connected) return;
+  void display.requestFullscreen(app.getHostContext(), () =>
+    app.requestDisplayMode({ mode: "fullscreen" }, { timeout: 5000 }),
+  );
+}
+let selection: TaskSelection | undefined;
+let connected = false,
+  initialResult = false,
+  launchRevision = 0;
+const bootstrap = new PanelBootstrap();
 const root = createRoot(document.getElementById("root")!);
+function panelText(text: string) {
+  return translatePanel(bootstrap.preferences?.language ?? "ro", text);
+}
 function connectionNotice(message: string, failed = false) {
   root.render(
     <section className="ck-task-panel">
       <h2>ContextKeep</h2>
-      <p role={failed ? "alert" : "status"}>{message}</p>
+      <p role={failed ? "alert" : "status"}>{panelText(message)}</p>
     </section>,
   );
 }
@@ -32,29 +51,33 @@ const connectionTimer = setTimeout(() => {
 }, 10000);
 
 async function call(name: string, args: Record<string, unknown> = {}) {
-  const result = await app.callServerTool({ name, arguments: args });
-  if (result.isError) throw new Error("ContextKeep request failed.");
-  return result.structuredContent as Record<string, unknown>;
+  return bootstrap.read(name, args, async () => {
+    const result = await app.callServerTool({ name, arguments: args });
+    if (result.isError) throw new Error("ContextKeep request failed.");
+    return result.structuredContent as Record<string, unknown>;
+  });
 }
 const transport: TaskTransport = {
-  overview: async (projectId, offset = 0, attentionOffset) =>
+  overview: async (projectId, offset = 0, attentionOffset, options) =>
     (await call("get_project_dossier", {
       projectId,
       offset,
       limit: 10,
-      selection: "actual_tasks",
+      selection: options?.selection ?? bootstrap.preferences!.taskVisibility,
+      view: options?.view ?? bootstrap.preferences!.landingView,
+      ...(options?.q ? { q: options.q } : {}),
       ...(attentionOffset === undefined
         ? {}
         : { attentionOffset, attentionLimit: 10 }),
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["overview"]>>
     >,
-  portfolio: async (offset = 0) =>
+  portfolio: async (offset = 0, selected) =>
     (await call("get_portfolio", {
       offset,
       limit: 20,
       includeRetired: false,
-      selection: "actual_tasks",
+      selection: selected ?? bootstrap.preferences!.taskVisibility,
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["portfolio"]>>
     >,
@@ -72,20 +95,32 @@ const transport: TaskTransport = {
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["activity"]>>
     >,
-  projects: async () => {
-    const projects = [];
-    let offset: number | null = 0;
-    do {
-      const r = await call("list_projects", { offset, limit: 50 });
-      projects.push(...(r.projects as Array<{ id: string; name: string }>));
-      offset = r.nextOffset as number | null;
-    } while (offset !== null);
-    return projects;
+  projects: async () =>
+    (await call("list_projects", { offset: 0, limit: 50 })).projects as Array<{
+      id: string;
+      name: string;
+    }>,
+  projectPage: async (offset = 0) => {
+    const result = await call("list_projects", { offset, limit: 50 });
+    const projects = result.projects as Array<{ id: string; name: string }>;
+    const selected = bootstrap.selectedProject;
+    return {
+      projects:
+        offset === 0 && selected && !projects.some((p) => p.id === selected.id)
+          ? [...projects, selected]
+          : projects,
+      nextOffset: result.nextOffset as number | null,
+    };
   },
   tasks: async (projectId, offset = 0, options) =>
-    (await call("list_tasks", { projectId, offset, limit: 50, selection: options?.selection ?? "actual_tasks", ...(options?.q ? {q: options.q} : {}) })) as Awaited<
-      ReturnType<TaskTransport["tasks"]>
-    >,
+    (await call("list_tasks", {
+      projectId,
+      offset,
+      limit: 50,
+      selection: options?.selection ?? "actual_tasks",
+      view: options?.view ?? "recent",
+      ...(options?.q ? { q: options.q } : {}),
+    })) as Awaited<ReturnType<TaskTransport["tasks"]>>,
   task: async (projectId, taskId, offset = 0) =>
     (await call("get_task", {
       projectId,
@@ -94,32 +129,133 @@ const transport: TaskTransport = {
       limit: 20,
     })) as Awaited<ReturnType<TaskTransport["task"]>>,
 };
+const hostFence = new HostOperationFence(() => render());
+let preferencesPending: number | null = null;
+let preferencesError = "";
+function preparePreferences() {
+  if (preferencesPending === launchRevision) return;
+  const epoch = launchRevision;
+  preferencesPending = epoch;
+  preferencesError = "";
+  connectionNotice("Se citesc preferințele panoului…");
+  void bootstrap
+    .loadPreferences(() => call("settings.read"))
+    .then((applied) => {
+      if (applied && epoch === launchRevision) render();
+    })
+    .catch(() => {
+      if (epoch === launchRevision)
+        preferencesError = "Preferințele salvate nu pot fi citite.";
+    })
+    .finally(() => {
+      if (epoch === launchRevision) {
+        preferencesPending = null;
+        render();
+      }
+    });
+}
 function render() {
+  if (!connected || !initialResult) return;
+  if (!bootstrap.preferences) {
+    if (preferencesError)
+      root.render(
+        <section className="ck-task-panel">
+          <h2>ContextKeep</h2>
+          <p role="alert">{panelText(preferencesError)}</p>
+          <button onClick={() => preparePreferences()}>
+            {panelText("Reîncearcă preferințele")}
+          </button>
+        </section>,
+      );
+    else preparePreferences();
+    return;
+  }
+  const epoch = launchRevision;
+  const applyPreferences = async (
+    name: string,
+    args: Record<string, unknown>,
+  ) => {
+    const result = await call(name, args);
+    if (epoch !== launchRevision) throw new Error("Panel changed");
+    bootstrap.preferences = PanelPreferences.parse(result.values);
+    render();
+  };
   root.render(
-    <TaskPanel
-      transport={transport}
-      selection={selection}
-      onResume={(s, text) => {
-        void extensions.modelContext?.update({
-          structuredContent: { ...s, resumeRequested: true },
-          content: [{ type: "text", text }],
-        });
-      }}
-      onSelection={(s) => {
-        const compact = JSON.stringify(s);
-        if (compact === lastSelection) return;
-        lastSelection = compact;
-        void extensions.modelContext?.update({
-          structuredContent: s,
-          content: [
-            {
-              type: "text",
-              text: `Selected ContextKeep task ${s.taskId}, revision ${s.revision}.`,
-            },
-          ],
-        });
-      }}
-    />,
+    <PanelLocale.Provider value={bootstrap.preferences.language}>
+      <PanelSettings
+        key={"settings-" + launchRevision}
+        values={bootstrap.preferences}
+        save={(patch) => applyPreferences("settings.update", { set: patch })}
+        reload={() => applyPreferences("settings.read", {})}
+      />
+      <TaskPanel
+        key={launchRevision}
+        transport={transport}
+        selection={selection}
+        initialLandingView={bootstrap.preferences!.landingView}
+        contextBudget={bootstrap.preferences!.contextBudget}
+        initialTaskVisibility={bootstrap.preferences!.taskVisibility}
+        refreshIntervalMs={
+          bootstrap.preferences!.refreshInterval === "manual"
+            ? null
+            : Number.parseInt(bootstrap.preferences!.refreshInterval, 10) * 1000
+        }
+        hostActions={{
+          pending: hostFence.pending,
+          messageUncertain: hostFence.messageUncertain,
+          currentUpdateId:
+            extensions.modelContext?.getCurrent()?.updateId ??
+            (extensions.modelContext?.getCurrent() === null ? null : undefined),
+          ...(extensions.modelContext
+            ? {
+                attach: async (payload) => {
+                  const api = extensions.modelContext;
+                  if (!api) throw new Error("Model context unsupported");
+                  const ack = await hostFence.run("attach", () =>
+                    api.update(
+                      {
+                        structuredContent: {
+                          projectId: payload.projectId,
+                          taskId: payload.taskId,
+                          revision: payload.revision,
+                          stateToken: payload.stateToken,
+                          title: payload.title,
+                          provenance: payload.provenance,
+                        },
+                        content: [{ type: "text", text: payload.text }],
+                      },
+                      { timeout: 15000 },
+                    ),
+                  );
+                  if (!ack?.updateId)
+                    throw new Error("Model context not acknowledged");
+                  return ack;
+                },
+              }
+            : {}),
+          ...(extensions.message
+            ? {
+                send: async (payload) => {
+                  const api = extensions.message;
+                  if (!api) throw new Error("Message unsupported");
+                  await hostFence.run("send", () =>
+                    api.send(
+                      {
+                        role: "user",
+                        content: [{ type: "text", text: payload.text }],
+                        _meta: {
+                          "openai/message": { target: "active", send: true },
+                        },
+                      },
+                      { timeout: 15000 },
+                    ),
+                  );
+                },
+              }
+            : {}),
+        }}
+      />
+    </PanelLocale.Provider>,
   );
 }
 function takeSelection(value: unknown) {
@@ -131,20 +267,27 @@ function takeSelection(value: unknown) {
       taskId: typeof v.taskId === "string" ? v.taskId : "",
       revision: typeof v.revision === "number" ? v.revision : 0,
     };
-    lastSelection = JSON.stringify(selection);
     render();
   }
 }
 app.ontoolresult = (result) => {
-  takeSelection(result.structuredContent);
+  const value = result.structuredContent as Record<string, unknown> | undefined;
+  bootstrap.prime(value?.bootstrap);
+  initialResult = true;
+  ++launchRevision;
+  preferencesError = "";
+  preferencesPending = null;
+  selection = undefined;
+  takeSelection(value);
   render();
 };
 app.addEventListener("hostcontextchanged", () => {
+  requestFullscreen();
   const context = app.getHostContext();
   if (context?.theme) applyDocumentTheme(context.theme);
   if (context?.styles?.variables)
     applyHostStyleVariables(context.styles.variables);
-  takeSelection(extensions.modelContext?.getCurrent()?.structuredContent);
+  render();
 });
 void app
   .connect()
@@ -154,8 +297,31 @@ void app
     if (context?.theme) applyDocumentTheme(context.theme);
     if (context?.styles?.variables)
       applyHostStyleVariables(context.styles.variables);
-    takeSelection(extensions.modelContext?.getCurrent()?.structuredContent);
-    render();
+    connected = true;
+    requestFullscreen();
+    if (initialResult) render();
+    else
+      root.render(
+        <section className="ck-task-panel">
+          <h2>ContextKeep</h2>
+          <p role="status">
+            {panelText("Se așteaptă contextul de deschidere…")}
+          </p>
+          <button
+            onClick={() => {
+              initialResult = true;
+              ++launchRevision;
+              preferencesError = "";
+              takeSelection(
+                extensions.modelContext?.getCurrent()?.structuredContent,
+              );
+              render();
+            }}
+          >
+            {panelText("Încarcă proiectele")}
+          </button>
+        </section>,
+      );
   })
   .catch(() => {
     clearTimeout(connectionTimer);

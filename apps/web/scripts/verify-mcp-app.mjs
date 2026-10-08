@@ -48,7 +48,7 @@ if (process.env.CK_NAV_EXECUTABLE_PATH) {
 }
 const cases = [];
 try {
-  for (const mode of ["global", "contextual", "pending", "rejected"]) {
+  for (const mode of ["global", "contextual", "hydrated", "stale", "fullscreen", "fullscreen-refused", "english", "pending", "rejected"]) {
     const page = await browser.newPage();
     page.setDefaultTimeout(7000);
     const errors = [];
@@ -61,69 +61,7 @@ try {
         frame.setAttribute("sandbox", "allow-scripts");
         frame.style.cssText = "width:100%;height:900px;border:0";
         window.calls = [];
-        window.addEventListener("message", (event) => {
-          if (
-            event.source !== frame.contentWindow ||
-            event.data?.jsonrpc !== "2.0"
-          )
-            return;
-          const message = event.data;
-          const send = (value) =>
-            frame.contentWindow.postMessage({ jsonrpc: "2.0", ...value }, "*");
-          if (message.method === "ui/initialize") {
-            window.calls.push({ name: "ui/initialize" });
-            if (mode === "pending") return;
-            if (mode === "rejected") {
-              send({
-                id: message.id,
-                error: {
-                  code: -32603,
-                  message: "Synthetic initialization failure",
-                },
-              });
-              return;
-            }
-            send({
-              id: message.id,
-              result: {
-                protocolVersion: message.params.protocolVersion,
-                hostInfo: { name: "Synthetic UI host", version: "1.0.0" },
-                hostCapabilities: { serverTools: {} },
-                hostContext: { theme: "light", displayMode: "fullscreen" },
-              },
-            });
-          } else if (
-            message.method === "ui/notifications/initialized" &&
-            mode === "contextual"
-          ) {
-            send({
-              method: "ui/notifications/tool-result",
-              params: {
-                content: [],
-                structuredContent: {
-                  projectId: "demo-project",
-                  taskId: "demo-task",
-                  revision: 1,
-                },
-              },
-            });
-          } else if (message.method === "tools/call") {
-            const { name, arguments: args } = message.params;
-            window.calls.push({ name, args });
-            const missing = (taskInputs[name]?.required ?? []).filter(
-              (key) => !Object.hasOwn(args, key),
-            );
-            if (missing.length) {
-              send({
-                id: message.id,
-                error: {
-                  code: -32602,
-                  message:
-                    "Missing required tool arguments: " + missing.join(", "),
-                },
-              });
-              return;
-            }
+        const preferences={landingView:"recent",taskVisibility:"actual_tasks",contextBudget:"balanced",refreshInterval:"manual",language:mode==="english"?"en":"ro"};
             const task = {
               id: "demo-task",
               subject: "Synthetic task",
@@ -167,6 +105,7 @@ try {
               lifecycle: "active",
             };
             const results = {
+              "settings.read":{values:preferences},
               get_project_dossier: {
                 project,
                 goals: [],
@@ -208,6 +147,81 @@ try {
                 pagination: { nextOffset: null },
               },
             };
+
+        window.addEventListener("message", (event) => {
+          if (
+            event.source !== frame.contentWindow ||
+            event.data?.jsonrpc !== "2.0"
+          )
+            return;
+          const message = event.data;
+          const send = (value) =>
+            frame.contentWindow.postMessage({ jsonrpc: "2.0", ...value }, "*");
+          if (message.method === "ui/initialize") {
+            window.calls.push({ name: "ui/initialize" });
+            if (mode === "pending") return;
+            if (mode === "rejected") {
+              send({
+                id: message.id,
+                error: {
+                  code: -32603,
+                  message: "Synthetic initialization failure",
+                },
+              });
+              return;
+            }
+            send({
+              id: message.id,
+              result: {
+                protocolVersion: message.params.protocolVersion,
+                hostInfo: { name: "Synthetic UI host", version: "1.0.0" },
+                hostCapabilities: { serverTools: {} },
+                hostContext: { theme: "light", displayMode: mode.startsWith("fullscreen") ? "inline" : "fullscreen", ...(mode.startsWith("fullscreen") ? {availableDisplayModes:["inline","fullscreen"]}: {}) },
+              },
+            });
+          } else if (
+            message.method === "ui/notifications/initialized" &&
+            ["contextual", "global", "hydrated", "stale", "fullscreen", "fullscreen-refused", "english"].includes(mode)
+          ) {
+            send({
+              method: "ui/notifications/tool-result",
+              params: {
+                content: [],
+                structuredContent: mode !== "global" ? {
+                  projectId: "demo-project",
+                  taskId: "demo-task",
+                  revision: 1,
+                  ...(["hydrated", "stale"].includes(mode) ? {bootstrap:{version:1,preferences,observedAt:new Date(Date.now()-(mode==="stale"?60000:0)).toISOString(),reads:[
+                    {tool:"list_projects",arguments:{offset:0,limit:50},value:results.list_projects},
+                    {tool:"list_tasks",arguments:{projectId:"demo-project",offset:0,limit:50,selection:"actual_tasks",view:"recent"},value:results.list_tasks},
+                    {tool:"get_task",arguments:{projectId:"demo-project",taskId:"demo-task",offset:0,limit:20},value:results.get_task},
+                    {tool:"get_operational_timeline",arguments:{projectId:"demo-project",taskId:"demo-task",offset:0,limit:20,scope:"all"},value:results.get_operational_timeline},
+                  ]}}:{}),
+                } : {},
+              },
+            });
+          } else if (message.method === "ui/request-display-mode") {
+            window.calls.push({name:message.method,args:message.params});
+            if(mode==="fullscreen-refused") send({id:message.id,error:{code:-32603,message:"Synthetic host refusal"}});
+            else send({id:message.id,result:{mode:"fullscreen"}});
+            send({method:"ui/notifications/host-context-changed",params:{displayMode:"inline",availableDisplayModes:["inline","fullscreen"]}});
+          } else if (message.method === "tools/call") {
+            const { name, arguments: args } = message.params;
+            window.calls.push({ name, args });
+            const missing = (taskInputs[name]?.required ?? []).filter(
+              (key) => !Object.hasOwn(args, key),
+            );
+            if (missing.length) {
+              send({
+                id: message.id,
+                error: {
+                  code: -32602,
+                  message:
+                    "Missing required tool arguments: " + missing.join(", "),
+                },
+              });
+              return;
+            }
             if (!(name in results)) {
               send({
                 id: message.id,
@@ -231,7 +245,7 @@ try {
       if (mode === "pending") {
         await app
           .getByRole("status")
-          .filter({ hasText: "Connecting" })
+          .filter({ hasText: "Se conectează" })
           .waitFor();
         assert.deepEqual(
           await page.evaluate(() => window.calls.map((c) => c.name)),
@@ -239,19 +253,19 @@ try {
         );
       } else if (mode === "rejected") {
         await app.getByRole("alert").waitFor();
-        assert.match(await app.getByRole("alert").innerText(), /connect/i);
+        assert.match(await app.getByRole("alert").innerText(), /conecta/i);
       } else {
-        await app.getByRole("heading", { name: "Task dossier" }).waitFor();
+        await app.getByRole("heading", { name: mode==="english"?"Task dossier":"Dosarul taskului" }).waitFor();
         await app
           .getByRole("option", { name: "Demo project", exact: true })
           .waitFor({ state: "attached" });
         if (mode === "global") {
           assert.equal(
-            await app.getByLabel("Project", { exact: true }).inputValue(),
+            await app.getByLabel(mode==="english"?"Project":"Proiect", { exact: true }).inputValue(),
             "",
           );
           await app
-            .getByLabel("Project", { exact: true })
+            .getByLabel(mode==="english"?"Project":"Proiect", { exact: true })
             .selectOption("demo-project");
           await app
             .getByRole("option", { name: "Synthetic task · in_progress · proposed", exact: true })
@@ -261,10 +275,10 @@ try {
             .selectOption("demo-task");
         }
         await app
-          .getByRole("heading", { name: "Executions", exact: true })
+          .getByRole("heading", { name: mode==="english"?"Executions":"Execuții", exact: true })
           .waitFor();
         assert.equal(
-          await app.getByLabel("Project", { exact: true }).inputValue(),
+          await app.getByLabel(mode==="english"?"Project":"Proiect", { exact: true }).inputValue(),
           "demo-project",
         );
         assert.equal(
@@ -272,14 +286,14 @@ try {
           "demo-task",
         );
         await app
-          .getByRole("heading", { name: "Ce contează acum", exact: true })
+          .getByRole("heading", { name: mode==="english"?"What matters now":"Ce contează acum", exact: true })
           .waitFor();
         await app
-          .getByRole("button", { name: "Reia lucrarea", exact: true })
+          .getByRole("button", { name: mode==="english"?"Resume work":"Reia lucrarea", exact: true })
           .click();
-        await app.getByLabel("Resume context", { exact: true }).waitFor();
+        await app.getByLabel(mode==="english"?"Resume context":"Context de reluare", { exact: true }).waitFor();
         assert.match(
-          await app.getByLabel("Resume context").inputValue(),
+          await app.getByLabel(mode==="english"?"Resume context":"Context de reluare").inputValue(),
           /do not restart/,
         );
         const frameElement = page.frames().find((f) => f.parentFrame());
@@ -290,18 +304,19 @@ try {
           true,
         );
         const calls = await page.evaluate(() => window.calls);
-        assert.ok(
-          calls.some(
-            (c) =>
-              c.name === "get_task" &&
-              c.args.projectId === "demo-project" &&
-              c.args.taskId === "demo-task",
-          ),
+        assert.equal(
+          calls.some(c => c.name === "get_task" && c.args.projectId === "demo-project" && c.args.taskId === "demo-task"),
+          mode !== "hydrated",
         );
+        if(mode === "hydrated") assert.deepEqual(calls.map(c=>c.name),["ui/initialize","resume_task"]);
+        else assert.equal(calls.filter(c=>c.name==="settings.read").length,1,"one preferences read before data fallback");
+        assert.equal(calls.filter(c=>c.name==="ui/request-display-mode").length,mode.startsWith("fullscreen")?1:0);
         assert.ok(
           calls.every((c) =>
             [
               "ui/initialize",
+              "ui/request-display-mode",
+              "settings.read",
               "list_projects",
               "list_tasks",
               "get_task",

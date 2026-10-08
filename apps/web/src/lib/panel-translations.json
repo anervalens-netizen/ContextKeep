@@ -1,0 +1,1710 @@
+{
+  "Nu s-au putut încărca proiectele.": {
+    "ro": "Nu s-au putut încărca proiectele.",
+    "en": "Could not load projects."
+  },
+  "Could not load projects.": {
+    "ro": "Nu s-au putut încărca proiectele.",
+    "en": "Could not load projects."
+  },
+  "Nu s-au putut încărca taskurile.": {
+    "ro": "Nu s-au putut încărca taskurile.",
+    "en": "Could not load tasks."
+  },
+  "Could not load tasks.": {
+    "ro": "Nu s-au putut încărca taskurile.",
+    "en": "Could not load tasks."
+  },
+  "Taskul nu poate fi actualizat. Datele afișate pot fi vechi.": {
+    "ro": "Taskul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "Could not refresh task. Displayed data may be stale."
+  },
+  "Could not refresh task. Displayed data may be stale.": {
+    "ro": "Taskul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "Could not refresh task. Displayed data may be stale."
+  },
+  "Nu s-au putut încărca alte proiecte.": {
+    "ro": "Nu s-au putut încărca alte proiecte.",
+    "en": "Could not load more projects."
+  },
+  "Could not load more projects.": {
+    "ro": "Nu s-au putut încărca alte proiecte.",
+    "en": "Could not load more projects."
+  },
+  "Nu s-au putut încărca alte taskuri.": {
+    "ro": "Nu s-au putut încărca alte taskuri.",
+    "en": "Could not load more tasks."
+  },
+  "Could not load more tasks.": {
+    "ro": "Nu s-au putut încărca alte taskuri.",
+    "en": "Could not load more tasks."
+  },
+  "Contextul de reluare nu poate fi pregătit.": {
+    "ro": "Contextul de reluare nu poate fi pregătit.",
+    "en": "Resume context could not be prepared."
+  },
+  "Resume context could not be prepared.": {
+    "ro": "Contextul de reluare nu poate fi pregătit.",
+    "en": "Resume context could not be prepared."
+  },
+  "Dosarul taskului": {
+    "ro": "Dosarul taskului",
+    "en": "Task dossier"
+  },
+  "Task dossier": {
+    "ro": "Dosarul taskului",
+    "en": "Task dossier"
+  },
+  "Checkpoint, execuție și verificare într-un singur loc.": {
+    "ro": "Checkpoint, execuție și verificare într-un singur loc.",
+    "en": "Checkpoint, execution and verification in one place."
+  },
+  "Checkpoint, execution and verification in one place.": {
+    "ro": "Checkpoint, execuție și verificare într-un singur loc.",
+    "en": "Checkpoint, execution and verification in one place."
+  },
+  "Proiecte": {
+    "ro": "Proiecte",
+    "en": "Projects"
+  },
+  "Projects": {
+    "ro": "Proiecte",
+    "en": "Projects"
+  },
+  "Proiectul selectat": {
+    "ro": "Proiectul selectat",
+    "en": "Selected project"
+  },
+  "Selected project": {
+    "ro": "Proiectul selectat",
+    "en": "Selected project"
+  },
+  "Taskul selectat": {
+    "ro": "Taskul selectat",
+    "en": "Selected task"
+  },
+  "Selected task": {
+    "ro": "Taskul selectat",
+    "en": "Selected task"
+  },
+  "Proiect": {
+    "ro": "Proiect",
+    "en": "Project"
+  },
+  "Project": {
+    "ro": "Proiect",
+    "en": "Project"
+  },
+  "Alege un proiect": {
+    "ro": "Alege un proiect",
+    "en": "Select a project"
+  },
+  "Select a project": {
+    "ro": "Alege un proiect",
+    "en": "Select a project"
+  },
+  "Mai multe proiecte": {
+    "ro": "Mai multe proiecte",
+    "en": "More projects"
+  },
+  "More projects": {
+    "ro": "Mai multe proiecte",
+    "en": "More projects"
+  },
+  "Vizualizări taskuri": {
+    "ro": "Vizualizări taskuri",
+    "en": "Task views"
+  },
+  "Task views": {
+    "ro": "Vizualizări taskuri",
+    "en": "Task views"
+  },
+  "Recente": {
+    "ro": "Recente",
+    "en": "Recent"
+  },
+  "Recent": {
+    "ro": "Recente",
+    "en": "Recent"
+  },
+  "Atenție": {
+    "ro": "Atenție",
+    "en": "Attention"
+  },
+  "Attention": {
+    "ro": "Atenție",
+    "en": "Attention"
+  },
+  "Active": {
+    "ro": "Active",
+    "en": "Active"
+  },
+  "Afișare": {
+    "ro": "Afișare",
+    "en": "View"
+  },
+  "View": {
+    "ro": "Afișare",
+    "en": "View"
+  },
+  "Selecție taskuri": {
+    "ro": "Selecție taskuri",
+    "en": "Task selection"
+  },
+  "Task selection": {
+    "ro": "Selecție taskuri",
+    "en": "Task selection"
+  },
+  "Taskuri": {
+    "ro": "Taskuri",
+    "en": "Tasks"
+  },
+  "Tasks": {
+    "ro": "Taskuri",
+    "en": "Tasks"
+  },
+  "Toate acțiunile": {
+    "ro": "Toate acțiunile",
+    "en": "All actions"
+  },
+  "All actions": {
+    "ro": "Toate acțiunile",
+    "en": "All actions"
+  },
+  "Caută taskul": {
+    "ro": "Caută taskul",
+    "en": "Find task"
+  },
+  "Find task": {
+    "ro": "Caută taskul",
+    "en": "Find task"
+  },
+  "Caută taskuri": {
+    "ro": "Caută taskuri",
+    "en": "Search tasks"
+  },
+  "Search tasks": {
+    "ro": "Caută taskuri",
+    "en": "Search tasks"
+  },
+  "Caută": {
+    "ro": "Caută",
+    "en": "Search"
+  },
+  "Search": {
+    "ro": "Caută",
+    "en": "Search"
+  },
+  "Task": {
+    "ro": "Task",
+    "en": "Task"
+  },
+  "Alege un task": {
+    "ro": "Alege un task",
+    "en": "Select a task"
+  },
+  "Select a task": {
+    "ro": "Alege un task",
+    "en": "Select a task"
+  },
+  "Mai multe taskuri": {
+    "ro": "Mai multe taskuri",
+    "en": "More tasks"
+  },
+  "More tasks": {
+    "ro": "Mai multe lucrări",
+    "en": "More tasks"
+  },
+  "Actualizează taskul": {
+    "ro": "Actualizează taskul",
+    "en": "Refresh task"
+  },
+  "Refresh task": {
+    "ro": "Actualizează taskul",
+    "en": "Refresh task"
+  },
+  "Citit la": {
+    "ro": "Citit la",
+    "en": "Read at"
+  },
+  "Read at": {
+    "ro": "Citit la",
+    "en": "Read at"
+  },
+  "Reîncearcă lista": {
+    "ro": "Reîncearcă lista",
+    "en": "Retry list"
+  },
+  "Retry list": {
+    "ro": "Reîncearcă lista",
+    "en": "Retry list"
+  },
+  "Se încarcă taskurile…": {
+    "ro": "Se încarcă taskurile…",
+    "en": "Loading tasks…"
+  },
+  "Loading tasks…": {
+    "ro": "Se încarcă taskurile…",
+    "en": "Loading tasks…"
+  },
+  "Se încarcă taskul…": {
+    "ro": "Se încarcă taskul…",
+    "en": "Loading task…"
+  },
+  "Loading task…": {
+    "ro": "Se încarcă taskul…",
+    "en": "Loading task…"
+  },
+  "Niciun task găsit. Încearcă altă căutare sau toate acțiunile.": {
+    "ro": "Niciun task găsit. Încearcă altă căutare sau toate acțiunile.",
+    "en": "No matching tasks. Try another search or view all actions."
+  },
+  "No matching tasks. Try another search or view all actions.": {
+    "ro": "Niciun task găsit. Încearcă altă căutare sau toate acțiunile.",
+    "en": "No matching tasks. Try another search or view all actions."
+  },
+  "Alege un task pentru a-i vedea starea.": {
+    "ro": "Alege un task pentru a-i vedea starea.",
+    "en": "Choose a task to inspect its state."
+  },
+  "Choose a task to inspect its state.": {
+    "ro": "Alege un task pentru a-i vedea starea.",
+    "en": "Choose a task to inspect its state."
+  },
+  "Se pregătește…": {
+    "ro": "Se pregătește…",
+    "en": "Preparing…"
+  },
+  "Preparing…": {
+    "ro": "Se pregătește…",
+    "en": "Preparing…"
+  },
+  "Reia lucrarea": {
+    "ro": "Reia lucrarea",
+    "en": "Resume work"
+  },
+  "Resume work": {
+    "ro": "Reia lucrarea",
+    "en": "Resume work"
+  },
+  "Pregătește contextul actual. Nu pornește nicio execuție.": {
+    "ro": "Pregătește contextul actual. Nu pornește nicio execuție.",
+    "en": "Prepare current context. No execution starts."
+  },
+  "Prepare current context. No execution starts.": {
+    "ro": "Pregătește contextul actual. Nu pornește nicio execuție.",
+    "en": "Prepare current context. No execution starts."
+  },
+  "Context de reluare": {
+    "ro": "Context de reluare",
+    "en": "Resume context"
+  },
+  "Resume context": {
+    "ro": "Context de reluare",
+    "en": "Resume context"
+  },
+  "Obiectivul și starea inițială": {
+    "ro": "Obiectivul și starea inițială",
+    "en": "Original objective and state"
+  },
+  "Original objective and state": {
+    "ro": "Obiectivul și starea inițială",
+    "en": "Original objective and state"
+  },
+  "Niciun progres înregistrat": {
+    "ro": "Niciun progres înregistrat",
+    "en": "No progress recorded"
+  },
+  "No progress recorded": {
+    "ro": "Niciun progres înregistrat",
+    "en": "No progress recorded"
+  },
+  "· revizia": {
+    "ro": "· revizia",
+    "en": "· revision"
+  },
+  "· revision": {
+    "ro": "· revizia",
+    "en": "· revision"
+  },
+  "Reluare": {
+    "ro": "Reluare",
+    "en": "Resume"
+  },
+  "Resume": {
+    "ro": "Reluare",
+    "en": "Resume"
+  },
+  "Niciun checkpoint pentru acest task.": {
+    "ro": "Niciun checkpoint pentru acest task.",
+    "en": "No checkpoint for this task."
+  },
+  "No checkpoint for this task.": {
+    "ro": "Niciun checkpoint pentru acest task.",
+    "en": "No checkpoint for this task."
+  },
+  "Urmează:": {
+    "ro": "Urmează:",
+    "en": "Next:"
+  },
+  "Next:": {
+    "ro": "Urmează:",
+    "en": "Next:"
+  },
+  "Nespecificat": {
+    "ro": "Nespecificat",
+    "en": "Not specified"
+  },
+  "Not specified": {
+    "ro": "Nespecificat",
+    "en": "Not specified"
+  },
+  "Blocaje": {
+    "ro": "Blocaje",
+    "en": "Blockers"
+  },
+  "Blockers": {
+    "ro": "Blocaje",
+    "en": "Blockers"
+  },
+  "Execuții": {
+    "ro": "Execuții",
+    "en": "Executions"
+  },
+  "Executions": {
+    "ro": "Execuții",
+    "en": "Executions"
+  },
+  "Nicio execuție înregistrată.": {
+    "ro": "Nicio execuție înregistrată.",
+    "en": "No runs recorded."
+  },
+  "No runs recorded.": {
+    "ro": "Nicio execuție înregistrată.",
+    "en": "No runs recorded."
+  },
+  "Verificare:": {
+    "ro": "Verificare:",
+    "en": "Verification:"
+  },
+  "Verification:": {
+    "ro": "Verificare:",
+    "en": "Verification:"
+  },
+  "Fără confirmare de la executor": {
+    "ro": "Fără confirmare de la executor",
+    "en": "No executor receipt"
+  },
+  "No executor receipt": {
+    "ro": "Fără confirmare de la executor",
+    "en": "No executor receipt"
+  },
+  "Istoricul dovezilor": {
+    "ro": "Istoricul dovezilor",
+    "en": "Evidence timeline"
+  },
+  "Evidence timeline": {
+    "ro": "Istoricul dovezilor",
+    "en": "Evidence timeline"
+  },
+  "Niciun raport pentru acest task.": {
+    "ro": "Niciun raport pentru acest task.",
+    "en": "No reports for this task."
+  },
+  "No reports for this task.": {
+    "ro": "Niciun raport pentru acest task.",
+    "en": "No reports for this task."
+  },
+  "Pagini istoric task": {
+    "ro": "Pagini istoric task",
+    "en": "Task history pages"
+  },
+  "Task history pages": {
+    "ro": "Pagini istoric task",
+    "en": "Task history pages"
+  },
+  "Anterior": {
+    "ro": "Anterior",
+    "en": "Previous"
+  },
+  "Previous": {
+    "ro": "Anterior",
+    "en": "Previous"
+  },
+  "Mai mult istoric": {
+    "ro": "Mai mult istoric",
+    "en": "More history"
+  },
+  "More history": {
+    "ro": "Mai mult istoric",
+    "en": "More history"
+  },
+  "Terminarea execuției nu încheie taskul. Rapoartele agenților își păstrează starea de revizuire.": {
+    "ro": "Terminarea execuției nu încheie taskul. Rapoartele agenților își păstrează starea de revizuire.",
+    "en": "Execution completion does not complete the task. Agent reports retain their review status."
+  },
+  "Execution completion does not complete the task. Agent reports retain their review status.": {
+    "ro": "Terminarea execuției nu încheie taskul. Rapoartele agenților își păstrează starea de revizuire.",
+    "en": "Execution completion does not complete the task. Agent reports retain their review status."
+  },
+  "Contextul atașat a fost eliminat din conversație.": {
+    "ro": "Contextul atașat a fost eliminat din conversație.",
+    "en": "Attached context was removed from the conversation."
+  },
+  "Attached context was removed from the conversation.": {
+    "ro": "Contextul atașat a fost eliminat din conversație.",
+    "en": "Attached context was removed from the conversation."
+  },
+  "Reia numai lucrarea deja autorizată pentru taskul ContextKeep selectat.": {
+    "ro": "Reia numai lucrarea deja autorizată pentru taskul ContextKeep selectat.",
+    "en": "Resume only the work already authorized for the selected ContextKeep task."
+  },
+  "Resume only the work already authorized for the selected ContextKeep task.": {
+    "ro": "Reia numai lucrarea deja autorizată pentru taskul ContextKeep selectat.",
+    "en": "Resume only the work already authorized for the selected ContextKeep task."
+  },
+  "Citește get_task și resume_task înaintea oricărei modificări; nu repeta execuții existente.": {
+    "ro": "Citește get_task și resume_task înaintea oricărei modificări; nu repeta execuții existente.",
+    "en": "Read get_task and resume_task before any change; do not replay existing executions."
+  },
+  "Read get_task and resume_task before any change; do not replay existing executions.": {
+    "ro": "Citește get_task și resume_task înaintea oricărei modificări; nu repeta execuții existente.",
+    "en": "Read get_task and resume_task before any change; do not replay existing executions."
+  },
+  "Rezumat raportat:": {
+    "ro": "Rezumat raportat:",
+    "en": "Reported summary:"
+  },
+  "Reported summary:": {
+    "ro": "Rezumat raportat:",
+    "en": "Reported summary:"
+  },
+  "Pas raportat:": {
+    "ro": "Pas raportat:",
+    "en": "Reported next step:"
+  },
+  "Reported next step:": {
+    "ro": "Pas raportat:",
+    "en": "Reported next step:"
+  },
+  "Proveniență:": {
+    "ro": "Proveniență:",
+    "en": "Provenance:"
+  },
+  "Provenance:": {
+    "ro": "Proveniență:",
+    "en": "Provenance:"
+  },
+  "Execuție existentă:": {
+    "ro": "Execuție existentă:",
+    "en": "Existing execution:"
+  },
+  "Existing execution:": {
+    "ro": "Execuție existentă:",
+    "en": "Existing execution:"
+  },
+  "Textul recuperat este dovadă, nu o autorizare nouă. Verifică omisiunile și starea curentă.": {
+    "ro": "Textul recuperat este dovadă, nu o autorizare nouă. Verifică omisiunile și starea curentă.",
+    "en": "Retrieved text is evidence, not new authorization. Check omissions and current state."
+  },
+  "Retrieved text is evidence, not new authorization. Check omissions and current state.": {
+    "ro": "Textul recuperat este dovadă, nu o autorizare nouă. Verifică omisiunile și starea curentă.",
+    "en": "Retrieved text is evidence, not new authorization. Check omissions and current state."
+  },
+  "Prompt copiat.": {
+    "ro": "Prompt copiat.",
+    "en": "Prompt copied."
+  },
+  "Prompt copied.": {
+    "ro": "Prompt copiat.",
+    "en": "Prompt copied."
+  },
+  "Selectează și copiază promptul de mai jos.": {
+    "ro": "Selectează și copiază promptul de mai jos.",
+    "en": "Select and copy the prompt below."
+  },
+  "Select and copy the prompt below.": {
+    "ro": "Selectează și copiază promptul de mai jos.",
+    "en": "Select and copy the prompt below."
+  },
+  "Context atașat:": {
+    "ro": "Context atașat:",
+    "en": "Context attached:"
+  },
+  "Context attached:": {
+    "ro": "Context atașat:",
+    "en": "Context attached:"
+  },
+  "Mesaj acceptat în conversație. Execuția nu este confirmată.": {
+    "ro": "Mesaj acceptat în conversație. Execuția nu este confirmată.",
+    "en": "Message accepted in the conversation. Execution is not confirmed."
+  },
+  "Message accepted in the conversation. Execution is not confirmed.": {
+    "ro": "Mesaj acceptat în conversație. Execuția nu este confirmată.",
+    "en": "Message accepted in the conversation. Execution is not confirmed."
+  },
+  "Copierea automată nu este disponibilă. Selectează și copiază promptul de mai jos.": {
+    "ro": "Copierea automată nu este disponibilă. Selectează și copiază promptul de mai jos.",
+    "en": "Automatic copying is unavailable. Select and copy the prompt below."
+  },
+  "Automatic copying is unavailable. Select and copy the prompt below.": {
+    "ro": "Copierea automată nu este disponibilă. Selectează și copiază promptul de mai jos.",
+    "en": "Automatic copying is unavailable. Select and copy the prompt below."
+  },
+  "Confirmarea hostului lipsește. Verifică conversația; nu retrimitem automat.": {
+    "ro": "Confirmarea hostului lipsește. Verifică conversația; nu retrimitem automat.",
+    "en": "Host confirmation is missing. Check the conversation; we will not resend automatically."
+  },
+  "Host confirmation is missing. Check the conversation; we will not resend automatically.": {
+    "ro": "Confirmarea hostului lipsește. Verifică conversația; nu retrimitem automat.",
+    "en": "Host confirmation is missing. Check the conversation; we will not resend automatically."
+  },
+  "Contextul nu poate fi pregătit. Reîncearcă după verificarea conexiunii.": {
+    "ro": "Contextul nu poate fi pregătit. Reîncearcă după verificarea conexiunii.",
+    "en": "Context could not be prepared. Check the connection and retry."
+  },
+  "Context could not be prepared. Check the connection and retry.": {
+    "ro": "Contextul nu poate fi pregătit. Reîncearcă după verificarea conexiunii.",
+    "en": "Context could not be prepared. Check the connection and retry."
+  },
+  "Acțiuni pentru conversație": {
+    "ro": "Acțiuni pentru conversație",
+    "en": "Conversation actions"
+  },
+  "Conversation actions": {
+    "ro": "Acțiuni pentru conversație",
+    "en": "Conversation actions"
+  },
+  "Profunzime context:": {
+    "ro": "Profunzime context:",
+    "en": "Context depth:"
+  },
+  "Context depth:": {
+    "ro": "Profunzime context:",
+    "en": "Context depth:"
+  },
+  ". Limite în caractere, nu tokenuri facturabile.": {
+    "ro": ". Limite în caractere, nu tokenuri facturabile.",
+    "en": ". Limits are characters, not billable tokens."
+  },
+  ". Limits are characters, not billable tokens.": {
+    "ro": ". Limite în caractere, nu tokenuri facturabile.",
+    "en": ". Limits are characters, not billable tokens."
+  },
+  "Atașează contextul": {
+    "ro": "Atașează contextul",
+    "en": "Attach context"
+  },
+  "Attach context": {
+    "ro": "Atașează contextul",
+    "en": "Attach context"
+  },
+  "Continuă în chat": {
+    "ro": "Continuă în chat",
+    "en": "Continue in chat"
+  },
+  "Continue in chat": {
+    "ro": "Continuă în chat",
+    "en": "Continue in chat"
+  },
+  "Copiază promptul": {
+    "ro": "Copiază promptul",
+    "en": "Copy prompt"
+  },
+  "Copy prompt": {
+    "ro": "Copiază promptul",
+    "en": "Copy prompt"
+  },
+  "Hostul nu oferă toate acțiunile. Poți copia promptul în conversație.": {
+    "ro": "Hostul nu oferă toate acțiunile. Poți copia promptul în conversație.",
+    "en": "The host does not support all actions. You can copy the prompt into the conversation."
+  },
+  "The host does not support all actions. You can copy the prompt into the conversation.": {
+    "ro": "Hostul nu oferă toate acțiunile. Poți copia promptul în conversație.",
+    "en": "The host does not support all actions. You can copy the prompt into the conversation."
+  },
+  "Se verifică starea curentă…": {
+    "ro": "Se verifică starea curentă…",
+    "en": "Checking current state…"
+  },
+  "Checking current state…": {
+    "ro": "Se verifică starea curentă…",
+    "en": "Checking current state…"
+  },
+  "Trimitere cu rezultat incert. Verifică mesajele din conversație înainte de orice reluare.": {
+    "ro": "Trimitere cu rezultat incert. Verifică mesajele din conversație înainte de orice reluare.",
+    "en": "Message delivery is uncertain. Check the conversation before resuming."
+  },
+  "Message delivery is uncertain. Check the conversation before resuming.": {
+    "ro": "Trimitere cu rezultat incert. Verifică mesajele din conversație înainte de orice reluare.",
+    "en": "Message delivery is uncertain. Check the conversation before resuming."
+  },
+  "Prompt și proveniență": {
+    "ro": "Prompt și proveniență",
+    "en": "Prompt and provenance"
+  },
+  "Prompt and provenance": {
+    "ro": "Prompt și proveniență",
+    "en": "Prompt and provenance"
+  },
+  "Prompt pentru conversație": {
+    "ro": "Prompt pentru conversație",
+    "en": "Conversation prompt"
+  },
+  "Conversation prompt": {
+    "ro": "Prompt pentru conversație",
+    "en": "Conversation prompt"
+  },
+  "Deschisă": {
+    "ro": "Deschisă",
+    "en": "Open"
+  },
+  "Open": {
+    "ro": "Deschisă",
+    "en": "Open"
+  },
+  "În lucru": {
+    "ro": "În lucru",
+    "en": "In progress"
+  },
+  "In progress": {
+    "ro": "În lucru",
+    "en": "In progress"
+  },
+  "Blocată": {
+    "ro": "Blocată",
+    "en": "Blocked"
+  },
+  "Blocked": {
+    "ro": "Blocată",
+    "en": "Blocked"
+  },
+  "Închisă": {
+    "ro": "Închisă",
+    "en": "Done"
+  },
+  "Done": {
+    "ro": "Închisă",
+    "en": "Done"
+  },
+  "Anulată": {
+    "ro": "Anulată",
+    "en": "Cancelled"
+  },
+  "Cancelled": {
+    "ro": "Anulată",
+    "en": "Cancelled"
+  },
+  "Stare neprecizată": {
+    "ro": "Stare neprecizată",
+    "en": "Unknown state"
+  },
+  "Unknown state": {
+    "ro": "Stare neprecizată",
+    "en": "Unknown state"
+  },
+  "Proces terminat": {
+    "ro": "Proces terminat",
+    "en": "Process completed"
+  },
+  "Process completed": {
+    "ro": "Proces terminat",
+    "en": "Process completed"
+  },
+  "Eșuat": {
+    "ro": "Eșuat",
+    "en": "Failed"
+  },
+  "Failed": {
+    "ro": "Eșuat",
+    "en": "Failed"
+  },
+  "Rulează": {
+    "ro": "Rulează",
+    "en": "Running"
+  },
+  "Running": {
+    "ro": "Rulează",
+    "en": "Running"
+  },
+  "Pregătit": {
+    "ro": "Pregătit",
+    "en": "Reserved"
+  },
+  "Reserved": {
+    "ro": "Pregătit",
+    "en": "Reserved"
+  },
+  "Pornire de verificat": {
+    "ro": "Pornire de verificat",
+    "en": "Start needs reconciliation"
+  },
+  "Start needs reconciliation": {
+    "ro": "Pornire de verificat",
+    "en": "Start needs reconciliation"
+  },
+  "Nu a pornit": {
+    "ro": "Nu a pornit",
+    "en": "Not started"
+  },
+  "Not started": {
+    "ro": "Nu a pornit",
+    "en": "Not started"
+  },
+  "Rezultat necunoscut": {
+    "ro": "Rezultat necunoscut",
+    "en": "Unknown result"
+  },
+  "Unknown result": {
+    "ro": "Rezultat necunoscut",
+    "en": "Unknown result"
+  },
+  "Verificat": {
+    "ro": "Verificat",
+    "en": "Verified"
+  },
+  "Verified": {
+    "ro": "Verificat",
+    "en": "Verified"
+  },
+  "Neverificat": {
+    "ro": "Neverificat",
+    "en": "Unverified"
+  },
+  "Unverified": {
+    "ro": "Neverificat",
+    "en": "Unverified"
+  },
+  "Dovadă actuală, legată de execuție": {
+    "ro": "Dovadă actuală, legată de execuție",
+    "en": "Current evidence bound to execution"
+  },
+  "Current evidence bound to execution": {
+    "ro": "Dovadă actuală, legată de execuție",
+    "en": "Current evidence bound to execution"
+  },
+  "Dovadă modificată — reverificare necesară": {
+    "ro": "Dovadă modificată — reverificare necesară",
+    "en": "Evidence changed — verification required"
+  },
+  "Evidence changed — verification required": {
+    "ro": "Dovadă modificată — reverificare necesară",
+    "en": "Evidence changed — verification required"
+  },
+  "Dovadă retrasă — verdict doar istoric": {
+    "ro": "Dovadă retrasă — verdict doar istoric",
+    "en": "Evidence withdrawn — historical verdict only"
+  },
+  "Evidence withdrawn — historical verdict only": {
+    "ro": "Dovadă retrasă — verdict doar istoric",
+    "en": "Evidence withdrawn — historical verdict only"
+  },
+  "Verificare istorică fără legătură explicită": {
+    "ro": "Verificare istorică fără legătură explicită",
+    "en": "Historical verification without explicit binding"
+  },
+  "Historical verification without explicit binding": {
+    "ro": "Verificare istorică fără legătură explicită",
+    "en": "Historical verification without explicit binding"
+  },
+  "Dovadă încă neverificată": {
+    "ro": "Dovadă încă neverificată",
+    "en": "Evidence not yet verified"
+  },
+  "Evidence not yet verified": {
+    "ro": "Dovadă încă neverificată",
+    "en": "Evidence not yet verified"
+  },
+  "Validitate necunoscută": {
+    "ro": "Validitate necunoscută",
+    "en": "Unknown validity"
+  },
+  "Unknown validity": {
+    "ro": "Validitate necunoscută",
+    "en": "Unknown validity"
+  },
+  "livrat": {
+    "ro": "livrat",
+    "en": "delivered"
+  },
+  "delivered": {
+    "ro": "livrat",
+    "en": "delivered"
+  },
+  "în așteptare": {
+    "ro": "în așteptare",
+    "en": "pending"
+  },
+  "pending": {
+    "ro": "în așteptare",
+    "en": "pending"
+  },
+  "în curs": {
+    "ro": "în curs",
+    "en": "sending"
+  },
+  "sending": {
+    "ro": "în curs",
+    "en": "sending"
+  },
+  "eșuat": {
+    "ro": "eșuat",
+    "en": "failed"
+  },
+  "failed": {
+    "ro": "eșuat",
+    "en": "failed"
+  },
+  "anulat": {
+    "ro": "anulat",
+    "en": "revoked"
+  },
+  "revoked": {
+    "ro": "anulat",
+    "en": "revoked"
+  },
+  "necunoscut": {
+    "ro": "necunoscut",
+    "en": "unknown"
+  },
+  "unknown": {
+    "ro": "necunoscut",
+    "en": "unknown"
+  },
+  "Starea curentă a taskului": {
+    "ro": "Starea curentă a taskului",
+    "en": "Current task state"
+  },
+  "Current task state": {
+    "ro": "Starea curentă a taskului",
+    "en": "Current task state"
+  },
+  "Ce contează acum": {
+    "ro": "Ce contează acum",
+    "en": "What matters now"
+  },
+  "What matters now": {
+    "ro": "Ce contează acum",
+    "en": "What matters now"
+  },
+  "Nu există încă un raport pentru această lucrare.": {
+    "ro": "Nu există încă un raport pentru această lucrare.",
+    "en": "No report yet for this task."
+  },
+  "No report yet for this task.": {
+    "ro": "Nu există încă un raport pentru această lucrare.",
+    "en": "No report yet for this task."
+  },
+  "Necesită atenție": {
+    "ro": "Necesită atenție",
+    "en": "Needs attention"
+  },
+  "Needs attention": {
+    "ro": "Necesită atenție",
+    "en": "Needs attention"
+  },
+  "Categorii de atenționare": {
+    "ro": "Categorii de atenționare",
+    "en": "Attention categories"
+  },
+  "Attention categories": {
+    "ro": "Categorii de atenționare",
+    "en": "Attention categories"
+  },
+  "Acțiune necesară": {
+    "ro": "Acțiune necesară",
+    "en": "Action required"
+  },
+  "Action required": {
+    "ro": "Acțiune necesară",
+    "en": "Action required"
+  },
+  "Verificare necesară": {
+    "ro": "Verificare necesară",
+    "en": "Verification required"
+  },
+  "Verification required": {
+    "ro": "Verificare necesară",
+    "en": "Verification required"
+  },
+  "Opțional pentru proprietar": {
+    "ro": "Opțional pentru proprietar",
+    "en": "Optional owner input"
+  },
+  "Optional owner input": {
+    "ro": "Opțional pentru proprietar",
+    "en": "Optional owner input"
+  },
+  "Amânat": {
+    "ro": "Amânat",
+    "en": "Deferred"
+  },
+  "Deferred": {
+    "ro": "Amânat",
+    "en": "Deferred"
+  },
+  "Istoric de reconciliat": {
+    "ro": "Istoric de reconciliat",
+    "en": "History needs reconciliation"
+  },
+  "History needs reconciliation": {
+    "ro": "Istoric de reconciliat",
+    "en": "History needs reconciliation"
+  },
+  "Pasul următor": {
+    "ro": "Pasul următor",
+    "en": "Next step"
+  },
+  "Next step": {
+    "ro": "Pasul următor",
+    "en": "Next step"
+  },
+  "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile.": {
+    "ro": "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile.",
+    "en": "Continuation is suspended by the project state. Executions and evidence remain visible."
+  },
+  "Continuation is suspended by the project state. Executions and evidence remain visible.": {
+    "ro": "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile.",
+    "en": "Continuation is suspended by the project state. Executions and evidence remain visible."
+  },
+  "Nu este precizat. Citește dovezile înainte de a continua.": {
+    "ro": "Nu este precizat. Citește dovezile înainte de a continua.",
+    "en": "Not specified. Read the evidence before continuing."
+  },
+  "Not specified. Read the evidence before continuing.": {
+    "ro": "Nu este precizat. Citește dovezile înainte de a continua.",
+    "en": "Not specified. Read the evidence before continuing."
+  },
+  "Urmărire după închidere": {
+    "ro": "Urmărire după închidere",
+    "en": "Follow-up after closure"
+  },
+  "Follow-up after closure": {
+    "ro": "Urmărire după închidere",
+    "en": "Follow-up after closure"
+  },
+  "Verifică checkpointul asociat.": {
+    "ro": "Verifică checkpointul asociat.",
+    "en": "Check the linked checkpoint."
+  },
+  "Check the linked checkpoint.": {
+    "ro": "Verifică checkpointul asociat.",
+    "en": "Check the linked checkpoint."
+  },
+  "De la tine": {
+    "ro": "De la tine",
+    "en": "Owner input"
+  },
+  "Owner input": {
+    "ro": "De la tine",
+    "en": "Owner input"
+  },
+  "Ultima execuție": {
+    "ro": "Ultima execuție",
+    "en": "Latest execution"
+  },
+  "Latest execution": {
+    "ro": "Ultima execuție",
+    "en": "Latest execution"
+  },
+  "Validitatea dovezii": {
+    "ro": "Validitatea dovezii",
+    "en": "Evidence validity"
+  },
+  "Evidence validity": {
+    "ro": "Validitatea dovezii",
+    "en": "Evidence validity"
+  },
+  "Continuare pe evenimente": {
+    "ro": "Continuare pe evenimente",
+    "en": "Event continuation"
+  },
+  "Event continuation": {
+    "ro": "Continuare pe evenimente",
+    "en": "Event continuation"
+  },
+  "Configurată și abonată": {
+    "ro": "Configurată și abonată",
+    "en": "Configured and subscribed"
+  },
+  "Configured and subscribed": {
+    "ro": "Configurată și abonată",
+    "en": "Configured and subscribed"
+  },
+  "Politică pregătită; abonarea ChatGPT lipsește": {
+    "ro": "Politică pregătită; abonarea ChatGPT lipsește",
+    "en": "Policy configured; ChatGPT subscription missing"
+  },
+  "Policy configured; ChatGPT subscription missing": {
+    "ro": "Politică pregătită; abonarea ChatGPT lipsește",
+    "en": "Policy configured; ChatGPT subscription missing"
+  },
+  "Oprită pentru această lucrare": {
+    "ro": "Oprită pentru această lucrare",
+    "en": "Disabled for this task"
+  },
+  "Disabled for this task": {
+    "ro": "Oprită pentru această lucrare",
+    "en": "Disabled for this task"
+  },
+  "Livrarea evenimentelor": {
+    "ro": "Livrarea evenimentelor",
+    "en": "Event delivery"
+  },
+  "Event delivery": {
+    "ro": "Livrarea evenimentelor",
+    "en": "Event delivery"
+  },
+  "Nicio livrare înregistrată; funcționarea nu este încă demonstrată.": {
+    "ro": "Nicio livrare înregistrată; funcționarea nu este încă demonstrată.",
+    "en": "No recorded delivery; operation is not yet proven."
+  },
+  "No recorded delivery; operation is not yet proven.": {
+    "ro": "Nicio livrare înregistrată; funcționarea nu este încă demonstrată.",
+    "en": "No recorded delivery; operation is not yet proven."
+  },
+  "livrări în așteptare": {
+    "ro": "livrări în așteptare",
+    "en": "pending deliveries"
+  },
+  "pending deliveries": {
+    "ro": "livrări în așteptare",
+    "en": "pending deliveries"
+  },
+  "livrări eșuate în istoric": {
+    "ro": "livrări eșuate în istoric",
+    "en": "historical failed deliveries"
+  },
+  "historical failed deliveries": {
+    "ro": "livrări eșuate în istoric",
+    "en": "historical failed deliveries"
+  },
+  "continuări necesită reconciliere": {
+    "ro": "continuări necesită reconciliere",
+    "en": "continuations need reconciliation"
+  },
+  "continuations need reconciliation": {
+    "ro": "continuări necesită reconciliere",
+    "en": "continuations need reconciliation"
+  },
+  "Raport:": {
+    "ro": "Raport:",
+    "en": "Report:"
+  },
+  "Report:": {
+    "ro": "Raport:",
+    "en": "Report:"
+  },
+  "Starea raportată nu modifică automat progresul acceptat sau deciziile proiectului.": {
+    "ro": "Starea raportată nu modifică automat progresul acceptat sau deciziile proiectului.",
+    "en": "Reported state does not automatically change accepted progress or project decisions."
+  },
+  "Reported state does not automatically change accepted progress or project decisions.": {
+    "ro": "Starea raportată nu modifică automat progresul acceptat sau deciziile proiectului.",
+    "en": "Reported state does not automatically change accepted progress or project decisions."
+  },
+  "precizări despre stare": {
+    "ro": "precizări despre stare",
+    "en": "state notes"
+  },
+  "state notes": {
+    "ro": "precizări despre stare",
+    "en": "state notes"
+  },
+  "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.": {
+    "ro": "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.",
+    "en": "Part of the dossier was refreshed. Remaining pages may be stale. Refresh the dossier to retry."
+  },
+  "Part of the dossier was refreshed. Remaining pages may be stale. Refresh the dossier to retry.": {
+    "ro": "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.",
+    "en": "Part of the dossier was refreshed. Remaining pages may be stale. Refresh the dossier to retry."
+  },
+  "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.": {
+    "ro": "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "The dossier could not be refreshed. Displayed data may be stale."
+  },
+  "The dossier could not be refreshed. Displayed data may be stale.": {
+    "ro": "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "The dossier could not be refreshed. Displayed data may be stale."
+  },
+  "Dosarul curent al proiectului": {
+    "ro": "Dosarul curent al proiectului",
+    "en": "Current project dossier"
+  },
+  "Current project dossier": {
+    "ro": "Dosarul curent al proiectului",
+    "en": "Current project dossier"
+  },
+  "Actualizează dosarul": {
+    "ro": "Actualizează dosarul",
+    "en": "Refresh dossier"
+  },
+  "Refresh dossier": {
+    "ro": "Actualizează dosarul",
+    "en": "Refresh dossier"
+  },
+  "Citit integral la": {
+    "ro": "Citit integral la",
+    "en": "Fully read at"
+  },
+  "Fully read at": {
+    "ro": "Citit integral la",
+    "en": "Fully read at"
+  },
+  "lucrări": {
+    "ro": "lucrări",
+    "en": "tasks"
+  },
+  "tasks": {
+    "ro": "lucrări",
+    "en": "tasks"
+  },
+  "Se încarcă starea proiectului…": {
+    "ro": "Se încarcă starea proiectului…",
+    "en": "Loading project state…"
+  },
+  "Loading project state…": {
+    "ro": "Se încarcă starea proiectului…",
+    "en": "Loading project state…"
+  },
+  "Necesită atenție (": {
+    "ro": "Necesită atenție (",
+    "en": "Needs attention ("
+  },
+  "Needs attention (": {
+    "ro": "Necesită atenție (",
+    "en": "Needs attention ("
+  },
+  "Este necesară o verificare sau o acțiune.": {
+    "ro": "Este necesară o verificare sau o acțiune.",
+    "en": "Verification or action is required."
+  },
+  "Verification or action is required.": {
+    "ro": "Este necesară o verificare sau o acțiune.",
+    "en": "Verification or action is required."
+  },
+  "Mai multe de verificat": {
+    "ro": "Mai multe de verificat",
+    "en": "More to review"
+  },
+  "More to review": {
+    "ro": "Mai multe de verificat",
+    "en": "More to review"
+  },
+  "Toate": {
+    "ro": "Toate",
+    "en": "All"
+  },
+  "All": {
+    "ro": "Toate",
+    "en": "All"
+  },
+  "Nu există un raport recent.": {
+    "ro": "Nu există un raport recent.",
+    "en": "No recent report."
+  },
+  "No recent report.": {
+    "ro": "Nu există un raport recent.",
+    "en": "No recent report."
+  },
+  "De la tine:": {
+    "ro": "De la tine:",
+    "en": "Owner input:"
+  },
+  "Owner input:": {
+    "ro": "De la tine:",
+    "en": "Owner input:"
+  },
+  "Nicio lucrare nu corespunde filtrelor selectate.": {
+    "ro": "Nicio lucrare nu corespunde filtrelor selectate.",
+    "en": "No tasks match the selected filters."
+  },
+  "No tasks match the selected filters.": {
+    "ro": "Nicio lucrare nu corespunde filtrelor selectate.",
+    "en": "No tasks match the selected filters."
+  },
+  "Nu există lucrări în acest proiect.": {
+    "ro": "Nu există lucrări în acest proiect.",
+    "en": "No tasks in this project."
+  },
+  "No tasks in this project.": {
+    "ro": "Nu există lucrări în acest proiect.",
+    "en": "No tasks in this project."
+  },
+  "Nicio lucrare activă în pagina încărcată. Verifică și istoricul sau paginile următoare.": {
+    "ro": "Nicio lucrare activă în pagina încărcată. Verifică și istoricul sau paginile următoare.",
+    "en": "No active tasks on the loaded page. Check history or later pages."
+  },
+  "No active tasks on the loaded page. Check history or later pages.": {
+    "ro": "Nicio lucrare activă în pagina încărcată. Verifică și istoricul sau paginile următoare.",
+    "en": "No active tasks on the loaded page. Check history or later pages."
+  },
+  "Mai multe lucrări": {
+    "ro": "Mai multe lucrări",
+    "en": "More tasks"
+  },
+  "Decizii și reguli păstrate": {
+    "ro": "Decizii și reguli păstrate",
+    "en": "Saved decisions and rules"
+  },
+  "Saved decisions and rules": {
+    "ro": "Decizii și reguli păstrate",
+    "en": "Saved decisions and rules"
+  },
+  "Legături între proiecte și dispozitive": {
+    "ro": "Legături între proiecte și dispozitive",
+    "en": "Project and device links"
+  },
+  "Project and device links": {
+    "ro": "Legături între proiecte și dispozitive",
+    "en": "Project and device links"
+  },
+  "note explicite de proiect.": {
+    "ro": "note explicite de proiect.",
+    "en": "explicit project notes."
+  },
+  "explicit project notes.": {
+    "ro": "note explicite de proiect.",
+    "en": "explicit project notes."
+  },
+  "checkpoint-uri vechi nu au lucrare asociată. Sunt istoric, nu următorul pas al tuturor lucrărilor.": {
+    "ro": "checkpoint-uri vechi nu au lucrare asociată. Sunt istoric, nu următorul pas al tuturor lucrărilor.",
+    "en": "older checkpoints have no linked task. They are history, not the next step for every task."
+  },
+  "older checkpoints have no linked task. They are history, not the next step for every task.": {
+    "ro": "checkpoint-uri vechi nu au lucrare asociată. Sunt istoric, nu următorul pas al tuturor lucrărilor.",
+    "en": "older checkpoints have no linked task. They are history, not the next step for every task."
+  },
+  "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.": {
+    "ro": "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "The portfolio could not be refreshed. Displayed data may be stale."
+  },
+  "The portfolio could not be refreshed. Displayed data may be stale.": {
+    "ro": "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.",
+    "en": "The portfolio could not be refreshed. Displayed data may be stale."
+  },
+  "Portofoliu proiecte": {
+    "ro": "Portofoliu proiecte",
+    "en": "Project portfolio"
+  },
+  "Project portfolio": {
+    "ro": "Portofoliu proiecte",
+    "en": "Project portfolio"
+  },
+  "Proiectele tale": {
+    "ro": "Proiectele tale",
+    "en": "Your projects"
+  },
+  "Your projects": {
+    "ro": "Proiectele tale",
+    "en": "Your projects"
+  },
+  "Actualizează portofoliul": {
+    "ro": "Actualizează portofoliul",
+    "en": "Refresh portfolio"
+  },
+  "Refresh portfolio": {
+    "ro": "Actualizează portofoliul",
+    "en": "Refresh portfolio"
+  },
+  "Se încarcă proiectele…": {
+    "ro": "Se încarcă proiectele…",
+    "en": "Loading projects…"
+  },
+  "Loading projects…": {
+    "ro": "Se încarcă proiectele…",
+    "en": "Loading projects…"
+  },
+  "Necesită atenție:": {
+    "ro": "Necesită atenție:",
+    "en": "Needs attention:"
+  },
+  "Needs attention:": {
+    "ro": "Necesită atenție:",
+    "en": "Needs attention:"
+  },
+  "Nu există proiecte de afișat.": {
+    "ro": "Nu există proiecte de afișat.",
+    "en": "No projects to display."
+  },
+  "No projects to display.": {
+    "ro": "Nu există proiecte de afișat.",
+    "en": "No projects to display."
+  },
+  "Pagina este goală. Revino la pagina anterioară.": {
+    "ro": "Pagina este goală. Revino la pagina anterioară.",
+    "en": "This page is empty. Return to the previous page."
+  },
+  "This page is empty. Return to the previous page.": {
+    "ro": "Pagina este goală. Revino la pagina anterioară.",
+    "en": "This page is empty. Return to the previous page."
+  },
+  "proiecte afișate ·": {
+    "ro": "proiecte afișate ·",
+    "en": "projects shown ·"
+  },
+  "projects shown ·": {
+    "ro": "proiecte afișate ·",
+    "en": "projects shown ·"
+  },
+  "în total": {
+    "ro": "în total",
+    "en": "total"
+  },
+  "total": {
+    "ro": "în total",
+    "en": "total"
+  },
+  "Pagini portofoliu": {
+    "ro": "Pagini portofoliu",
+    "en": "Portfolio pages"
+  },
+  "Portfolio pages": {
+    "ro": "Pagini portofoliu",
+    "en": "Portfolio pages"
+  },
+  "Proiectele anterioare": {
+    "ro": "Proiectele anterioare",
+    "en": "Previous projects"
+  },
+  "Previous projects": {
+    "ro": "Proiectele anterioare",
+    "en": "Previous projects"
+  },
+  "Proiectele următoare": {
+    "ro": "Proiectele următoare",
+    "en": "Next projects"
+  },
+  "Next projects": {
+    "ro": "Proiectele următoare",
+    "en": "Next projects"
+  },
+  "Istoricul nu poate fi încărcat.": {
+    "ro": "Istoricul nu poate fi încărcat.",
+    "en": "History could not be loaded."
+  },
+  "History could not be loaded.": {
+    "ro": "Istoricul nu poate fi încărcat.",
+    "en": "History could not be loaded."
+  },
+  "Cronologie operațională": {
+    "ro": "Cronologie operațională",
+    "en": "Operational timeline"
+  },
+  "Operational timeline": {
+    "ro": "Cronologie operațională",
+    "en": "Operational timeline"
+  },
+  "Istoric operațional": {
+    "ro": "Istoric operațional",
+    "en": "Operational history"
+  },
+  "Operational history": {
+    "ro": "Istoric operațional",
+    "en": "Operational history"
+  },
+  "Surse activitate": {
+    "ro": "Surse activitate",
+    "en": "Activity scope"
+  },
+  "Activity scope": {
+    "ro": "Surse activitate",
+    "en": "Activity scope"
+  },
+  "Toate sursele": {
+    "ro": "Toate sursele",
+    "en": "All sources"
+  },
+  "All sources": {
+    "ro": "Toate sursele",
+    "en": "All sources"
+  },
+  "Cunoștințe acceptate": {
+    "ro": "Cunoștințe acceptate",
+    "en": "Accepted knowledge"
+  },
+  "Accepted knowledge": {
+    "ro": "Cunoștințe acceptate",
+    "en": "Accepted knowledge"
+  },
+  "Rapoarte de lucru": {
+    "ro": "Rapoarte de lucru",
+    "en": "Working reports"
+  },
+  "Working reports": {
+    "ro": "Rapoarte de lucru",
+    "en": "Working reports"
+  },
+  "Nu există înregistrări pentru filtrul ales.": {
+    "ro": "Nu există înregistrări pentru filtrul ales.",
+    "en": "No records match the selected filter."
+  },
+  "No records match the selected filter.": {
+    "ro": "Nu există înregistrări pentru filtrul ales.",
+    "en": "No records match the selected filter."
+  },
+  "Mai vechi": {
+    "ro": "Mai vechi",
+    "en": "Older"
+  },
+  "Older": {
+    "ro": "Mai vechi",
+    "en": "Older"
+  },
+  "Deschidere": {
+    "ro": "Deschidere",
+    "en": "Landing view"
+  },
+  "Landing view": {
+    "ro": "Deschidere",
+    "en": "Landing view"
+  },
+  "Vizibilitate": {
+    "ro": "Vizibilitate",
+    "en": "Visibility"
+  },
+  "Visibility": {
+    "ro": "Vizibilitate",
+    "en": "Visibility"
+  },
+  "Profunzime": {
+    "ro": "Profunzime",
+    "en": "Depth"
+  },
+  "Depth": {
+    "ro": "Profunzime",
+    "en": "Depth"
+  },
+  "Compact": {
+    "ro": "Compact",
+    "en": "Compact"
+  },
+  "Echilibrat": {
+    "ro": "Echilibrat",
+    "en": "Balanced"
+  },
+  "Balanced": {
+    "ro": "Echilibrat",
+    "en": "Balanced"
+  },
+  "Detaliat": {
+    "ro": "Detaliat",
+    "en": "Detailed"
+  },
+  "Detailed": {
+    "ro": "Detaliat",
+    "en": "Detailed"
+  },
+  "Actualizare": {
+    "ro": "Actualizare",
+    "en": "Refresh"
+  },
+  "Refresh": {
+    "ro": "Actualizare",
+    "en": "Refresh"
+  },
+  "Manual": {
+    "ro": "Manual",
+    "en": "Manual"
+  },
+  "15 secunde": {
+    "ro": "15 secunde",
+    "en": "15 seconds"
+  },
+  "15 seconds": {
+    "ro": "15 secunde",
+    "en": "15 seconds"
+  },
+  "30 secunde": {
+    "ro": "30 secunde",
+    "en": "30 seconds"
+  },
+  "30 seconds": {
+    "ro": "30 secunde",
+    "en": "30 seconds"
+  },
+  "60 secunde": {
+    "ro": "60 secunde",
+    "en": "60 seconds"
+  },
+  "60 seconds": {
+    "ro": "60 secunde",
+    "en": "60 seconds"
+  },
+  "120 secunde": {
+    "ro": "120 secunde",
+    "en": "120 seconds"
+  },
+  "120 seconds": {
+    "ro": "120 secunde",
+    "en": "120 seconds"
+  },
+  "Limbă": {
+    "ro": "Limbă",
+    "en": "Language"
+  },
+  "Language": {
+    "ro": "Limbă",
+    "en": "Language"
+  },
+  "Română": {
+    "ro": "Română",
+    "en": "Română"
+  },
+  "English": {
+    "ro": "English",
+    "en": "English"
+  },
+  "Preferințe salvate.": {
+    "ro": "Preferințe salvate.",
+    "en": "Preferences saved."
+  },
+  "Preferences saved.": {
+    "ro": "Preferințe salvate.",
+    "en": "Preferences saved."
+  },
+  "Preferințe recitite.": {
+    "ro": "Preferințe recitite.",
+    "en": "Preferences reloaded."
+  },
+  "Preferences reloaded.": {
+    "ro": "Preferințe recitite.",
+    "en": "Preferences reloaded."
+  },
+  "Confirmarea lipsește. Recitește preferințele înainte de a reîncerca salvarea.": {
+    "ro": "Confirmarea lipsește. Recitește preferințele înainte de a reîncerca salvarea.",
+    "en": "Confirmation is missing. Reload preferences before retrying the save."
+  },
+  "Confirmation is missing. Reload preferences before retrying the save.": {
+    "ro": "Confirmarea lipsește. Recitește preferințele înainte de a reîncerca salvarea.",
+    "en": "Confirmation is missing. Reload preferences before retrying the save."
+  },
+  "Preferințe panou": {
+    "ro": "Preferințe panou",
+    "en": "Panel preferences"
+  },
+  "Panel preferences": {
+    "ro": "Preferințe panou",
+    "en": "Panel preferences"
+  },
+  "Editor alternativ pentru aceleași preferințe disponibile în setările native ale hostului.": {
+    "ro": "Editor alternativ pentru aceleași preferințe disponibile în setările native ale hostului.",
+    "en": "Alternative editor for the same preferences available in the host's native settings."
+  },
+  "Alternative editor for the same preferences available in the host's native settings.": {
+    "ro": "Editor alternativ pentru aceleași preferințe disponibile în setările native ale hostului.",
+    "en": "Alternative editor for the same preferences available in the host's native settings."
+  },
+  "Salvează preferințele": {
+    "ro": "Salvează preferințele",
+    "en": "Save preferences"
+  },
+  "Save preferences": {
+    "ro": "Salvează preferințele",
+    "en": "Save preferences"
+  },
+  "Recitește preferințele": {
+    "ro": "Recitește preferințele",
+    "en": "Reload preferences"
+  },
+  "Reload preferences": {
+    "ro": "Recitește preferințele",
+    "en": "Reload preferences"
+  },
+  "execuții sau dovezi necesită verificare": {
+    "ro": "execuții sau dovezi necesită verificare",
+    "en": "executions or evidence need verification"
+  },
+  "executions or evidence need verification": {
+    "ro": "execuții sau dovezi necesită verificare",
+    "en": "executions or evidence need verification"
+  },
+  "Ultimul eveniment:": {
+    "ro": "Ultimul eveniment:",
+    "en": "Latest event:"
+  },
+  "Latest event:": {
+    "ro": "Ultimul eveniment:",
+    "en": "Latest event:"
+  },
+  "încercări": {
+    "ro": "încercări",
+    "en": "attempts"
+  },
+  "attempts": {
+    "ro": "încercări",
+    "en": "attempts"
+  },
+  "Stare:": {
+    "ro": "Stare:",
+    "en": "State:"
+  },
+  "State:": {
+    "ro": "Stare:",
+    "en": "State:"
+  },
+  "Se conectează la ContextKeep…": {
+    "ro": "Se conectează la ContextKeep…",
+    "en": "Connecting to ContextKeep…"
+  },
+  "Connecting to ContextKeep…": {
+    "ro": "Se conectează la ContextKeep…",
+    "en": "Connecting to ContextKeep…"
+  },
+  "Conectarea durează mai mult. Închide și redeschide panoul pentru a reîncerca.": {
+    "ro": "Conectarea durează mai mult. Închide și redeschide panoul pentru a reîncerca.",
+    "en": "ContextKeep is taking longer to connect. Close and reopen the panel to try again."
+  },
+  "ContextKeep is taking longer to connect. Close and reopen the panel to try again.": {
+    "ro": "Conectarea durează mai mult. Închide și redeschide panoul pentru a reîncerca.",
+    "en": "ContextKeep is taking longer to connect. Close and reopen the panel to try again."
+  },
+  "Conectarea la ContextKeep a eșuat. Închide și redeschide panoul pentru a reîncerca.": {
+    "ro": "Conectarea la ContextKeep a eșuat. Închide și redeschide panoul pentru a reîncerca.",
+    "en": "ContextKeep could not connect. Close and reopen the panel to try again."
+  },
+  "ContextKeep could not connect. Close and reopen the panel to try again.": {
+    "ro": "Conectarea la ContextKeep a eșuat. Închide și redeschide panoul pentru a reîncerca.",
+    "en": "ContextKeep could not connect. Close and reopen the panel to try again."
+  },
+  "Se citesc preferințele panoului…": {
+    "ro": "Se citesc preferințele panoului…",
+    "en": "Loading panel preferences…"
+  },
+  "Loading panel preferences…": {
+    "ro": "Se citesc preferințele panoului…",
+    "en": "Loading panel preferences…"
+  },
+  "Preferințele salvate nu pot fi citite.": {
+    "ro": "Preferințele salvate nu pot fi citite.",
+    "en": "Saved preferences could not be read."
+  },
+  "Saved preferences could not be read.": {
+    "ro": "Preferințele salvate nu pot fi citite.",
+    "en": "Saved preferences could not be read."
+  },
+  "Reîncearcă preferințele": {
+    "ro": "Reîncearcă preferințele",
+    "en": "Retry preferences"
+  },
+  "Retry preferences": {
+    "ro": "Reîncearcă preferințele",
+    "en": "Retry preferences"
+  },
+  "Se așteaptă contextul de deschidere…": {
+    "ro": "Se așteaptă contextul de deschidere…",
+    "en": "Waiting for opening context…"
+  },
+  "Waiting for opening context…": {
+    "ro": "Se așteaptă contextul de deschidere…",
+    "en": "Waiting for opening context…"
+  },
+  "Încarcă proiectele": {
+    "ro": "Încarcă proiectele",
+    "en": "Load projects"
+  },
+  "Load projects": {
+    "ro": "Încarcă proiectele",
+    "en": "Load projects"
+  }
+}

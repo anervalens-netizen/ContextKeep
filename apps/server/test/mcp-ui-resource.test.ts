@@ -1,3 +1,4 @@
+import { OpenAIUiToolMetadataSchema, OpenAIUiResourceMetadataSchema } from "@openai/mcp-extensions/server";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -30,19 +31,27 @@ it("advertises a new UI cache key while preserving the installed legacy resource
   const tools = (await rpc("tools/list")).result.tools;
   const panel = tools.find((tool: { name: string }) => tool.name === "open_task_panel");
   const uri = panel._meta.ui.resourceUri;
-  expect(uri).toBe("ui://contextkeep/tasks/v6.html");
-  expect(panel._meta["openai/ui"].entrypoints).toEqual([{ type: "global" }, { type: "thread" }]);
+  expect(uri).toBe("ui://contextkeep/tasks/v7.html");
+  expect(OpenAIUiToolMetadataSchema.safeParse(panel._meta["openai/ui"]).success).toBe(true);
+  expect(panel.title).toBe("ContextKeep");
+  expect(panel.icons.map((icon:{theme:string})=>icon.theme)).toEqual(["light","dark"]);
+  expect(panel._meta["openai/ui"].entrypoints).toEqual([
+    {type:"global",quickAction:{title:"ContextKeep",icons:panel.icons,target:{type:"tool",name:"open_task_panel",arguments:{}}}},
+    {type:"thread"},
+  ]);
   const listed = (await rpc("resources/list")).result.resources;
   expect(listed.map((resource: { uri: string }) => resource.uri)).toEqual([uri]);
   const current = (await rpc("resources/read", { uri })).result.contents[0];
   const legacy = (await rpc("resources/read", { uri: "ui://contextkeep/tasks" })).result.contents[0];
+  expect(OpenAIUiResourceMetadataSchema.safeParse(current._meta["openai/ui"]).success).toBe(true);
+  expect(current._meta["openai/ui"].preferredDisplayMode).toBe("fullscreen");
   expect(current.uri).toBe(uri);
   expect(legacy.uri).toBe("ui://contextkeep/tasks");
   expect(current.mimeType).toBe("text/html;profile=mcp-app");
   expect(current.text).toContain('document.title="Synthetic app"');
   expect(current.text).toContain("body{color:navy}");
   expect(legacy.text).toBe(current.text);
-  for (const olderUri of ["ui://contextkeep/tasks/v2.html", "ui://contextkeep/tasks/v3.html", "ui://contextkeep/tasks/v4.html", "ui://contextkeep/tasks/v5.html"]) {
+  for (const olderUri of ["ui://contextkeep/tasks/v2.html", "ui://contextkeep/tasks/v3.html", "ui://contextkeep/tasks/v4.html", "ui://contextkeep/tasks/v5.html", "ui://contextkeep/tasks/v6.html"]) {
     expect((await rpc("resources/read", { uri: olderUri })).result.contents[0].text).toBe(current.text);
   }
   expect((await rpc("resources/read", { uri: "ui://contextkeep/unknown" })).error.code).toBe(-32602);

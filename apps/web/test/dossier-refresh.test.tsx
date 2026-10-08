@@ -252,3 +252,28 @@ describe("project dossier paging stays live", () => {
     expect(screen.getByText(/Nicio livrare înregistrată/)).toBeTruthy();
   });
 });
+
+it("manual refresh mode retains explicit retry and coalesces repeated clicks", async () => {
+  let finish: ((value: ProjectDossier)=>void)|undefined;
+  const load=vi.fn(async()=>page("project",[task("one")]));
+  render(<ProjectNow projectId="project" load={load} onTask={()=>{}} refreshIntervalMs={null}/>);
+  await act(async()=>{});
+  expect(load).toHaveBeenCalledTimes(1);
+  await act(async()=>{vi.advanceTimersByTime(60000);document.dispatchEvent(new Event("visibilitychange"));});
+  expect(load).toHaveBeenCalledTimes(1);
+  load.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+  fireEvent.click(screen.getByRole("button",{name:"Actualizează dosarul"}));
+  fireEvent.click(screen.getByRole("button",{name:"Actualizează dosarul"}));
+  expect(load).toHaveBeenCalledTimes(2);
+  await act(async()=>{finish?.(page("project",[task("one","Fresh synthetic task")]));});
+  expect(screen.getByText("Fresh synthetic task")).toBeTruthy();
+  expect(screen.getByText(/Citit integral la/)).toBeTruthy();
+});
+
+it("keeps server-filtered terminal attention cards and removes the competing local filter",async()=>{
+  const row={...task("terminal","Terminal task needing attention"),state:"done"};
+  render(<ProjectNow projectId="project" load={async()=>page("project",[row])} onTask={()=>{}} serverFiltered refreshIntervalMs={null}/>);
+  await act(async()=>{});
+  expect(screen.getByText("Terminal task needing attention")).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Active",exact:true})).toBeNull();
+});
