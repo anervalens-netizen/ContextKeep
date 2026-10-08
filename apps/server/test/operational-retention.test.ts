@@ -241,6 +241,26 @@ describe("Operational retention invariants", () => {
     expect(review(boundary)).toBe("proposed");
   });
 
+  it("bounds workflow-history scans by pages rather than candidate count", async () => {
+    const { deps, add } = await fixture();
+    add();
+    add();
+    const prepare = vi.spyOn(deps.sqlite, "prepare");
+    const referenceScans = () =>
+      prepare.mock.calls.filter(([sql]) => /FROM \"?workflow_/.test(sql))
+        .length;
+    runMemoryHousekeeping(deps, config, undefined, at);
+    const small = referenceScans();
+    expect(small).toBeGreaterThan(0);
+    deps.sqlite.transaction(() => {
+      for (let i = 0; i < 500; i++) add();
+    })();
+    prepare.mockClear();
+    const large = runMemoryHousekeeping(deps, config, undefined, at);
+    expect(large.archivedProposals).toBe(500);
+    expect(referenceScans()).toBe(small);
+  });
+
   it("rejects malformed cursors and changed policy configuration", async () => {
     const { deps, add } = await fixture();
     add();

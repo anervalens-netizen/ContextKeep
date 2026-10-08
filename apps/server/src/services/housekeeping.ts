@@ -40,105 +40,86 @@ export function runMemoryHousekeeping(
     config.housekeepingProposalRetentionDays,
     nowMs,
   );
-  const classify = createRetentionPolicy(deps, cutoff);
-
   const archivedRecordIds: string[] = [];
   const skipped: Array<{ recordId: string; reason: string }> = [];
   const errors: Array<{ recordId: string; code: string; message: string }> = [];
   let checkedProposals = 0;
-  let cursorCreatedAt: string | null = null;
-  let cursorId: string | null = null;
-
-  // Scan aged proposals with a stable keyset cursor. Protected/skipped rows are
-  // not removed, so OFFSET/LIMIT alone could revisit the same first 5,000
-  // forever and starve later eligible proposals.
+  let position: { createdAt: string; id: string } | null = null;
   for (;;) {
-    const page = (
-      cursorCreatedAt === null
-        ? deps.sqlite
-            .prepare(
-              `
-          SELECT ${RETENTION_COLUMNS}
-          FROM records
-          WHERE review_status='proposed'
-            AND evidence_basis<>'owner_declaration'
-            AND created_at < ?
-          ORDER BY created_at ASC, id ASC
-          LIMIT 5000
-        `,
-            )
-            .all(cutoff)
-        : deps.sqlite
-            .prepare(
-              `
-          SELECT ${RETENTION_COLUMNS}
-          FROM records
-          WHERE review_status='proposed'
-            AND evidence_basis<>'owner_declaration'
-            AND created_at < ?
-            AND (created_at > ? OR (created_at = ? AND id > ?))
-          ORDER BY created_at ASC, id ASC
-          LIMIT 5000
-        `,
-            )
-            .all(cutoff, cursorCreatedAt, cursorCreatedAt, cursorId)
-    ) as RetentionCandidate[];
-
-    if (page.length === 0) break;
+    // Protected rows remain present, so advance by key rather than OFFSET.
+    const page = deps.sqlite
+      .prepare(
+        `SELECT ${RETENTION_COLUMNS} FROM records
+      WHERE review_status='proposed' AND evidence_basis<>'owner_declaration' AND created_at<?
+      ${position ? "AND (created_at>? OR (created_at=? AND id>?))" : ""}
+      ORDER BY created_at,id LIMIT 5000`,
+      )
+      .all(
+        ...(position
+          ? [cutoff, position.createdAt, position.createdAt, position.id]
+          : [cutoff]),
+      ) as RetentionCandidate[];
+    if (!page.length) break;
     checkedProposals += page.length;
-
-    for (const row of page) {
-      try {
-        // Recheck inside the write lock: a new workflow reference or revision
-        // after candidate enumeration must never be archived from a stale page.
-        const result = deps.sqlite
-          .transaction(() => {
-            const current = deps.sqlite
-              .prepare(`SELECT ${RETENTION_COLUMNS} FROM records WHERE id=?`)
-              .get(row.id) as RetentionCandidate | undefined;
-            if (!current || current.revision !== row.revision)
-              return "stale_candidate";
-            const reason = classify(current);
-            if (reason) return reason;
-            deleteRecord(
-              deps,
-              {
-                recordId: current.id,
-                revision: current.revision,
-                reason: `Automatic housekeeping: generic proposal remained unreviewed for more than ${config.housekeepingProposalRetentionDays} days.`,
-              },
-              ctx,
-            );
-            return null;
-          })
-          .immediate();
-        if (result) skipped.push({ recordId: row.id, reason: result });
-        else archivedRecordIds.push(row.id);
-      } catch (error) {
-        const code =
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          typeof (error as { code?: unknown }).code === "string"
-            ? (error as { code: string }).code
-            : "housekeeping_archive_failed";
-        errors.push({
-          recordId: row.id,
-          code,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Housekeeping archive failed.",
-        });
-      }
-    }
-
-    const last = page[page.length - 1]!;
-    cursorCreatedAt = last.createdAt;
-    cursorId = last.id;
+    // Read references once per bounded page AFTER acquiring the write lock.
+    // No other writer can add a reference between this snapshot and archival.
+    // Each archive has a savepoint so one failure does not abort the batch.
+    deps.sqlite
+      .transaction(() => {
+        const classify = createRetentionPolicy(
+          deps,
+          cutoff,
+          page.map((row) => row.id),
+        );
+        const currentRecord = deps.sqlite.prepare(
+          `SELECT ${RETENTION_COLUMNS} FROM records WHERE id=?`,
+        );
+        for (const row of page) {
+          try {
+            const reason = deps.sqlite.transaction(() => {
+              const current = currentRecord.get(row.id) as
+                RetentionCandidate | undefined;
+              if (!current || current.revision !== row.revision)
+                return "stale_candidate";
+              const reason = classify(current);
+              if (reason) return reason;
+              deleteRecord(
+                deps,
+                {
+                  recordId: current.id,
+                  revision: current.revision,
+                  reason: `Automatic housekeeping: generic proposal remained unreviewed for more than ${config.housekeepingProposalRetentionDays} days.`,
+                },
+                ctx,
+              );
+              return null;
+            })();
+            if (reason) skipped.push({ recordId: row.id, reason });
+            else archivedRecordIds.push(row.id);
+          } catch (error) {
+            const code =
+              typeof error === "object" &&
+              error !== null &&
+              "code" in error &&
+              typeof error.code === "string"
+                ? error.code
+                : "housekeeping_archive_failed";
+            errors.push({
+              recordId: row.id,
+              code,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Housekeeping archive failed.",
+            });
+          }
+        }
+      })
+      .immediate();
+    const last = page.at(-1)!;
+    position = { createdAt: last.createdAt, id: last.id };
     if (page.length < 5000) break;
   }
-
   return {
     checkedAt,
     proposalRetentionDays: config.housekeepingProposalRetentionDays,

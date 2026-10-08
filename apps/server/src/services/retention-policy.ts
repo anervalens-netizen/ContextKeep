@@ -23,24 +23,38 @@ const quote = (name: string) => '"' + name.replaceAll('"', '""') + '"';
 /** Inspect every workflow record/task reference, including historical receipts.
  * Schema-derived columns prevent newly added workflow tables from silently
  * becoming retention-blind. Values and identifiers never come from a client. */
-export function createRetentionPolicy(deps: ReadDeps, cutoff: string) {
+export function createRetentionPolicy(
+  deps: ReadDeps,
+  cutoff: string,
+  candidateIds?: readonly string[],
+) {
   const tables = deps.sqlite
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'workflow_*'",
     )
     .all() as Array<{ name: string }>;
-  const references = tables.flatMap(({ name }) => {
-    const columns = deps.sqlite
-      .prepare(`PRAGMA table_info(${quote(name)})`)
-      .all() as Array<{ name: string }>;
-    return columns
-      .filter((c) => /(?:^|_)(?:record|task)_id$/.test(c.name))
-      .map((c) =>
-        deps.sqlite.prepare(
-          `SELECT 1 FROM ${quote(name)} WHERE ${quote(c.name)}=? LIMIT 1`,
-        ),
-      );
-  });
+  const referencedIds = new Set<string>();
+  // The caller holds a consistent read transaction (preview) or an IMMEDIATE
+  // write transaction (apply). No per-candidate scans of unindexed history.
+  if (!candidateIds || candidateIds.length)
+    for (const { name } of tables) {
+      const columns = deps.sqlite
+        .prepare(`PRAGMA table_info(${quote(name)})`)
+        .all() as Array<{ name: string }>;
+      for (const c of columns.filter((c) =>
+        /(?:^|_)(?:record|task)_id$/.test(c.name),
+      )) {
+        const filter = candidateIds
+          ? ` IN (${candidateIds.map(() => "?").join(",")})`
+          : " IS NOT NULL";
+        const rows = deps.sqlite
+          .prepare(
+            `SELECT DISTINCT ${quote(c.name)} AS recordId FROM ${quote(name)} WHERE ${quote(c.name)}${filter}`,
+          )
+          .all(...(candidateIds ?? [])) as Array<{ recordId: string }>;
+        for (const row of rows) referencedIds.add(row.recordId);
+      }
+    }
   return (row: RetentionCandidate): string | null => {
     if (row.reviewStatus !== "proposed") return "not_proposed";
     if (row.evidenceBasis === "owner_declaration") return "owner_declaration";
@@ -54,8 +68,7 @@ export function createRetentionPolicy(deps: ReadDeps, cutoff: string) {
     // relations and malformed/unknown metadata. Compaction is a separate policy.
     if (row.valueJson !== null || row.predicate !== null)
       return "structured_memory";
-    if (references.some((statement) => statement.get(row.id)))
-      return "workflow_reference";
+    if (referencedIds.has(row.id)) return "workflow_reference";
     return null;
   };
 }
@@ -126,7 +139,11 @@ export function previewMemoryHousekeeping(
       ) as RetentionCandidate[];
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit);
-    const classify = createRetentionPolicy(deps, cutoff);
+    const classify = createRetentionPolicy(
+      deps,
+      cutoff,
+      page.map((row) => row.id),
+    );
     const items = page.map((row) => {
       const reason = classify(row);
       return {
