@@ -72,3 +72,27 @@ export function openDatabase(
     throw error;
   }
 }
+
+/** Read-only application data with the same restore fence as writable handles.
+ * The permanent directory lease may be initialized; the store is never created,
+ * migrated, or switched into another journal mode. */
+export function openReadOnlyDatabase(dbPath: string): Database.Database {
+  dbPath = canonicalDatabasePath(dbPath);
+  const lease = acquireDirectoryLock(path.dirname(dbPath), true);
+  try {
+    const sqlite = new Database(dbPath, {
+      readonly: true,
+      fileMustExist: true,
+    });
+    const close = sqlite.close.bind(sqlite);
+    sqlite.close = () => {
+      const result = close();
+      lease.release();
+      return result;
+    };
+    return sqlite;
+  } catch (error) {
+    lease.release();
+    throw error;
+  }
+}

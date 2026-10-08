@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { openReadOnlyDatabase } from "../db/client.js";
 import { parseArgs } from "node:util";
 import { previewMemoryHousekeeping } from "../services/retention-policy.js";
 
@@ -14,7 +14,7 @@ const { values } = parseArgs({
 });
 if (!values.db)
   throw new Error("--db is required (existing SQLite file; read-only).");
-const sqlite = new Database(values.db, { readonly: true, fileMustExist: true });
+const sqlite = openReadOnlyDatabase(values.db);
 try {
   const result = previewMemoryHousekeeping(
     { sqlite },

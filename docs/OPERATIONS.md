@@ -97,6 +97,10 @@ revisions are read fresh on each page. Optional `--at` accepts an ISO timestamp
 for isolated future-date qualification. Never apply simulated future retention
 to production. Preview uses an existing SQLite file opened read-only and does
 not load environment configuration, bootstrap a schema or run background jobs.
+It holds the normal shared directory lease until the connection closes, so an
+exclusive restore cannot move the store or sidecars underneath the preview.
+The permanent coordination lock may be initialized; application data remains
+read-only.
 Application retention rechecks revision and current workflow references inside
 the write transaction; preview is not an authorization to archive a stale row.
 
