@@ -22,6 +22,7 @@ type Task = {
   subject: string;
   text?: string;
   taskStatus: string | null;
+  effectiveState?: string;
   reviewStatus: string;
   revision: number;
 };
@@ -77,6 +78,7 @@ export interface TaskTransport {
   tasks(
     projectId: string,
     offset?: number,
+    options?: { selection?: "actual_tasks" | "all_actions"; q?: string },
   ): Promise<{ items: Task[]; nextOffset: number | null }>;
   task(projectId: string, taskId: string, offset?: number): Promise<TaskView>;
 }
@@ -99,6 +101,15 @@ export function TaskPanel({
     ),
     [taskId, setTaskId] = useState(selection?.taskId ?? "");
   const [offset, setOffset] = useState(0);
+  const [taskFilter, setTaskFilter] = useState<"actual_tasks" | "all_actions">("actual_tasks");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [taskQuery, setTaskQuery] = useState("");
+  const [moreLoading, setMoreLoading] = useState(false);
+  const morePending = useRef(false);
+  const listGeneration = useRef(0);
+  const listKey = `${projectId}:${taskFilter}:${taskQuery}`;
+  const currentListKey = useRef(listKey);
+  currentListKey.current = listKey;
   const [resumeText, setResumeText] = useState("");
   const [resuming, setResuming] = useState(false);
   const selectedKey = useRef("");
@@ -116,8 +127,6 @@ export function TaskPanel({
   const [tasksStatus, setTasksStatus] = useState<
     "idle" | "loading" | "loaded" | "error"
   >("idle");
-  const currentProject = useRef(projectId);
-  currentProject.current = projectId;
   const serial = useRef(0),
     selectionCallback = useRef(onSelection);
   selectionCallback.current = onSelection;
@@ -151,14 +160,16 @@ export function TaskPanel({
   }, [selection?.projectId, selection?.taskId]);
   useEffect(() => {
     let active = true;
+    ++listGeneration.current;
+    morePending.current = false;
+    setMoreLoading(false);
     setTasks([]);
     setNextTasks(null);
-    setView(null);
     setError("");
     setTasksStatus(projectId ? "loading" : "idle");
     if (projectId)
       transport
-        .tasks(projectId)
+        .tasks(projectId, 0, { selection: taskFilter, ...(taskQuery ? {q: taskQuery} : {}) })
         .then((r) => {
           if (active) {
             setTasks(r.items);
@@ -175,7 +186,7 @@ export function TaskPanel({
     return () => {
       active = false;
     };
-  }, [transport, projectId]);
+  }, [transport, projectId, taskFilter, taskQuery]);
   useEffect(() => {
     const request = ++serial.current;
     let stopped = false,
@@ -216,16 +227,26 @@ export function TaskPanel({
     };
   }, [transport, projectId, taskId, offset]);
   async function moreTasks() {
-    if (nextTasks === null) return;
-    const p = projectId;
+    if (nextTasks === null || morePending.current) return;
+    const key = listKey, generation = listGeneration.current;
+    morePending.current = true;
+    setMoreLoading(true);
     try {
-      const r = await transport.tasks(p, nextTasks);
-      if (p === currentProject.current) {
-        setTasks((v) => [...v, ...r.items]);
+      const r = await transport.tasks(projectId, nextTasks, {
+        selection: taskFilter, ...(taskQuery ? {q: taskQuery} : {}),
+      });
+      if (key === currentListKey.current && generation === listGeneration.current) {
+        setTasks(v => [...v, ...r.items.filter(item => !v.some(existing => existing.id === item.id))]);
         setNextTasks(r.nextOffset);
       }
     } catch {
-      setError("Could not load more tasks.");
+      if (key === currentListKey.current && generation === listGeneration.current)
+        setError("Could not load more tasks.");
+    } finally {
+      if (key === currentListKey.current && generation === listGeneration.current) {
+        morePending.current = false;
+        setMoreLoading(false);
+      }
     }
   }
   async function prepareResume() {
@@ -282,6 +303,17 @@ export function TaskPanel({
           </label>
         )}
         <label>
+          Afișare
+          <select aria-label="Task selection" value={taskFilter} onChange={e => setTaskFilter(e.target.value as "actual_tasks" | "all_actions")}>
+            <option value="actual_tasks">Taskuri</option>
+            <option value="all_actions">Toate acțiunile</option>
+          </select>
+        </label>
+        <form onSubmit={e => {e.preventDefault(); setTaskQuery(searchDraft.trim());}}>
+          <label>Caută taskul<input aria-label="Search tasks" value={searchDraft} maxLength={200} onChange={e => setSearchDraft(e.target.value)} /></label>
+          <button type="submit" disabled={!projectId}>Caută</button>
+        </form>
+        <label>
           Task
           <select
             aria-label="Task"
@@ -294,13 +326,13 @@ export function TaskPanel({
             <option value="">Select a task</option>
             {tasks.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.subject.slice(0, 160)} · {t.reviewStatus}
+                {t.subject.slice(0, 160)} · {t.effectiveState ?? t.taskStatus ?? "unknown"} · {t.reviewStatus}
               </option>
             ))}
           </select>
         </label>
         {nextTasks !== null && (
-          <button onClick={() => void moreTasks()}>More tasks</button>
+          <button disabled={moreLoading} onClick={() => void moreTasks()}>More tasks</button>
         )}
       </div>
       {error && <p role="alert">{error}</p>}
@@ -324,7 +356,7 @@ export function TaskPanel({
             : loading
               ? "Loading task…"
               : tasksStatus === "loaded" && tasks.length === 0
-                ? "No current action records in this project."
+                ? "No matching tasks. Try another search or view all actions."
                 : "Choose a task to inspect its state."}
         </p>
       )}

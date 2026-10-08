@@ -197,3 +197,44 @@ healthy. Historical failed deliveries remain labeled as history.
 The private authenticated `GET /api/health` checks a live SQLite read and returns
 ready or HTTP 503 without private details. A successful SPA page response is not
 an application-readiness check.
+
+## Explicit tasks and classified attention (MCP 2.16)
+
+Use `list_tasks` with `selection: "actual_tasks"` and an optional literal
+title substring `q` to find reuse candidates before creating work. Search and
+pagination run on the server; totals use the same filter as items. Similar
+titles never authorize merging or closing tasks. Call `create_task` with
+`projectId`, `title`, `objective`, an initial `status` (open by default),
+client/session identity and a stable `idempotencyKey`. It creates an evidence-linked
+proposed action; it does not accept knowledge or start an execution. Repeating
+the key recovers the creation; changing its payload conflicts. Different keys
+represent distinct intents even when titles and objectives match.
+
+The additive `selection` option is shared by `list_tasks`,
+`get_project_dossier`, `get_portfolio` and their HTTP reads.
+The legacy default `all_actions` remains available. New panels explicitly use
+`actual_tasks`: actions with a stated task status or a workflow task-role
+reference. A checkpoint/evidence `record_id` reference alone does not establish
+task identity. Direct reads of current legacy action IDs remain compatible.
+No history is reclassified. List items expose effectiveState/stateSource from
+the same operational projection used by task resume.
+
+Task and project/portfolio summaries expose `attention.items`, with category,
+reason, count and `requiresAction`:
+- `actionable_now`: present blocking state or a live/uncertain execution to inspect.
+- `verification_needed`: explicit verification blockers, unverified results or expired continuation claims.
+- `owner_optional`: a reported owner preference; it does not invent a blocking requirement.
+- `deferred`: deferred blockers or work suspended by project lifecycle.
+- `historical_integrity`: unclassified history, post-closure follow-up or invalidated proof, retaining the distinct reason and urgency.
+
+`needsAttention` follows requiresAction, not free text or the existence of any
+historical blocker. Unknown/legacy mentions remain visible. Paused/retired
+projects expose lifecycleSuppressed/reason and retain a suppressedNextAction
+for inspection while returning no current continuation instruction. Active or
+uncertain runs, verification gaps and invalid proofs remain visible even on
+closed tasks and paused/retired projects. This projection changes no task state,
+blocker resolution, subscription or accepted record.
+
+Project summaries expose separate `projectNotes` and
+`legacyUnscopedCheckpoints` counts. The older `historicalUnscopedCheckpoints`
+field keeps the combined total for compatibility. Neither category becomes a task.

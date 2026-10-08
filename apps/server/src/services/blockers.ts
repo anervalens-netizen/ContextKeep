@@ -1,3 +1,4 @@
+import type { BlockerCategoryCounts } from "@contextkeep/shared";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
@@ -183,10 +184,10 @@ function resolutionRowsForProject(
   return resolutionRowsForProjects(deps, [projectId]);
 }
 
-export function activeBlockerCountsByTaskForProjects(
+export function activeBlockerCategoriesByTaskForProjects(
   deps: ServiceDeps,
   projectIds: string[],
-): Map<string, number> {
+): Map<string, BlockerCategoryCounts> {
   const blockers = checkpointBlockersForProjects(deps, projectIds);
   const resolutions = resolutionRowsForProjects(deps, projectIds);
   const resolved = new Set<string>();
@@ -194,7 +195,7 @@ export function activeBlockerCountsByTaskForProjects(
     const value = parseResolutionValue(row.valueJson);
     if (value) resolved.add(value.blockerId);
   }
-  const counts = new Map<string, number>();
+  const counts = new Map<string, BlockerCategoryCounts>();
   for (const blocker of blockers) {
     if (
       !blocker.taskId ||
@@ -203,9 +204,15 @@ export function activeBlockerCountsByTaskForProjects(
         blocker.checkpointStatus !== "accepted")
     )
       continue;
-    counts.set(blocker.taskId, (counts.get(blocker.taskId) ?? 0) + 1);
+    const summary = counts.get(blocker.taskId) ?? { blocking: 0, verification: 0, deferred: 0, legacy: 0 };
+    summary[blocker.category ?? "legacy"]++;
+    counts.set(blocker.taskId, summary);
   }
   return counts;
+}
+
+export function activeBlockerCountsByTaskForProjects(deps: ServiceDeps, projectIds: string[]): Map<string, number> {
+  return new Map([...activeBlockerCategoriesByTaskForProjects(deps, projectIds)].map(([id, counts]) => [id, Object.values(counts).reduce((a, b) => a + b, 0)]));
 }
 
 export function activeBlockerCountsByTask(
@@ -294,6 +301,7 @@ export function getBlockerState(
     resolved: resolvedAll.slice(offset, offset + limit),
     history: orderedHistory.slice(offset, offset + limit),
     activeCount: activeAll.length,
+    categoryCounts: activeAll.reduce<BlockerCategoryCounts>((counts, item) => { counts[item.category ?? "legacy"]++; return counts; }, { blocking: 0, verification: 0, deferred: 0, legacy: 0 }),
     resolvedCount: resolvedAll.length,
     historyCount: orderedHistory.length,
     pagination: {

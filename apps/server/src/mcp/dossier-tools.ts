@@ -51,6 +51,7 @@ export function registerDossierTools(
       ...page,
       attentionOffset: z.number().int().min(0).optional(),
       attentionLimit: z.number().int().min(1).max(50).default(10),
+      selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
     }),
     true,
     (i) =>
@@ -61,6 +62,7 @@ export function registerDossierTools(
         i.limit,
         i.attentionOffset ?? null,
         i.attentionLimit,
+        i.selection,
       ),
     result,
   );
@@ -112,9 +114,9 @@ export function registerDossierTools(
   define(
     "get_portfolio",
     "Paginated recent tasks across projects; retired excluded by default.",
-    z.strictObject({ ...page, includeRetired: z.boolean().default(false) }),
+    z.strictObject({ ...page, includeRetired: z.boolean().default(false), selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions") }),
     true,
-    (i) => portfolioOverview(deps, i.offset, i.limit, i.includeRetired),
+    (i) => portfolioOverview(deps, i.offset, i.limit, i.includeRetired, i.selection),
     result,
   );
   define(

@@ -1,3 +1,4 @@
+import type { TaskAttention } from "@contextkeep/shared";
 import { useEffect, useRef, useState } from "react";
 
 export interface TaskDossier {
@@ -44,6 +45,9 @@ export interface TaskDossier {
   unresolvedExecutionCount?: number;
   needsAttention?: boolean;
   attentionReasons?: string[];
+  attention?: TaskAttention;
+  lifecycleSuppressed?: boolean;
+  lifecycleSuppressionReason?: string | null;
   blockers: { activeCount: number };
   continuation: {
     policy: { mode: string; objective: string } | null;
@@ -88,6 +92,9 @@ export interface TaskDigest {
   unresolvedExecutionCount?: number;
   needsAttention?: boolean;
   attentionReasons?: string[];
+  attention?: TaskAttention;
+  lifecycleSuppressed?: boolean;
+  lifecycleSuppressionReason?: string | null;
   stateToken: string;
   taskRevision: number;
 }
@@ -113,6 +120,8 @@ export interface ProjectDossier {
   };
   pagination: { total: number; nextOffset: number | null };
   historicalUnscopedCheckpoints: number;
+  projectNotes?: number;
+  legacyUnscopedCheckpoints?: number;
   links: {
     items: Array<{
       recordId: string;
@@ -209,12 +218,22 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
             : "."}
         </p>
       )}
+      {dossier.attention && dossier.attention.items.length > 0 && (
+        <p aria-label="Attention categories">
+          {[...new Set(dossier.attention.items.map(item => item.category))].map(category => ({
+            actionable_now: "Acțiune necesară", verification_needed: "Verificare necesară",
+            owner_optional: "Opțional pentru proprietar", deferred: "Amânat",
+            historical_integrity: "Istoric de reconciliat",
+          })[category]).join(" · ")}
+        </p>
+      )}
       <dl className="ck-now-facts">
         <div>
           <dt>Pasul următor</dt>
           <dd>
-            {dossier.nextAction ??
-              "Nu este precizat. Citește dovezile înainte de a continua."}
+            {dossier.lifecycleSuppressed
+              ? "Continuarea este suspendată de starea proiectului. Execuțiile și dovezile rămân vizibile."
+              : dossier.nextAction ?? "Nu este precizat. Citește dovezile înainte de a continua."}
           </dd>
         </div>
         {dossier.followUp && (
@@ -595,9 +614,10 @@ export function ProjectNow({
               ))}
             </details>
           )}
-          {data.historicalUnscopedCheckpoints > 0 && (
+          {(data.projectNotes ?? 0) > 0 && <small>{data.projectNotes} note explicite de proiect.</small>}
+          {(data.legacyUnscopedCheckpoints ?? data.historicalUnscopedCheckpoints) > 0 && (
             <small>
-              {data.historicalUnscopedCheckpoints} checkpoint-uri vechi nu au
+              {data.legacyUnscopedCheckpoints ?? data.historicalUnscopedCheckpoints} checkpoint-uri vechi nu au
               lucrare asociată. Sunt istoric, nu următorul pas al tuturor
               lucrărilor.
             </small>

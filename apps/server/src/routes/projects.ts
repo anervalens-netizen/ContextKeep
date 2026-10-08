@@ -32,6 +32,8 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   const page = z.object({
     offset: z.coerce.number().int().min(0).default(0),
     limit: z.coerce.number().int().min(1).max(50).default(20),
+    selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
+    q: z.string().trim().min(1).max(200).optional(),
   });
   const dossierPage = page.extend({
     attentionOffset: z.coerce.number().int().min(0).optional(),
@@ -40,7 +42,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/tasks", async (request) => {
     const p = z.object({ id: z.string().uuid() }).parse(request.params);
     const q = page.parse(request.query);
-    return listTasks(deps, p.id, q.offset, q.limit);
+    return listTasks(deps, p.id, q.offset, q.limit, q.selection, q.q);
   });
   app.get("/api/projects/:id/tasks/:taskId", async (request) => {
     const p = z
@@ -57,7 +59,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.get("/api/portfolio", async (request, reply) => {
     reply.header("cache-control", "no-store");
     const q = page.parse(request.query);
-    return portfolioOverview(deps, q.offset, q.limit);
+    return portfolioOverview(deps, q.offset, q.limit, false, q.selection);
   });
   app.get("/api/projects/:id/dossier", async (request, reply) => {
     reply.header("cache-control", "no-store");
@@ -70,6 +72,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
       q.limit,
       q.attentionOffset ?? null,
       q.attentionLimit,
+      q.selection,
     );
   });
   app.get("/api/projects/:id/tasks/:taskId/resume", async (request, reply) => {

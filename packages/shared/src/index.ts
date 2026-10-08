@@ -110,3 +110,5 @@ export interface AdapterUsage {
 
 /** Adapter estimate result. `null` means "no usage reported" — pipeline skips the ceiling check. */
 export type AdapterUsageEstimate = AdapterUsage | null;
+
+export type { AttentionCategory, BlockerCategoryCounts, TaskAttention } from "./attention.js";

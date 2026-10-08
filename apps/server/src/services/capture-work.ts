@@ -34,6 +34,8 @@ export interface CaptureWorkInput {
   predicate?: string | null;
   structuredValueJson?: unknown | null;
   dedupIdentity?: string | null;
+  /** Dedicated create_task only; generic capture schemas do not expose this. */
+  initialTaskStatus?: TaskStatus;
   authorLabel?: string | null;
   checkpoint?: {
     projectLevelIntent?: "project_note";
@@ -152,7 +154,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
       text: input.outcome,
       evidenceBasis: "agent_report",
       sourceEventAt: input.eventAt,
-      taskStatus: null,
+      taskStatus: input.initialTaskStatus ?? null,
       volatile: false,
       predicate: input.predicate ?? null,
       valueJson: checkpoint

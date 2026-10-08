@@ -52,7 +52,7 @@ describe("CV07 stable v2 MCP compatibility", () => {
       expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
 
       const catalog = await client.listTools();
-      expect(catalog.tools).toHaveLength(57);
+      expect(catalog.tools).toHaveLength(58);
       expect(catalog.tools.map((tool) => tool.name)).toContain("get_record");
       for (const tool of catalog.tools) {
         expect(tool.inputSchema.type, tool.name).toBe("object");
@@ -115,7 +115,7 @@ describe("CV07 stable v2 MCP compatibility", () => {
       await client.connect(transport(url, fixtureFetch));
       expect(client.getProtocolEra()).toBe("legacy");
       expect(client.getNegotiatedProtocolVersion()).toBe("2025-11-25");
-      expect((await client.listTools()).tools).toHaveLength(57);
+      expect((await client.listTools()).tools).toHaveLength(58);
 
       const idempotencyKey = crypto.randomUUID();
       const arguments_ = {

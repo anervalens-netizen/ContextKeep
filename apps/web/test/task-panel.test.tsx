@@ -131,12 +131,34 @@ describe("shared task dossier", () => {
     });
     await screen.findByRole("alert");
     expect(
-      screen.queryByText("No current action records in this project."),
+      screen.queryByText("No matching tasks. Try another search or view all actions."),
     ).toBeNull();
     fireEvent.change(screen.getByLabelText("Project"), {
       target: { value: "empty" },
     });
-    await screen.findByText("No current action records in this project.");
+    await screen.findByText("No matching tasks. Try another search or view all actions.");
     expect(screen.queryByRole("alert")).toBeNull();
   });
+});
+
+it("offers bounded reuse search and ignores a page from an obsolete filter", async () => {
+  let resolvePage: (value: {items: typeof task[]; nextOffset: null}) => void = () => {};
+  const page = new Promise<{items: typeof task[]; nextOffset: null}>(resolve => {resolvePage=resolve;});
+  const tasks = vi.fn(async (_project: string, offset = 0, options?: {selection?: string;q?: string}) => {
+    if (offset === 1) return page;
+    if (options?.q) return {items:[{...task,id:"task-b",subject:"Matched candidate"}],nextOffset:null};
+    return {items:[task],nextOffset:1};
+  });
+  render(<TaskPanel projectId="project" transport={{projects:async()=>[],tasks,task:async()=>view}} />);
+  await screen.findByRole("option",{name:/Verify synthetic/});
+  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks"});
+  fireEvent.click(screen.getByRole("button",{name:"More tasks"}));
+  fireEvent.change(screen.getByLabelText("Search tasks"),{target:{value:"Matched"}});
+  fireEvent.click(screen.getByRole("button",{name:"Caută"}));
+  await screen.findByRole("option",{name:/Matched candidate/});
+  expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"actual_tasks",q:"Matched"});
+  resolvePage({items:[{...task,id:"late",subject:"Obsolete page"}],nextOffset:null});
+  await waitFor(()=>expect(screen.queryByRole("option",{name:/Obsolete page/})).toBeNull());
+  fireEvent.change(screen.getByLabelText("Task selection"),{target:{value:"all_actions"}});
+  await waitFor(()=>expect(tasks).toHaveBeenLastCalledWith("project",0,{selection:"all_actions",q:"Matched"}));
 });

@@ -1,3 +1,5 @@
+import { createTask } from "../services/create-task.js";
+import type { ActorCtx } from "../services/import.js";
 import { z } from "zod";
 import type { ServiceDeps } from "../services/import.js";
 import {
@@ -26,17 +28,21 @@ type Define = <S extends z.ZodType>(
   contract: z.ZodType,
 ) => void;
 const result = z.object({}).passthrough();
-export function registerWorkflowTools(define: Define, deps: ServiceDeps) {
+export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFor: (input: {clientId: string; sessionId: string; idempotencyKey: string}) => ActorCtx) {
+  define("create_task", "Create an evidence-linked proposed task, never execution. Reuse the key only for retries; distinct keys preserve equal-title tasks.",
+    z.strictObject({projectId: scope.projectId, ...write, title: z.string().trim().min(1).max(400), objective: z.string().trim().min(1).max(8000), status: z.enum(["open", "in_progress", "blocked"]).default("open"), evidenceText: z.string().trim().min(1).max(64000).nullable().default(null)}), false, i => createTask(deps, i, actorFor(i)), result);
   define(
     "list_tasks",
-    "List current action records used as task identities. Proposed tasks retain their provenance.",
+    "List all_actions (legacy) or actual_tasks. Optional q matches literal title text for reuse candidates. Filtered totals and provenance retained.",
     z.strictObject({
       projectId: scope.projectId,
+      selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions"),
+      q: z.string().trim().min(1).max(200).optional(),
       offset: z.number().int().min(0).default(0),
       limit: z.number().int().min(1).max(50).default(50),
     }),
     true,
-    (i) => listTasks(deps, i.projectId, i.offset, i.limit),
+    (i) => listTasks(deps, i.projectId, i.offset, i.limit, i.selection, i.q),
     result,
   );
   define(

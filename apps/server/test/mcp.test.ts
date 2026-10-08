@@ -79,7 +79,7 @@ describe("private ContextKeep MCP", () => {
       "list_projects", "get_project", "get_work_context", "get_project_brief", "get_project_timeline", "search_context",
       "get_record", "get_context_delta", "list_blockers", "resolve_blocker", "create_handoff", "create_task_handoff", "reconcile_uncertain_run", "add_owner_note", "add_source", "capture_working_memory", "capture_work", "propose_correction",
     ]));
-    expect(tools).toHaveLength(57);
+    expect(tools).toHaveLength(58);
     expect(tools.filter((tool: any) => tool.annotations.readOnlyHint)).toHaveLength(27);
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe("object"); expect(tool.inputSchema.additionalProperties).toBe(false);
@@ -150,7 +150,7 @@ describe("private ContextKeep MCP", () => {
     const client = new Client({ name: "ContextKeep acceptance", version: "1" });
     try {
       await client.connect(new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`), { requestInit: { headers: { authorization: `Bearer ${TOKEN}` } } }));
-      expect((await client.listTools()).tools).toHaveLength(57);
+      expect((await client.listTools()).tools).toHaveLength(58);
       const result = await client.callTool({ name: "get_project", arguments: { projectId } });
       expect(result.isError).not.toBe(true);
       expect((result.structuredContent as any).project.id).toBe(projectId);
@@ -695,8 +695,8 @@ describe("MCP complete memory workflow", () => {
     expect(result.structuredContent.error.issues[0].path).toBe("limit");
     expect(result.structuredContent.error.issues[0].message).toContain("15");
     const cap=await ok(t,"get_capabilities",{});
-    expect(cap.tools).toHaveLength(57);
-    expect(cap.version).toBe("2.15.1");
+    expect(cap.tools).toHaveLength(58);
+    expect(cap.version).toBe("2.16.0");
     expect(cap.applicationVersion).toBe("0.1.0");
     expect(cap.schemaVersion).toBe(19);
     expect(cap.contractVersion).toBe("mcp-first-v1");

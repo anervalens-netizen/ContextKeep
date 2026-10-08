@@ -1,5 +1,6 @@
+import { taskSelectionPredicate, type TaskSelection } from "./task-selection.js";
 import { enqueueExecutionEvent } from "./workflow-events.js";
-import { taskDossier, getTaskProgress } from "./operational-dossier.js";
+import { taskDossier, getTaskProgress, effectiveTaskState } from "./operational-dossier.js";
 import { randomUUID } from "node:crypto";
 import { captureWork } from "./capture-work.js";
 import { writeAudit } from "./audit.js";
@@ -483,21 +484,33 @@ export function listTasks(
   projectId: string,
   offset = 0,
   limit = 50,
+  selection: TaskSelection = "all_actions",
+  q?: string,
 ) {
+  const query = q?.trim();
+  const search = query ? " AND instr(lower(r.subject),lower(?)) > 0" : "";
+  const parameters = query ? [projectId, query] : [projectId];
+  const selected = taskSelectionPredicate(selection);
   const rows = deps.sqlite
     .prepare(
-      `SELECT id,project_id AS projectId,subject,text,task_status AS taskStatus,review_status AS reviewStatus,revision FROM records WHERE project_id=? AND type='action' AND review_status IN ('accepted','proposed') ORDER BY updated_at DESC,id DESC LIMIT ? OFFSET ?`,
+      `SELECT id,project_id AS projectId,subject,text,task_status AS taskStatus,review_status AS reviewStatus,revision FROM records r WHERE project_id=? AND type='action' AND review_status IN ('accepted','proposed') AND ${selected}${search} ORDER BY updated_at DESC,id DESC LIMIT ? OFFSET ?`,
     )
-    .all(projectId, limit, offset);
+    .all(...parameters, limit, offset);
   const total = (
     deps.sqlite
       .prepare(
-        "SELECT count(*) AS n FROM records WHERE project_id=? AND type='action' AND review_status IN ('accepted','proposed')",
+        `SELECT count(*) AS n FROM records r WHERE project_id=? AND type='action' AND review_status IN ('accepted','proposed') AND ${selected}${search}`,
       )
-      .get(projectId) as { n: number }
+      .get(...parameters) as { n: number }
   ).n;
   return {
-    items: rows.map((row) => { const r = row as { id: string }; return { ...r, operationalProgress: getTaskProgress(deps, r.id) }; }),
+    selection,
+    items: rows.map((row) => {
+      const r = row as { id: string; taskStatus: string | null; revision: number };
+      const operationalProgress = getTaskProgress(deps, r.id);
+      const state = effectiveTaskState(deps, r, operationalProgress);
+      return { ...r, operationalProgress, effectiveState: state.state, stateSource: state.stateSource };
+    }),
     total,
     offset,
     limit,

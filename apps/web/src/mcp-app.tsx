@@ -42,6 +42,7 @@ const transport: TaskTransport = {
       projectId,
       offset,
       limit: 10,
+      selection: "actual_tasks",
       ...(attentionOffset === undefined
         ? {}
         : { attentionOffset, attentionLimit: 10 }),
@@ -53,6 +54,7 @@ const transport: TaskTransport = {
       offset,
       limit: 20,
       includeRetired: false,
+      selection: "actual_tasks",
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["portfolio"]>>
     >,
@@ -80,8 +82,8 @@ const transport: TaskTransport = {
     } while (offset !== null);
     return projects;
   },
-  tasks: async (projectId, offset = 0) =>
-    (await call("list_tasks", { projectId, offset, limit: 50 })) as Awaited<
+  tasks: async (projectId, offset = 0, options) =>
+    (await call("list_tasks", { projectId, offset, limit: 50, selection: options?.selection ?? "actual_tasks", ...(options?.q ? {q: options.q} : {}) })) as Awaited<
       ReturnType<TaskTransport["tasks"]>
     >,
   task: async (projectId, taskId, offset = 0) =>

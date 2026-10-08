@@ -378,7 +378,7 @@ describe("A4 AI-first memory contract", () => {
     const response = await t.app.inject({ method: "POST", url: "/mcp", headers: AUTHORIZE, payload: { jsonrpc: "2.0", id: crypto.randomUUID(), method: "tools/list", params: {} } });
     expect(response.statusCode).toBe(200);
     const tools = response.json().result.tools as Array<{ name: string; outputSchema?: unknown }>;
-    expect(tools).toHaveLength(57);
+    expect(tools).toHaveLength(58);
     for (const name of ["get_project", "get_work_context", "get_context_delta", "search_context", "capture_work", "get_capabilities"]) {
       expect(tools.find((tool) => tool.name === name)?.outputSchema).toBeTruthy();
     }

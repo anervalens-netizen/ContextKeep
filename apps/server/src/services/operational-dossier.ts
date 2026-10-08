@@ -1,3 +1,5 @@
+import { taskSelectionPredicate, type TaskSelection } from "./task-selection.js";
+import { classifyTaskAttention, type AttentionInput } from "./task-attention.js";
 import { createHash } from "node:crypto";
 import { runReconciliation } from "./run-reconciliation-read.js";
 import { workflowHealth } from "./workflow-health.js";
@@ -15,8 +17,7 @@ import {
 } from "./checkpoint-context.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import {
-  activeBlockerCountsByTask,
-  activeBlockerCountsByTaskForProjects,
+  activeBlockerCategoriesByTaskForProjects,
   getBlockerState,
 } from "./blockers.js";
 import { ApiError } from "../lib/errors.js";
@@ -416,6 +417,7 @@ export function unresolvedExecutions(
     job_start_uncertain: 0,
     running: 0,
     verificationRequired: 0,
+    invalidEvidence: 0,
   };
   const fingerprint = createHash("sha256");
   const rows = deps.sqlite
@@ -439,6 +441,7 @@ export function unresolvedExecutions(
       if (live)
         counts[row.status as "reserved" | "job_start_uncertain" | "running"]++;
       else counts.verificationRequired++;
+      if (!["pending", "valid"].includes(evidenceValidity.status)) counts.invalidEvidence++;
       fingerprint.update(
         JSON.stringify([row.id, row.revision, evidenceValidity]),
       );
@@ -488,6 +491,7 @@ export function taskDossier(
   taskId: string,
   unresolvedPage: { offset?: number; limit?: number } = {},
 ) {
+  const project = requireProject(deps, projectId);
   const continuity = effectiveTaskContinuity(deps, projectId, taskId);
   const { task, progress, checkpoint } = continuity;
   const run = latestRun(deps, taskId);
@@ -585,6 +589,7 @@ export function taskDossier(
     )
     .digest("hex");
   const stateToken = [
+    project.revision, project.lifecycle,
     task.revision,
     progress?.recordId ?? "",
     checkpoint?.recordId ?? "",
@@ -652,14 +657,15 @@ export function taskDossier(
     warnings.push(
       "Reported progress differs from accepted task progress. Accepted knowledge is unchanged.",
     );
-  const attentionReasons = [
-    ...(state === "blocked" ? ["blocked_state"] : []),
-    ...(blockers.activeCount > 0 ? ["active_blocker"] : []),
-    ...(unresolved.total > 0 ? ["unresolved_execution"] : []),
-    ...(health.reconciliationNeeded > 0 ? ["continuation_reconciliation"] : []),
-    ...(followUp ? ["post_closure_follow_up"] : []),
-    ...(progress?.ownerAction ? ["owner_action"] : []),
-  ];
+  const attention = classifyTaskAttention({
+    state, lifecycle: project.lifecycle, blockerCounts: blockers.categoryCounts,
+    liveExecutions: unresolved.counts.reserved + unresolved.counts.job_start_uncertain + unresolved.counts.running,
+    verificationRequired: unresolved.counts.verificationRequired,
+    invalidEvidence: unresolved.counts.invalidEvidence,
+    reconciliationNeeded: health.reconciliationNeeded,
+    followUp: !!followUp, ownerAction: !!progress?.ownerAction,
+  });
+  const attentionReasons = [...new Set(attention.items.map(item => item.reason))];
   return {
     projectId,
     taskId,
@@ -678,7 +684,8 @@ export function taskDossier(
     },
     progress,
     summary: summary ? clip(summary) : null,
-    nextAction,
+    nextAction: attention.lifecycleSuppressed ? null : nextAction,
+    suppressedNextAction: attention.lifecycleSuppressed ? nextAction : null,
     followUp,
     ownerAction: progress?.ownerAction ?? null,
     lastReported: latest ? { ...latest, text: clip(latest.text) } : null,
@@ -696,11 +703,15 @@ export function taskDossier(
     execution: run,
     currentEvidenceValidity: run?.evidenceValidity.status ?? null,
     unresolvedExecutionCount: unresolved.total,
-    needsAttention: attentionReasons.length > 0,
+    needsAttention: attention.needsAttention,
+    attention,
+    lifecycleSuppressed: attention.lifecycleSuppressed,
+    lifecycleSuppressionReason: attention.lifecycleSuppressionReason,
     attentionReasons,
     unresolvedExecutions: unresolved,
     blockers: {
       activeCount: blockers.activeCount,
+      categoryCounts: blockers.categoryCounts,
       items: blockers.active,
       nextOffset: blockers.pagination.activeNextOffset,
       recovery: { tool: "list_blockers", projectId, taskId },
@@ -717,6 +728,7 @@ export function taskDossier(
       health,
       activeSubscriptions: subscription.n,
       ready:
+        !attention.lifecycleSuppressed && !["done", "cancelled"].includes(state) &&
         subscription.n > 0 &&
         !!policy &&
         JSON.parse(policy.valueJson).mode !== "off",
@@ -742,6 +754,8 @@ export function resumeTask(
   const text = [
     `Resume ContextKeep project ${projectId}, task ${taskId}.`,
     `Current task state: ${dossier.state} (${dossier.stateSource}).`,
+    ...(dossier.lifecycleSuppressed ? [`Continuation suppressed: ${dossier.lifecycleSuppressionReason}. Inspect active runs and evidence; do not infer authorization to resume project work.`] : []),
+    ...dossier.attention.items.map(item => `Attention ${item.category}: ${item.reason}; count=${item.count}; requiresAction=${item.requiresAction}. These categories do not authorize a new execution.`),
     `State source: ${dossier.stateProvenance.recordId}; provenance=${dossier.stateProvenance.evidenceBasis}; review=${dossier.stateProvenance.reviewStatus}; recordedAt=${dossier.stateProvenance.recordedAt}.`,
     `Latest summary: ${dossier.summary ?? "No recent report."}`,
     `Next action: ${dossier.nextAction ?? "Not specified; inspect the linked evidence."}`,
@@ -801,13 +815,14 @@ function taskRows(
   projectId: string,
   offset: number,
   limit: number,
+  selection: TaskSelection = "all_actions",
 ): TaskRow[] {
   return deps.sqlite
     .prepare(
       `SELECT r.id,r.project_id AS projectId,r.subject,r.text,r.task_status AS taskStatus,r.review_status AS reviewStatus,r.revision,
     max(r.updated_at,coalesce((SELECT max(e.recorded_at) FROM records e JOIN workflow_task_records tr ON tr.record_id=e.id WHERE tr.task_id=r.id AND e.review_status IN ('accepted','proposed')),r.updated_at),
     coalesce((SELECT max(w.updated_at) FROM workflow_runs w WHERE w.task_id=r.id),r.updated_at)) AS lastActivityAt
-    FROM records r WHERE r.project_id=? AND r.type='action' AND ${currentRecords}
+    FROM records r WHERE r.project_id=? AND r.type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}
     ORDER BY lastActivityAt DESC,r.id DESC LIMIT ? OFFSET ?`,
     )
     .all(projectId, limit, offset) as TaskRow[];
@@ -820,6 +835,7 @@ function sqlPlaceholders(values: readonly unknown[]): string {
 function taskRowsForProjects(
   deps: ServiceDeps,
   projectIds: string[],
+  selection: TaskSelection = "all_actions",
 ): TaskRow[] {
   if (projectIds.length === 0) return [];
   return deps.sqlite
@@ -839,7 +855,7 @@ function taskRowsForProjects(
                      r.updated_at)) AS lastActivityAt
        FROM records r
        WHERE r.project_id IN (${sqlPlaceholders(projectIds)})
-         AND r.type='action' AND ${currentRecords}
+         AND r.type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}
        ORDER BY r.project_id,lastActivityAt DESC,r.id DESC`,
     )
     .all(...projectIds) as TaskRow[];
@@ -915,12 +931,6 @@ function projectAttentionReasonsForProjects(
 ): Map<string, string[]> {
   const reasons = new Map<string, string[]>();
   if (projectIds.length === 0) return reasons;
-  const add = (taskId: string, reason: string) => {
-    const existing = reasons.get(taskId) ?? [];
-    if (!existing.includes(reason)) existing.push(reason);
-    reasons.set(taskId, existing);
-  };
-
   const progressRows = deps.sqlite
     .prepare(
       `SELECT tr.task_id AS taskId,r.id AS recordId,r.value_json AS valueJson,
@@ -959,29 +969,24 @@ function projectAttentionReasonsForProjects(
   }
 
   const checkpoints = latestCheckpointsForProjects(deps, projectIds);
+  const blockerCategories = activeBlockerCategoriesByTaskForProjects(deps, projectIds);
+  const lifecycles = new Map((deps.sqlite.prepare(
+    `SELECT id,lifecycle FROM projects WHERE id IN (${sqlPlaceholders(projectIds)})`
+  ).all(...projectIds) as Array<{id: string; lifecycle: string}>).map(p => [p.id, p.lifecycle]));
+  const inputs = new Map<string, AttentionInput>();
   for (const row of rows) {
     const progress = progressByTask.get(row.id) ?? null;
     const effective = effectiveTaskState(deps, row, progress);
-    if (effective.state === "blocked") add(row.id, "blocked_state");
-    if (progress?.ownerAction) add(row.id, "owner_action");
     const checkpoint = checkpoints.get(row.id);
-    if (
-      checkpoint &&
-      effectiveTaskContinuity(deps, row.projectId, row.id, {
-        task: row,
-        progress,
-        checkpoint,
-      }).followUp
-    ) {
-      add(row.id, "post_closure_follow_up");
-    }
-  }
-
-  for (const [taskId, count] of activeBlockerCountsByTaskForProjects(
-    deps,
-    projectIds,
-  )) {
-    if (count > 0) add(taskId, "active_blocker");
+    inputs.set(row.id, {
+      state: effective.state, lifecycle: lifecycles.get(row.projectId) ?? "active",
+      blockerCounts: blockerCategories.get(row.id) ?? {blocking:0,verification:0,deferred:0,legacy:0},
+      liveExecutions: 0, verificationRequired: 0, invalidEvidence: 0,
+      reconciliationNeeded: 0, ownerAction: !!progress?.ownerAction,
+      followUp: !!(checkpoint && effectiveTaskContinuity(deps, row.projectId, row.id, {
+        task: row, progress, checkpoint,
+      }).followUp),
+    });
   }
 
   const runs = deps.sqlite
@@ -1000,8 +1005,12 @@ function projectAttentionReasonsForProjects(
     const live = ["reserved", "job_start_uncertain", "running"].includes(
       run.status,
     );
-    if (live || validities.get(run.id)?.status !== "valid")
-      add(run.taskId, "unresolved_execution");
+    const input = inputs.get(run.taskId);
+    if (!input) continue;
+    const validity = validities.get(run.id)?.status ?? "pending";
+    if (live) input.liveExecutions++;
+    else if (validity !== "valid") input.verificationRequired++;
+    if (!["pending", "valid"].includes(validity)) input.invalidEvidence++;
   }
 
   const now = new Date().toISOString();
@@ -1016,9 +1025,13 @@ function projectAttentionReasonsForProjects(
     )
     .all(...projectIds, now) as Array<{ taskId: string; n: number }>;
   for (const row of reconciliation) {
-    if (row.n > 0) add(row.taskId, "continuation_reconciliation");
+    const input = inputs.get(row.taskId);
+    if (input) input.reconciliationNeeded = row.n;
   }
-
+  for (const [taskId, input] of inputs) {
+    const attention = classifyTaskAttention(input);
+    if (attention.needsAttention) reasons.set(taskId, [...new Set(attention.items.map(item => item.reason))]);
+  }
   return reasons;
 }
 
@@ -1049,6 +1062,9 @@ function taskDigest(deps: ServiceDeps, row: TaskRow) {
     unresolvedExecutionCount: d.unresolvedExecutionCount,
     needsAttention: d.needsAttention,
     attentionReasons: d.attentionReasons,
+    attention: d.attention,
+    lifecycleSuppressed: d.lifecycleSuppressed,
+    lifecycleSuppressionReason: d.lifecycleSuppressionReason,
     stateToken: d.stateToken,
     taskRevision: row.revision,
   };
@@ -1061,13 +1077,14 @@ export function projectDossier(
   limit = 10,
   attentionOffset: number | null = null,
   attentionLimit = 10,
+  selection: TaskSelection = "all_actions",
 ) {
   const project = requireProject(deps, projectId);
-  const rows = taskRows(deps, projectId, offset, limit);
+  const rows = taskRows(deps, projectId, offset, limit, selection);
   const total = (
     deps.sqlite
       .prepare(
-        `SELECT count(*) AS n FROM records r WHERE project_id=? AND type='action' AND ${currentRecords}`,
+        `SELECT count(*) AS n FROM records r WHERE project_id=? AND type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}`,
       )
       .get(projectId) as { n: number }
   ).n;
@@ -1095,7 +1112,7 @@ export function projectDossier(
         const attentionRows =
           offset === 0 && rows.length === total
             ? rows
-            : taskRows(deps, projectId, 0, total);
+            : taskRows(deps, projectId, 0, total, selection);
         const attentionReasonIndex = projectAttentionReasons(
           deps,
           projectId,
@@ -1137,6 +1154,7 @@ export function projectDossier(
               : {
                   tool: "get_project_dossier",
                   projectId,
+                  selection,
                   offset: 0,
                   limit,
                   attentionOffset: nextOffset,
@@ -1150,12 +1168,15 @@ export function projectDossier(
   // Unscoped old checkpoints remain visible, but they are not the current task's blockers.
   const historical = deps.sqlite
     .prepare(
-      `SELECT count(*) AS n FROM records r WHERE project_id=? AND ${currentRecords}
+      `SELECT count(*) AS n,
+    coalesce(sum(CASE WHEN json_extract(value_json,'$.projectLevelIntent')='project_note' THEN 1 ELSE 0 END),0) AS projectNotes
+    FROM records r WHERE project_id=? AND ${currentRecords}
     AND json_valid(value_json) AND json_extract(value_json,'$.kind')='working_checkpoint'
     AND NOT EXISTS(SELECT 1 FROM workflow_task_records tr WHERE tr.record_id=r.id)`,
     )
-    .get(projectId) as { n: number };
+    .get(projectId) as { n: number; projectNotes: number };
   return {
+    selection,
     project: {
       id: project.id,
       name: project.name,
@@ -1174,6 +1195,8 @@ export function projectDossier(
       nextOffset: offset + limit < total ? offset + limit : null,
     },
     historicalUnscopedCheckpoints: historical.n,
+    projectNotes: historical.projectNotes,
+    legacyUnscopedCheckpoints: historical.n - historical.projectNotes,
     links: projectLinks(deps, projectId, 0, 10),
     observedAt: new Date().toISOString(),
     semantics:
@@ -1186,6 +1209,7 @@ export function portfolioOverview(
   offset = 0,
   limit = 20,
   includeRetired = false,
+  selection: TaskSelection = "all_actions",
 ) {
   const where = includeRetired ? "1=1" : "lifecycle<>'retired'";
   const projects = deps.sqlite
@@ -1204,7 +1228,7 @@ export function portfolioOverview(
       .get() as { n: number }
   ).n;
   const projectIds = projects.map((project) => project.id);
-  const allRows = taskRowsForProjects(deps, projectIds);
+  const allRows = taskRowsForProjects(deps, projectIds, selection);
   const rowsByProject = new Map<string, TaskRow[]>();
   for (const row of allRows) {
     const rows = rowsByProject.get(row.projectId) ?? [];
@@ -1226,6 +1250,7 @@ export function portfolioOverview(
   };
 
   return {
+    selection,
     items: projects.map((p) => {
       const rows = rowsByProject.get(p.id) ?? [];
       const tasks = rows.slice(0, 3).map(digest);
