@@ -128,6 +128,8 @@ try {
               id: "demo-task",
               subject: "Synthetic task",
               taskStatus: "open",
+              effectiveState: "in_progress",
+              stateSource: "reported_progress",
               reviewStatus: "proposed",
               revision: 1,
             };
@@ -252,7 +254,7 @@ try {
             .getByLabel("Project", { exact: true })
             .selectOption("demo-project");
           await app
-            .getByRole("option", { name: "Synthetic task · proposed" })
+            .getByRole("option", { name: "Synthetic task · in_progress · proposed", exact: true })
             .waitFor({ state: "attached" });
           await app
             .getByLabel("Task", { exact: true })
