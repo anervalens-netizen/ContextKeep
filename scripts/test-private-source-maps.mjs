@@ -32,6 +32,23 @@ try {
     fs.readFileSync(path.join(priv, "assets/app.js"), "utf8"),
   );
   assert.throws(() => exportPrivateMaps(pub, priv, "test"), /ENOENT/);
+  for (const name of ["assets/app.js", "mcp/widget.js"]) {
+    fs.copyFileSync(
+      path.join(priv, name + ".map"),
+      path.join(pub, name + ".map"),
+    );
+  }
+  fs.renameSync(
+    path.join(pub, "assets/app.js"),
+    path.join(pub, "assets/next.js"),
+  );
+  fs.renameSync(
+    path.join(pub, "assets/app.js.map"),
+    path.join(pub, "assets/next.js.map"),
+  );
+  exportPrivateMaps(pub, priv, "next");
+  assert.equal(fs.existsSync(path.join(priv, "assets/app.js")), false);
+  assert.equal(fs.existsSync(path.join(priv, "assets/next.js.map")), true);
   console.log("PASS private frontend/widget maps and public boundary");
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

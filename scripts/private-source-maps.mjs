@@ -62,6 +62,25 @@ export function exportPrivateMaps(publicRoot, privateRoot, release) {
     if (fs.readFileSync(file, "utf8").includes("sourceMappingURL="))
       throw Error("Maps must be hidden");
   }
+  if (fs.existsSync(privateRoot)) {
+    if (
+      fs.lstatSync(privateRoot).isSymbolicLink() ||
+      !fs.existsSync(path.join(privateRoot, "manifest.json"))
+    )
+      throw Error("Refusing to replace an unmanaged private artifact");
+    // Only remove generated release files, never unrelated data. Otherwise a
+    // second build can upload stale scripts from an earlier release.
+    for (const file of walk(privateRoot)) {
+      if (
+        file.endsWith(".js") ||
+        file.endsWith(".map") ||
+        ["receiver.json", "probe.json", "upload-attempt.json"].includes(
+          path.basename(file),
+        )
+      )
+        fs.rmSync(file);
+    }
+  }
   fs.mkdirSync(privateRoot, { recursive: true, mode: 0o700 });
   const files = {};
   for (const file of scripts) {
