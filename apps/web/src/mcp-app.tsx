@@ -1,3 +1,4 @@
+import { captureError } from "./lib/error-reporting.js";
 import { PanelLocale, translatePanel } from "./lib/panel-locale.js";
 import { PanelPreferences } from "@contextkeep/shared";
 import { PanelSettings } from "./components/PanelSettings.js";
@@ -30,7 +31,7 @@ let connected = false,
   initialResult = false,
   launchRevision = 0;
 const bootstrap = new PanelBootstrap();
-const root = createRoot(document.getElementById("root")!);
+const root = createRoot(document.getElementById("root")!, {onUncaughtError:(error)=>{captureError(error);},onCaughtError:(error)=>{captureError(error);}});
 function panelText(text: string) {
   return translatePanel(bootstrap.preferences?.language ?? "ro", text);
 }

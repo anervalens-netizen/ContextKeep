@@ -1,3 +1,4 @@
+import { captureError, flushErrors } from "./lib/error-reporting.js";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { SchemaVersionError } from "./db/bootstrap.js";
@@ -48,7 +49,9 @@ async function main(): Promise<void> {
   await app.listen({ port: config.port, host: config.host });
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
+  captureError(e);
+  await flushErrors(2000);
   console.error("[contextkeep] fatal startup error:", e);
   process.exit(1);
 });

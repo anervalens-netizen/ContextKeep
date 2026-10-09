@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -7,6 +8,7 @@ import { VitePWA } from "vite-plugin-pwa";
 const sharedSrc = path.resolve(import.meta.dirname, "../../packages/shared/src/index.ts");
 
 export default defineConfig({
+  define: { "import.meta.env.VITE_RELEASE": JSON.stringify(process.env.CK_BUILD_SHA || execFileSync("git", ["rev-parse", "HEAD"], { cwd: import.meta.dirname, encoding: "utf8" }).trim()) },
   plugins: [
     react(),
     tailwindcss(),

@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@contextkeep/shared": "workspace:*",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@openai/mcp-extensions": "0.1.0",
+    "@sentry/react": "10.66.0",
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-router": "1.170.33",
     "@tanstack/react-virtual": "3.14.11",
@@ -24,9 +27,7 @@
     "react-dom": "19.2.8",
     "workbox-window": "7.4.1",
     "zod": "4.5.4",
-    "zustand": "5.0.15",
-    "@modelcontextprotocol/ext-apps": "1.7.5",
-    "@openai/mcp-extensions": "0.1.0"
+    "zustand": "5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

@@ -1,3 +1,4 @@
+function telemetryOrigins(): string[] { try {return process.env.GLITCHTIP_DSN ? [new URL(process.env.GLITCHTIP_DSN).origin] : [];} catch {return [];} }
 import { panelBootstrap } from "./panel-bootstrap.js";
 import { PANEL_SETTINGS_CAPABILITIES, SettingsReadResult, SettingsUpdateInput, SettingsUpdateResult, readPanelSettings, updatePanelSettings } from "./panel-settings.js";
 import { requireTaskScope } from "../services/task-scope.js";
@@ -574,7 +575,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     const js=fs.readFileSync(path.join(root,"mcp/widget.js"),"utf8");
     const css=fs.readFileSync(path.join(root,"mcp/widget.css"),"utf8");
     const text='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="root"></div><script>'+js.replace(/<\/script/gi,"<\\/script")+'</script></body></html>';
-    return {contents:[{uri:request.params.uri,mimeType:"text/html;profile=mcp-app",text,_meta:{ui:{csp:{connectDomains:[],resourceDomains:[]}},"openai/ui":{availableDisplayModes:["inline","fullscreen"],preferredDisplayMode:"fullscreen"}}}]};
+    return {contents:[{uri:request.params.uri,mimeType:"text/html;profile=mcp-app",text,_meta:{ui:{csp:{connectDomains:telemetryOrigins(),resourceDomains:[]}},"openai/ui":{availableDisplayModes:["inline","fullscreen"],preferredDisplayMode:"fullscreen"}}}]};
   });
   if(options.workflowEvents) {
     const events=options.workflowEvents;

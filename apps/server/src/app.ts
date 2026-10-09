@@ -1,3 +1,4 @@
+import { captureError } from "./lib/error-reporting.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -162,6 +163,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
 
   app.setErrorHandler((error: unknown, request, reply) => {
     if (error instanceof ApiError) {
+      if (error.status >= 500) captureError(error, request.id);
       reply.code(error.status).send({
         error: { code: error.code, message: error.message, details: error.details },
       });
@@ -198,6 +200,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       });
       return;
     }
+    captureError(error, request.id);
     request.log.error({ err: error }, "unhandled error");
     reply.code(500).send({
       error: { code: "internal_error", message: "Internal server error.", details: null },

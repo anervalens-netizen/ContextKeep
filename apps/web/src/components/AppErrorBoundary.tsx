@@ -1,3 +1,4 @@
+import { captureError } from "../lib/error-reporting.js";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 type Props = { children: ReactNode };
@@ -11,6 +12,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(_error: Error, _info: ErrorInfo): void {
+    captureError(_error);
     // Intentionally do not touch IndexedDB, the offline queue or server state.
     // Route recovery is a render concern only.
   }

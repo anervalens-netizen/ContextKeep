@@ -66,3 +66,9 @@ The host widget advertises v7.1 while retaining compatibility reads of installed
 Private monitoring can use authenticated `GET /api/health`. It reports a real
 SQLite application/schema read, not merely successful delivery of the application's HTML. Production
 qualification still requires the release gate and independent recovery evidence.
+
+## Error reporting
+
+Error reporting is optional and uses the existing GlitchTip service. Configure `GLITCHTIP_DSN` only in private runtime configuration. Browser builds use `VITE_GLITCHTIP_DSN` (Next.js uses `NEXT_PUBLIC_GLITCHTIP_DSN`); the Remote Control console uses the controller DSN at build time. Rebuild frontend assets when the destination changes. Preserve the exact release identifier with the deployment metadata.
+
+Events retain stack locations, SDK version, component and release. The new integrations omit request payloads, user data, breadcrumbs and private exception messages. Synthetic acceptance events must carry `glitchtip.synthetic=true` and a unique `validation.run`; verify receipt at the destination, not only the SDK return value. They are excluded by the operational alert collector. Do not send business data or trigger an application crash to validate reporting.
