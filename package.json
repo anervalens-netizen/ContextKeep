@@ -30,7 +30,8 @@
     "check:privacy:history": "node .github/check-public-data.mjs --history HEAD",
     "test:release-gate-plan": "node scripts/test-release-gate-plan.mjs",
     "release:gate": "node scripts/release-gate.mjs",
-    "prepare": "node .github/install-hooks.mjs"
+    "prepare": "node .github/install-hooks.mjs",
+    "test:private-maps": "node scripts/test-private-source-maps.mjs"
   },
   "devDependencies": {
     "eslint": "10.11.0",

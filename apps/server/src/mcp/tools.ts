@@ -29,7 +29,7 @@ import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-me
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
 
 // The host caches resources by URI. Bump this when shipped UI behavior changes.
-const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v7.1.html";
+const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v7.2.html";
 const PANEL_ICONS = (["light","dark"] as const).map(theme=>({
   src:"data:image/svg+xml;base64,"+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><g fill="'+(theme==="light"?"#0F1119":"#FFFFFF")+'"><path d="M500 220H345C190 220 90 335 90 500S190 780 345 780H500L410 650H345C260 650 215 590 215 500S260 350 345 350H410Z"/><path d="M440 500L690 220H850L610 500L850 780H690Z"/></g></svg>').toString("base64"),
   mimeType:"image/svg+xml",sizes:["any"],theme,
@@ -570,7 +570,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   });
   server.setRequestHandler("resources/list",async()=>({resources:[{uri:TASK_PANEL_RESOURCE_URI,name:"ContextKeep task dossier",title:"ContextKeep",icons:PANEL_ICONS,mimeType:"text/html;profile=mcp-app"}]}));
   server.setRequestHandler("resources/read",async request=>{
-    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html" && request.params.uri!=="ui://contextkeep/tasks/v4.html" && request.params.uri!=="ui://contextkeep/tasks/v5.html" && request.params.uri!=="ui://contextkeep/tasks/v6.html" && request.params.uri!=="ui://contextkeep/tasks/v7.html")throw new ProtocolError(-32602,"Unknown UI resource.");
+    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html" && request.params.uri!=="ui://contextkeep/tasks/v4.html" && request.params.uri!=="ui://contextkeep/tasks/v5.html" && request.params.uri!=="ui://contextkeep/tasks/v6.html" && request.params.uri!=="ui://contextkeep/tasks/v7.html" && request.params.uri!=="ui://contextkeep/tasks/v7.1.html")throw new ProtocolError(-32602,"Unknown UI resource.");
     const root=options.webDist??path.resolve(import.meta.dirname,"../../../web/dist");
     const js=fs.readFileSync(path.join(root,"mcp/widget.js"),"utf8");
     const css=fs.readFileSync(path.join(root,"mcp/widget.css"),"utf8");

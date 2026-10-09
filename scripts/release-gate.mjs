@@ -12,6 +12,7 @@ export const releaseGatePlan = [
   ["performance tests", ["run", "test:performance"]],
   ["functional tests", ["run", "test:functional"]],
   ["operational recovery", ["run", "test:ops"]],
+  ["private map boundary", ["run", "test:private-maps"]],
   ["build", ["run", "build"]],
   ["browser navigation", ["run", "verify:nav"]],
   // `audit` is pnpm's native command, not a root package script.

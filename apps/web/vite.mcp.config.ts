@@ -6,6 +6,7 @@ export default defineConfig({
   // Library mode preserves process.env; the iframe has no Node.js globals.
   define: { "import.meta.env.VITE_RELEASE": JSON.stringify(process.env.CK_BUILD_SHA || execFileSync("git",["rev-parse","HEAD"],{cwd:import.meta.dirname,encoding:"utf8"}).trim()), "process.env.NODE_ENV": JSON.stringify("production") },
   build: {
+    sourcemap: "hidden",
     outDir: "dist/mcp",
     emptyOutDir: true,
     target: "es2022",
@@ -16,6 +17,6 @@ export default defineConfig({
       fileName: () => "widget.js",
       cssFileName: "widget",
     },
-    rollupOptions: { output: { inlineDynamicImports: true } },
+    rollupOptions: { output: { inlineDynamicImports: true, footer: "//# sourceURL=app:///mcp/widget.js" } },
   },
 });

@@ -31,7 +31,7 @@ it("advertises a new UI cache key while preserving the installed legacy resource
   const tools = (await rpc("tools/list")).result.tools;
   const panel = tools.find((tool: { name: string }) => tool.name === "open_task_panel");
   const uri = panel._meta.ui.resourceUri;
-  expect(uri).toBe("ui://contextkeep/tasks/v7.1.html");
+  expect(uri).toBe("ui://contextkeep/tasks/v7.2.html");
   expect(OpenAIUiToolMetadataSchema.safeParse(panel._meta["openai/ui"]).success).toBe(true);
   expect(panel.title).toBe("ContextKeep");
   expect(panel.icons.map((icon:{theme:string})=>icon.theme)).toEqual(["light","dark"]);

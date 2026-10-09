@@ -43,3 +43,6 @@ private/
 *.pem
 .env.*
 !.env.example
+
+# Private build maps contain source and must never be published.
+/artifacts/private-source-maps/

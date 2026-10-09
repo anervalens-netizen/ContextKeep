@@ -19,6 +19,7 @@ export default defineConfig({
       injectRegister: false,
       strategies: "generateSW",
       workbox: {
+        sourcemap: false,
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/],
@@ -75,6 +76,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: "hidden",
     target: "es2022",
     rollupOptions: {
       output: {
