@@ -467,6 +467,7 @@ export function getTaskView(
     pagination: {
       totalRuns: total,
       totalRecords,
+      runsBlockersNextOffset: offset + limit < Math.max(total, blockers.activeCount) ? offset + limit : null,
       offset,
       limit,
       nextOffset:

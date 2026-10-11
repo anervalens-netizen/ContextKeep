@@ -251,10 +251,14 @@ export function effectiveTaskContinuity(
         }
       : null;
 
-  const summary =
-    newerCheckpoint && !terminal
-      ? (cp?.summary ?? cp?.outcome ?? progress?.summary ?? null)
-      : (progress?.summary ?? cp?.summary ?? cp?.outcome ?? null);
+  const checkpointSummary = cp?.summary ?? cp?.outcome ?? null;
+  const preferCheckpoint = newerCheckpoint && !terminal;
+  const summary = preferCheckpoint
+    ? checkpointSummary ?? progress?.summary ?? null
+    : progress?.summary ?? checkpointSummary;
+  const summarySource = preferCheckpoint && checkpointSummary !== null
+    ? checkpoint
+    : progress?.summary != null ? progress : checkpointSummary !== null ? checkpoint : null;
 
   return {
     task,
@@ -266,7 +270,7 @@ export function effectiveTaskContinuity(
     followUp,
     summary,
     newerCheckpoint,
-    summarySource: (newerCheckpoint && !terminal) || !progress ? checkpoint : progress,
+    summarySource,
     nextActionSource: terminal && stateSource === "task_record" ? null : (newerCheckpoint && !terminal) || !progress ? checkpoint : progress,
     stateEstablishedAt,
   };

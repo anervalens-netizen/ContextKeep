@@ -154,6 +154,28 @@ it("redacts complete source before short pages and masks credentials crossing ex
   });
   expect(record.evidence[0].text).not.toContain("Bearer");
 });
+it("preserves MCP page concatenation when a redaction marker spans pages", async () => {
+  const { t, capture } = await setup();
+  const r = await ok(t, "capture_work", capture());
+  const raw = "PASSWORD=synthetic-example-credential";
+  t.app.ck.handle.sqlite
+    .prepare("UPDATE sources SET normalized_text=?,original_text=? WHERE id=?")
+    .run(raw, raw, r.source.id);
+  const whole = await ok(t, "get_source", { sourceId: r.source.id });
+  let joined = "",
+    offset: number | null = 0;
+  while (offset !== null) {
+    const page = await ok(t, "get_source", {
+      sourceId: r.source.id,
+      offset,
+      maxChars: 16,
+    });
+    joined += page.text;
+    offset = page.nextOffset;
+  }
+  expect(joined).toBe(whole.text);
+  expect(joined).not.toContain("synthetic-example-credential");
+});
 it("keeps surrogate pairs through SQLite and rejects NUL before persistence", async () => {
   const { t, capture } = await setup();
   const text = "A".repeat(3999) + "😀" + "B".repeat(100);
@@ -190,6 +212,56 @@ it("replays legacy trimmed receipts without replaying a mutation", async () => {
       "mcp:" + args.idempotencyKey,
     );
   expect(await call(t, "capture_work", args)).toEqual(result);
+});
+
+it("replays a legacy trimmed limit receipt without accepting new oversized writes", async () => {
+  const { t, capture } = await setup();
+  const args = capture({
+    outcome: "x".repeat(8000),
+    evidenceText: "e".repeat(64000),
+  });
+  const result = await call(t, "capture_work", args);
+  t.app.ck.handle.sqlite
+    .prepare("UPDATE idempotency_requests SET request_hash=? WHERE key=?")
+    .run(
+      requestHash("MCP", "capture_work", args),
+      "mcp:" + args.idempotencyKey,
+    );
+  expect(
+    await call(t, "capture_work", {
+      ...args,
+      outcome: args.outcome + " ",
+      evidenceText: " " + args.evidenceText,
+    }),
+  ).toEqual(result);
+  const fresh = {
+    ...args,
+    idempotencyKey: crypto.randomUUID(),
+    outcome: args.outcome + " ",
+  };
+  expect(
+    (await call(t, "capture_work", fresh)).structuredContent.error.code,
+  ).toBe("invalid_input");
+  expect(
+    t.app.ck.handle.sqlite
+      .prepare("SELECT key FROM idempotency_requests WHERE key=?")
+      .get("mcp:" + fresh.idempotencyKey),
+  ).toBeUndefined();
+});
+it("keeps report pagination separate from execution and blocker pagination", async () => {
+  const { t, capture } = await setup();
+  const task = await ok(
+    t,
+    "capture_work",
+    capture({ recordType: "action", outcome: "Synthetic task" }),
+  );
+  const taskId = task.outcome.recordId,
+    projectId = capture().projectId;
+  for (let i = 0; i < 21; i++)
+    await ok(t, "capture_work", capture({ taskId, outcome: "Report " + i }));
+  const view = await ok(t, "get_task", { projectId, taskId });
+  expect(view.pagination.nextOffset).toBe(20);
+  expect(view.pagination.runsBlockersNextOffset).toBeNull();
 });
 
 it("renders the same depth-aware context through HTTP and MCP without promoting a later report", async () => {
@@ -240,4 +312,51 @@ it("renders the same depth-aware context through HTTP and MCP without promoting 
     `/api/projects/${projectId}/tasks/${taskId}/resume?depth=deep`,
   );
   expect(http.json().resumeText).toBe(deep.resumeText);
+});
+
+it("attributes a legacy checkpoint summary fallback to reported progress", async () => {
+  const { t, capture } = await setup();
+  const task = await ok(
+    t,
+    "capture_work",
+    capture({ recordType: "action", outcome: "Legacy task" }),
+  );
+  const taskId = task.outcome.recordId,
+    projectId = capture().projectId;
+  const progress = await ok(t, "report_task_progress", {
+    projectId,
+    taskId,
+    taskRevision: 1,
+    expectedProgressRecordId: null,
+    status: "in_progress",
+    summary: "Actual progress summary",
+    nextAction: "Explicit progress next",
+    ownerAction: null,
+    evidenceText: "Synthetic progress evidence",
+    clientId: "test",
+    sessionId: "fidelity",
+    idempotencyKey: crypto.randomUUID(),
+  });
+  const cp = await ok(
+    t,
+    "capture_work",
+    capture({
+      taskId,
+      outcome: "Checkpoint free text is not the summary",
+      checkpoint: { summary: "remove", nextAction: "Checkpoint next" },
+    }),
+  );
+  t.app.ck.handle.sqlite
+    .prepare(
+      "UPDATE records SET value_json=json_remove(value_json,'$.summary','$.outcome') WHERE id=?",
+    )
+    .run(cp.outcome.recordId);
+  const resume = await ok(t, "resume_task", {
+    projectId,
+    taskId,
+    depth: "deep",
+  });
+  expect(resume.dossier.summary).toBe("Actual progress summary");
+  expect(resume.dossier.summarySource.recordId).toBe(progress.recordId);
+  expect(resume.dossier.nextActionSource.recordId).toBe(cp.outcome.recordId);
 });

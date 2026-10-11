@@ -65,6 +65,18 @@ export function toolResult(value: unknown, secrets: string[]): CallToolResult {
   return boundedResult(result);
 }
 
+/** Only for readSource output: its text fields were redacted in full before slicing.
+ * Redacting fragments again can expand a partial marker and invalidate offsets/hash.
+ * Metadata still passes through the ordinary credential boundary.
+ */
+export function sourcePageResult(value: unknown, secrets: string[]): CallToolResult {
+  const page = value as { text: string; excerpts: Array<{ text: string }> };
+  const clean = safeValue(value, secrets) as typeof page;
+  clean.text = page.text;
+  clean.excerpts.forEach((excerpt, index) => { excerpt.text = page.excerpts[index]!.text; });
+  return boundedResult({ content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean });
+}
+
 export function toolError(error: unknown, secrets: string[]): CallToolResult {
   const detail = (() => {
     if (error instanceof z.ZodError) {
@@ -175,6 +187,15 @@ export async function durableWrite(
     responseBody: state === "completed" ? JSON.stringify(result) : "",
     responseContentType: "application/json" });
   return result;
+}
+
+/** Lookup only: permits old trim-before-limit requests to replay, never to mutate. */
+export function legacyWriteReplay(deps: ServiceDeps, name: string, input: { idempotencyKey: string }, secrets: string[]): CallToolResult | null {
+  const row = deps.sqlite.prepare("SELECT request_hash,state,response_body FROM idempotency_requests WHERE key=?").get("mcp:" + input.idempotencyKey) as { request_hash: string; state: string; response_body: string | null } | undefined;
+  if (!row || row.request_hash !== requestHash("MCP", name, input)) return null;
+  if (row.state === "completed" && row.response_body !== null) return replayStoredResult(row.response_body, secrets);
+  if (row.state === "completed") throw new ApiError(409, "idempotency_result_expired", IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
+  throw new ApiError(409, row.state === "pending" ? "idempotency_in_progress" : "idempotency_outcome_unknown", "Inspect the earlier operation before retrying.");
 }
 
 /** Synchronous mutations and replay receipt share one transaction, including crash recovery. */

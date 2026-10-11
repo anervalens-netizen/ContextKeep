@@ -344,20 +344,24 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
       {(dossier.summarySource || dossier.nextActionSource) && (
         <details>
           <summary>{tr("Sursele rezumatului și pasului următor")}</summary>
-          <p>
-            {tr("Rezumat: ")}
-            {dossier.summarySource?.recordId} ·{" "}
-            {dossier.summarySource?.recordedAt} ·{" "}
-            {dossier.summarySource?.provenance} ·{" "}
-            {dossier.summarySource?.reviewStatus}
-          </p>
-          <p>
-            {tr("Pas următor: ")}
-            {dossier.nextActionSource?.recordId} ·{" "}
-            {dossier.nextActionSource?.recordedAt} ·{" "}
-            {dossier.nextActionSource?.provenance} ·{" "}
-            {dossier.nextActionSource?.reviewStatus}
-          </p>
+          {dossier.summarySource && (
+            <p>
+              {tr("Rezumat: ")}
+              {dossier.summarySource?.recordId} ·{" "}
+              {dossier.summarySource?.recordedAt} ·{" "}
+              {dossier.summarySource?.provenance} ·{" "}
+              {dossier.summarySource?.reviewStatus}
+            </p>
+          )}
+          {dossier.nextActionSource && (
+            <p>
+              {tr("Pas următor: ")}
+              {dossier.nextActionSource?.recordId} ·{" "}
+              {dossier.nextActionSource?.recordedAt} ·{" "}
+              {dossier.nextActionSource?.provenance} ·{" "}
+              {dossier.nextActionSource?.reviewStatus}
+            </p>
+          )}
         </details>
       )}
       {dossier.lastReported?.text && (

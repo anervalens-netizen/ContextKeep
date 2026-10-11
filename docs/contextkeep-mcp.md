@@ -1,10 +1,10 @@
 # MCP interface
 
-> Current operational contract: MCP 2.17 / schema 19. Explicit task creation,
+> Current operational contract: MCP 2.18 / schema 19. Explicit task creation,
 > compatible task selection and classified attention build on the existing
 > task-scope, execution-evidence and no-replay contracts. Reports remain proposed.
 > See [Operational dossier](OPERATIONAL_DOSSIER.md) and
-> [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7;
+> [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.3;
 > older installed resource reads remain available.
 
 MCP interface version: 2.18.0. Supported protocol contract: 2026-07-28.

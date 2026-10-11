@@ -330,6 +330,7 @@ it("freezes selection while a host operation is in flight and unlocks after ackn
 });
 
 it("ignores a delayed resume after A to B to A and refreshes history independently of run pages", async () => {
+  let reportsOnly = false;
   let resolveOld!: (r: any) => void;
   const old = new Promise<any>((r) => (resolveOld = r));
   const resume = vi
@@ -367,12 +368,21 @@ it("ignores a delayed resume after A to B to A and refreshes history independent
     task: async (_p, t) => ({
       ...view,
       task: { ...task, id: t },
-      pagination: { nextOffset: 20 },
+      pagination: {
+        nextOffset: 20,
+        runsBlockersNextOffset: reportsOnly ? null : 20,
+      },
     }),
     resume,
     activity,
   };
-  render(<TaskPanel projectId="project" transport={transport} contextBudget="deep" />);
+  render(
+    <TaskPanel
+      projectId="project"
+      transport={transport}
+      contextBudget="deep"
+    />,
+  );
   await screen.findByRole("option", { name: /Verify synthetic/ });
   const select = (id: string) =>
     fireEvent.change(screen.getByLabelText("Task"), { target: { value: id } });
@@ -412,4 +422,15 @@ it("ignores a delayed resume after A to B to A and refreshes history independent
     expect(activity.mock.calls.length).toBeGreaterThan(calls),
   );
   expect(activity.mock.calls.at(-1)?.[2]).toBe(20);
+  reportsOnly = true;
+  fireEvent.click(screen.getByRole("button", { name: "Actualizează taskul" }));
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "More executions / blockers",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true),
+  );
 });

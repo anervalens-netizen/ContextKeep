@@ -59,7 +59,10 @@ export type TaskView = {
     reviewStatus: string;
     recordedAt: string;
   }>;
-  pagination: { nextOffset: number | null };
+  pagination: {
+    nextOffset: number | null;
+    runsBlockersNextOffset?: number | null;
+  };
 };
 export interface TaskTransport {
   projects(): Promise<Project[]>;
@@ -785,8 +788,20 @@ export function TaskPanel({
               {tr(" Previous ")}
             </button>{" "}
             <button
-              disabled={view.pagination.nextOffset === null}
-              onClick={() => setOffset(view.pagination.nextOffset ?? offset)}
+              disabled={
+                (transport.activity &&
+                view.pagination.runsBlockersNextOffset !== undefined
+                  ? view.pagination.runsBlockersNextOffset
+                  : view.pagination.nextOffset) === null
+              }
+              onClick={() =>
+                setOffset(
+                  (transport.activity &&
+                  view.pagination.runsBlockersNextOffset !== undefined
+                    ? view.pagination.runsBlockersNextOffset
+                    : view.pagination.nextOffset) ?? offset,
+                )
+              }
             >
               {tr(" More executions / blockers ")}
             </button>

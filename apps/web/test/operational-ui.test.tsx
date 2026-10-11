@@ -107,6 +107,7 @@ describe("operational UI", () => {
     expect(resume).toHaveBeenCalledExactlyOnceWith(
       "fixture-project",
       "fixture-task",
+      "balanced",
     );
     expect(onSelection).toHaveBeenCalledWith({
       projectId: "fixture-project",
@@ -379,4 +380,10 @@ it("loads additional attention pages without requiring later ordinary task pages
     await screen.findByRole("button", { name: /Attention item 3/i }),
   ).toBeTruthy();
   expect(load).toHaveBeenCalledWith("fixture-project", 0, 2);
+});
+
+it("omits an absent next-action provenance row for terminal tasks", () => {
+  render(<TaskNow dossier={{ ...dossier, state: "done", nextAction: null, summarySource: { recordId: "summary-record", recordedAt: "2026-01-01", provenance: "agent_report", reviewStatus: "proposed" }, nextActionSource: null }} />);
+  expect(screen.getByText(/summary-record/)).toBeTruthy();
+  expect(screen.queryByText(/^Pas următor:/)).toBeNull();
 });

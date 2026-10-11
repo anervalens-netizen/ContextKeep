@@ -23,7 +23,7 @@ import { captureWork } from "../services/capture-work.js";
 import { getBlockerState, resolveBlocker } from "../services/blockers.js";
 import { getContextDelta } from "../services/context-delta.js";
 import { ApiError } from "../lib/errors.js";
-import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult } from "./safety.js";
+import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay } from "./safety.js";
 import { relationKinds } from "@contextkeep/shared";
 import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-metadata.js";
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
@@ -355,7 +355,20 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       execute: async (raw) => {
         const startedAt = process.hrtime.bigint();
         try {
-          const input = schema.parse(raw);
+          let input: z.output<S>;
+          try { input = schema.parse(raw); } catch (error) {
+            if ((name === "capture_work" || name === "capture_working_memory") && raw && typeof raw === "object") {
+              const prior = raw as Record<string, unknown>;
+              const legacy = schema.safeParse({ ...prior,
+                outcome: typeof prior.outcome === "string" ? prior.outcome.trim() : prior.outcome,
+                evidenceText: typeof prior.evidenceText === "string" ? prior.evidenceText.trim() : prior.evidenceText });
+              if (legacy.success) {
+                const replay = legacyWriteReplay(deps, name, legacy.data as { idempotencyKey: string }, secrets);
+                if (replay) { recordToolMetrics(name, startedAt, replay); return replay; }
+              }
+            }
+            throw error;
+          }
           const validateOutput = (value: unknown) => {
             const result = contract.safeParse(value);
             if (!result.success) {
@@ -370,7 +383,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
 
           let result: unknown;
           if (readOnly) {
-            result = toolResult(await runChecked(), secrets);
+            result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) : toolResult(await runChecked(), secrets);
           } else {
             rejectCredentials(input, secrets);
             if (name === "settings.update") {

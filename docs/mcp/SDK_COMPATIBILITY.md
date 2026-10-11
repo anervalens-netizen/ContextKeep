@@ -5,9 +5,9 @@ MCP interface version: 2.18.0. Supported protocol contract: 2026-07-28.
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 Runtime dependency: @modelcontextprotocol/server@2.1.0. Verify the dependency version in apps/server/package.json when upgrading.
 
-## Panel v7 contract
+## Panel v7.3 contract
 
-MCP 2.17 exposes 60 tools, including native `settings.read` and
+MCP 2.18 exposes 60 tools, including native `settings.read` and
 `settings.update`. Preferences live in a separate atomic JSON file in the
 configured data directory. Partial updates preserve omitted fields; they do
 not create memory records or execution receipts. Unlike memory mutations,
@@ -19,7 +19,7 @@ routes; it does not use the SDK1 registration helper. The fallback panel editor
 uses the same tools and offers explicit preference readback. It is not evidence
 that a host implements native settings.
 
-The opener points to `ui://contextkeep/tasks/v7.1.html` and includes a bounded,
+The opener points to `ui://contextkeep/tasks/v7.3.html` and includes a bounded,
 timestamped first-screen projection. Matching fresh reads consume that
 projection once. Missing or expired preferences are read before data loading.
 Task selection belongs to each panel; saving preferences does not select a
@@ -45,3 +45,5 @@ Native ChatGPT, Codex and Android acceptance, supported rollback and production
 identity require separate live evidence before release closure.
 
 The v7.1 resource revision fixes responsive search controls and keeps v7 as a compatibility alias. After updating an existing developer connection, use its supported **Refresh tools** action so the host discovers the current resource and native settings. Reload the existing panel and verify its controls; a server version alone does not prove a refreshed host bundle.
+
+The v7.3 resource uses one depth-aware server resume projection, explicit field provenance, independent history pagination, and structured errors. Compatibility reads retain v7.2 and earlier installed resources.
