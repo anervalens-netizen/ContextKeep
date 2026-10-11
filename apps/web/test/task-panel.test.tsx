@@ -372,12 +372,13 @@ it("ignores a delayed resume after A to B to A and refreshes history independent
     resume,
     activity,
   };
-  render(<TaskPanel projectId="project" transport={transport} />);
+  render(<TaskPanel projectId="project" transport={transport} contextBudget="deep" />);
   await screen.findByRole("option", { name: /Verify synthetic/ });
   const select = (id: string) =>
     fireEvent.change(screen.getByLabelText("Task"), { target: { value: id } });
   select("task-a");
   fireEvent.click(await screen.findByRole("button", { name: "Reia lucrarea" }));
+  expect(resume).toHaveBeenLastCalledWith("project", "task-a", "deep");
   select("task-b");
   await screen.findByRole("button", { name: "Reia lucrarea" });
   select("task-a");

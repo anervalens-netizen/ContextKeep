@@ -218,7 +218,7 @@ export function TaskPanel({
         .catch((error) => {
           if (active) {
             setProjectsFailed(true);
-            setError(tr("Could not load projects."));
+            setError(describeToolError(error, tr("Could not load projects.")));
           }
         });
     return () => {
@@ -338,7 +338,7 @@ export function TaskPanel({
       ]);
       setNextProjects(page.nextOffset);
     } catch (error) {
-      setError(tr("Could not load more projects."));
+      setError(describeToolError(error, tr("Could not load more projects.")));
     } finally {
       projectsPending.current = false;
       setProjectsLoading(false);
@@ -373,7 +373,7 @@ export function TaskPanel({
         key === currentListKey.current &&
         generation === listGeneration.current
       )
-        setError(tr("Could not load more tasks."));
+        setError(describeToolError(error, tr("Could not load more tasks.")));
     } finally {
       if (
         key === currentListKey.current &&
@@ -391,7 +391,7 @@ export function TaskPanel({
     setResumeText("");
     setResuming(true);
     try {
-      const result = await transport.resume(projectId, taskId);
+      const result = await transport.resume(projectId, taskId, contextBudget);
       if (
         selectedKey.current !== key ||
         generation !== resumeGeneration.current
