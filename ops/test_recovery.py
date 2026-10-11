@@ -121,6 +121,16 @@ class BackupWorkflowTests(unittest.TestCase):
             restore.verify_database(P(tmp)/'store.sqlite',manifest['counts'])
         self.assertTrue(json.loads(output.getvalue())['copies']['nas'])
 
+    def test_optional_integration_configuration_is_recoverable_from_archive(self):
+        for name in ['oidc.env','glitchtip.env']:
+            put(self.home/'.config/contextkeep'/name,'SYNTHETIC_SETTING=fixture')
+        with contextlib.redirect_stdout(io.StringIO()):status=self.invoke()
+        with tarfile.open(self.base/status['snapshot'],'r:gz') as archive:
+            for name in ['oidc.env','glitchtip.env']:
+                member=archive.getmember('config/'+name)
+                self.assertTrue(member.isfile())
+                self.assertEqual(archive.extractfile(member).read(),b'SYNTHETIC_SETTING=fixture')
+
     def test_nas_unavailable_does_not_prevent_dell_success(self):
         self.available=False
         with contextlib.redirect_stdout(io.StringIO()),self.assertRaises(SystemExit) as error:

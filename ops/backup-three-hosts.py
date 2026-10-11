@@ -230,6 +230,10 @@ def backup(BASE,HOME,REPO,STATUS,node,nas_mount,NAS,run,mounted,now,profile=None
                 t.add(REPO/'apps/server/.env',arcname='config/app.env')
                 for n in ['mcp.env','secrets.env','release.env','tunnel.env','mcp-authorization','mcp-tunnel.yaml','codex-env.sh']:
                     t.add(HOME/'.config/contextkeep'/n,arcname='config/'+n)
+                # Optional integrations must travel with the unit drop-ins that load them.
+                for n in ['oidc.env','glitchtip.env']:
+                    p=HOME/'.config/contextkeep'/n
+                    if p.is_file():t.add(p,arcname='config/'+n)
                 if profile_path is not None:
                     t.add(profile_path,arcname='config/contextkeep-ops-profile.json',recursive=False)
                 for n in ['contextkeep.service','contextkeep.service.d','contextkeep-mcp-tunnel.service','contextkeep-backup.service','contextkeep-backup.timer']:
