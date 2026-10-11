@@ -86,11 +86,12 @@ export function readRecord(deps: ServiceDeps, input: {recordId: string; includeU
   const row = requireRecord(deps, input.recordId);
   if (!input.includeUnreviewed && !["accepted", "superseded"].includes(row.reviewStatus))
     throw new ApiError(404, "agent_record_not_found", "Accepted or historical record not found. Use includeUnreviewed for inbox/deleted records.");
-  const evidence = deps.sqlite.prepare("SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,se.source_id AS sourceId,s.title AS sourceTitle,se.start_offset AS startOffset,se.end_offset AS endOffset,s.normalized_text AS fullText FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?")
+  const evidence = deps.sqlite.prepare("SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,se.source_id AS sourceId,s.title AS sourceTitle,se.start_offset AS startOffset,se.end_offset AS endOffset FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?")
     .all(row.id, input.evidenceLimit, input.evidenceOffset).map(raw => {
-      const { fullText, startOffset, endOffset, ...metadata } = raw as { fullText: string; startOffset: number; endOffset: number; [key: string]: unknown };
-      const excerpt = safeText(fullText, secrets, true).slice(startOffset, endOffset);
-      return { ...metadata, text: Array.from(excerpt).slice(0, 4000).join(""), textTruncated: Array.from(excerpt).length > 4000 };
+      const { startOffset, endOffset, ...metadata } = raw as { sourceId: string; startOffset: number; endOffset: number; [key: string]: unknown };
+      const prepared = cachedSource(deps, metadata.sourceId, "normalized", secrets);
+      const excerpt = Array.from(prepared.normalizedMask.slice(startOffset, endOffset));
+      return { ...metadata, text: excerpt.slice(0, 4000).join(""), textTruncated: excerpt.length > 4000 };
     });
   const total = (deps.sqlite.prepare("SELECT count(*) n FROM record_evidence WHERE record_id=?").get(row.id) as {n:number}).n;
   const freshnessContext = loadRecordFreshnessContext(deps.db, [row]);

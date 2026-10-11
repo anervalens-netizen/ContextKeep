@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -228,3 +229,53 @@ it("clears an earlier prompt when preparation fails and does not mislabel it as 
     screen.queryByText(/Copierea automată nu este disponibilă/),
   ).toBeNull();
 });
+
+it.each(["attach", "send", "copy"] as const)(
+  "discards pending %s on depth changes, including A-B-A",
+  async (kind) => {
+    const pending =
+      deferred<Awaited<ReturnType<NonNullable<TaskTransport["resume"]>>>>();
+    const resume = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue(result());
+    const attach = vi.fn(async () => ({ updateId: "ack" })),
+      send = vi.fn(async () => {}),
+      writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const host = { attach, send };
+    const view = (depth: "compact" | "deep") => (
+      <TaskContextActions
+        selection={selection}
+        title="Synthetic task"
+        resume={resume}
+        host={host}
+        contextBudget={depth}
+      />
+    );
+    const rendered = render(view("compact"));
+    const label = {
+      attach: "Atașează contextul",
+      send: "Continuă în chat",
+      copy: "Copiază promptul",
+    }[kind];
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    rendered.rerender(view("deep"));
+    rendered.rerender(view("compact"));
+    await act(async () => {
+      pending.resolve(result());
+      await pending.promise;
+    });
+    expect(attach).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await waitFor(() =>
+      expect({ attach, send, copy: writeText }[kind]).toHaveBeenCalledTimes(1),
+    );
+    expect(resume).toHaveBeenLastCalledWith("project", "task-a", "compact");
+  },
+);

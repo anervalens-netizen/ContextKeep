@@ -30,7 +30,8 @@ export function TaskContextActions({
   contextBudget?: PanelPreferences["contextBudget"];
 }) {
   const tr = usePanelText();
-  const key = selection.projectId + ":" + selection.taskId;
+  const key =
+    selection.projectId + ":" + selection.taskId + ":" + contextBudget;
   const current = useRef(key);
   current.current = key;
   const generation = useRef(0);

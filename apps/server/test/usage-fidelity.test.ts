@@ -2,7 +2,8 @@ import crypto from "node:crypto";
 import Database from "better-sqlite3";
 import { afterEach, expect, it, vi } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
-import { readSource } from "../src/mcp/reads.js";
+import * as safety from "../src/mcp/safety.js";
+import { readRecord, readSource } from "../src/mcp/reads.js";
 import { requestHash } from "../src/services/idempotency.js";
 const token = crypto.randomBytes(32).toString("hex");
 const apps: TestApp[] = [];
@@ -606,4 +607,65 @@ it("reports omissions after redaction and bounds duplicate progress fields", asy
     ),
   ).toBe(true);
   expect(JSON.stringify(expanded)).not.toContain("abcdef");
+});
+
+it("reuses full-source redaction for repeated record evidence pages", async () => {
+  const { t, capture } = await setup();
+  const r = await ok(t, "capture_work", capture());
+  const db = t.app.ck.handle.sqlite;
+  const deps = { db: t.app.ck.handle.db, sqlite: db } as any;
+  const raw = "a".repeat(4 * 1024 * 1024 - 128) + token;
+  db.prepare(
+    "UPDATE sources SET original_text=?,normalized_text=? WHERE id=?",
+  ).run(raw, raw, r.source.id);
+  db.prepare("DELETE FROM record_evidence WHERE record_id=?").run(
+    r.outcome.recordId,
+  );
+  for (let i = 0; i < 10; i++) {
+    const id = crypto.randomUUID(),
+      start = raw.length - token.length + i,
+      end = start + 20;
+    const excerpt = raw.slice(start, end);
+    db.prepare(
+      "INSERT INTO source_excerpts(id,source_id,start_offset,end_offset,exact_text,exact_text_hash) VALUES(?,?,?,?,?,?)",
+    ).run(
+      id,
+      r.source.id,
+      start,
+      end,
+      excerpt,
+      crypto.createHash("sha256").update(excerpt).digest("hex"),
+    );
+    db.prepare(
+      "INSERT INTO record_evidence(record_id,excerpt_id) VALUES(?,?)",
+    ).run(r.outcome.recordId, id);
+  }
+  const redact = vi.spyOn(safety, "safeText");
+  try {
+    const input = {
+      recordId: r.outcome.recordId,
+      includeUnreviewed: true,
+      evidenceOffset: 0,
+      evidenceLimit: 10,
+    };
+    const first = readRecord(deps, input, [token]);
+    expect(first.evidence).toHaveLength(10);
+    expect(first.evidence.every((e) => e.text === "*".repeat(20))).toBe(true);
+    expect(redact.mock.calls.filter((c) => c[0] === raw)).toHaveLength(2);
+    readRecord(deps, input, [token]);
+    readSource(
+      deps,
+      {
+        sourceId: r.source.id,
+        offset: 0,
+        maxChars: 50,
+        excerptOffset: 0,
+        excerptLimit: 1,
+      },
+      [token],
+    );
+    expect(redact.mock.calls.filter((c) => c[0] === raw)).toHaveLength(2);
+  } finally {
+    redact.mockRestore();
+  }
 });
