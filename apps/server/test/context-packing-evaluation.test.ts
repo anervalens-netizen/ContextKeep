@@ -86,7 +86,8 @@ function fixture(): Record<string, unknown> {
       recordedAt: "2026-09-23T00:00:00.000Z",
       status: "proposed",
       provenance: "agent_report",
-      checkpoint: { projectLevelIntent: "project_note",
+      checkpoint: {
+        projectLevelIntent: "project_note",
         summary: "synthetic checkpoint",
         nextAction: "continue synthetic verification",
         artifactRefs: ["synthetic-ref"],
@@ -144,7 +145,28 @@ describe("context packing evaluation", () => {
       scope: "working",
     });
     expect(result.latestCheckpoint).toMatchObject({
-      checkpoint: { projectLevelIntent: "project_note", artifactRefs: ["synthetic-ref"] },
+      checkpoint: {
+        projectLevelIntent: "project_note",
+        artifactRefs: ["synthetic-ref"],
+      },
     });
   });
+});
+
+it("restores selected working pointers only when structural fallback is necessary", () => {
+  const payload = fixture();
+  payload.blockerState = {
+    active: Array.from({ length: 10 }, (_, i) => ({
+      blockerId: `synthetic-blocker-${i}`,
+      text: "Synthetic pending verification. ".repeat(45),
+    })),
+    activeCount: 10,
+  };
+  const small = fitWorkContext(payload, 16000);
+  const large = fitWorkContext(payload, 26000);
+  expect(JSON.stringify(small).length).toBeLessThanOrEqual(16000);
+  expect((small.workingMemory as any).items).toHaveLength(3);
+  expect((small.workingMemory as any).omitted).toBe(0);
+  expect((large.blockerState as any).active).toHaveLength(10);
+  expect((large.constraints as any).items).toHaveLength(3);
 });

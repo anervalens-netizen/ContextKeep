@@ -1,3 +1,4 @@
+import { ToolError } from "./lib/tool-error.js";
 import { captureError } from "./lib/error-reporting.js";
 import { PanelLocale, translatePanel } from "./lib/panel-locale.js";
 import { PanelPreferences } from "@contextkeep/shared";
@@ -54,7 +55,7 @@ const connectionTimer = setTimeout(() => {
 async function call(name: string, args: Record<string, unknown> = {}) {
   return bootstrap.read(name, args, async () => {
     const result = await app.callServerTool({ name, arguments: args });
-    if (result.isError) throw new Error("ContextKeep request failed.");
+    if (result.isError) throw new ToolError((result.structuredContent as Record<string, unknown> | undefined)?.error);
     return result.structuredContent as Record<string, unknown>;
   });
 }
@@ -82,8 +83,8 @@ const transport: TaskTransport = {
     })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["portfolio"]>>
     >,
-  resume: async (projectId, taskId) =>
-    (await call("resume_task", { projectId, taskId })) as unknown as Awaited<
+  resume: async (projectId, taskId, depth = "balanced") =>
+    (await call("resume_task", { projectId, taskId, depth })) as unknown as Awaited<
       ReturnType<NonNullable<TaskTransport["resume"]>>
     >,
   activity: async (projectId, taskId, offset = 0, scope = "all") =>

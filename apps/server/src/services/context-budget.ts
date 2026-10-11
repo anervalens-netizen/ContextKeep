@@ -397,7 +397,13 @@ export function fitWorkContext(
 
   // If canonical detail alone cannot fit, trim the compact working index only
   // after the canonical claims have had their deterministic detail reduction.
+  const selectedWorkingMemory = structuredClone(candidate.workingMemory);
+  const selectedDiagnostics = diagnostics ? structuredClone(diagnostics) : null;
   if (trimSection("workingMemory")) return finalize(candidate);
+  // Only restore when the existing path already needs structural projection.
+  candidate.workingMemory = selectedWorkingMemory;
+  if (diagnostics && selectedDiagnostics)
+    Object.assign(diagnostics, selectedDiagnostics);
 
   // Before omitting any authoritative resume-core record, switch to a
   // smaller structural projection. This avoids spending a tight budget on

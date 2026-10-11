@@ -75,6 +75,7 @@ export function registerDossierTools(
     "Read-only, task-scoped resume context. Never starts a job.",
     z.strictObject({
       ...scope,
+      depth: z.enum(["compact", "balanced", "deep"]).default("balanced"),
       unresolvedOffset: z.number().int().min(0).optional(),
       unresolvedLimit: z.number().int().min(1).max(50).optional(),
     }),
@@ -86,6 +87,7 @@ export function registerDossierTools(
         i.taskId,
         i.unresolvedOffset,
         i.unresolvedLimit,
+        i.depth,
       ),
     result,
   );

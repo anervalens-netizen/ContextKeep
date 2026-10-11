@@ -452,6 +452,7 @@ export function getTaskView(
       )
       .get(input.taskId) as { n: number }
   ).n;
+  const blockers = getBlockerState(deps, input.projectId, { taskId: input.taskId, limit, offset });
   return {
     task,
     dossier: taskDossier(deps, input.projectId, input.taskId),
@@ -460,11 +461,7 @@ export function getTaskView(
       input.projectId,
       input.taskId,
     ),
-    blockers: getBlockerState(deps, input.projectId, {
-      taskId: input.taskId,
-      limit,
-      offset,
-    }),
+    blockers,
     runs,
     records,
     pagination: {
@@ -473,7 +470,7 @@ export function getTaskView(
       offset,
       limit,
       nextOffset:
-        offset + limit < Math.max(total, totalRecords) ? offset + limit : null,
+        offset + limit < Math.max(total, totalRecords, blockers.activeCount) ? offset + limit : null,
     },
     semantics:
       "Execution completion, verification and task progress are separate. Reports remain unreviewed unless explicitly accepted.",

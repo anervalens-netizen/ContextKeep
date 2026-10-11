@@ -1,0 +1,53 @@
+import { expect, it, vi } from "vitest";
+import { transport } from "../src/components/PwaTaskPanel.js";
+import { apiFetch } from "../src/lib/api.js";
+import { ToolError, describeToolError } from "../src/lib/tool-error.js";
+vi.mock("../src/lib/api.js", () => ({ apiFetch: vi.fn(async () => ({})) }));
+it("forwards task and dossier selection, view, query and depth", async () => {
+  await transport.tasks("p", 20, {
+    selection: "all_actions",
+    view: "attention",
+    q: "two words",
+  });
+  let url = new URL(
+    vi.mocked(apiFetch).mock.calls.at(-1)![0],
+    "https://example.test",
+  );
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({
+    selection: "all_actions",
+    view: "attention",
+    q: "two words",
+    offset: "20",
+  });
+  await transport.overview!("p", 10, 20, {
+    selection: "all_actions",
+    view: "active",
+    q: "fixture",
+  });
+  url = new URL(
+    vi.mocked(apiFetch).mock.calls.at(-1)![0],
+    "https://example.test",
+  );
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({
+    selection: "all_actions",
+    view: "active",
+    q: "fixture",
+    attentionOffset: "20",
+  });
+  await transport.resume!("p", "t", "deep");
+  expect(vi.mocked(apiFetch).mock.calls.at(-1)![0]).toContain("depth=deep");
+});
+it("keeps safe structured error guidance across MCP and display", () => {
+  const marker = "Bearer " + "Z".repeat(25);
+  const error = new ToolError({
+    code: "stale_revision",
+    message: "Refresh revision " + marker,
+    retryable: false,
+    nextAction: "read_current_revision",
+  });
+  const text = describeToolError(error, "Cannot prepare context.");
+  expect(text).toContain("stale_revision");
+  expect(text).toContain("read_current_revision");
+  expect(text).toContain("Retryable: false");
+  expect(text).not.toContain("Z".repeat(25));
+});

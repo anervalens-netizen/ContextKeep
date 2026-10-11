@@ -83,7 +83,8 @@ export function registerProjectRoutes(app: FastifyInstance): void {
     const p = dossierParams
       .extend({ taskId: z.string().uuid() })
       .parse(request.params);
-    return resumeTask(deps, p.id, p.taskId);
+    const { depth } = z.object({ depth: z.enum(["compact", "balanced", "deep"]).default("balanced") }).parse(request.query);
+    return resumeTask(deps, p.id, p.taskId, 0, 20, depth);
   });
   app.get("/api/projects/:id/activity", async (request, reply) => {
     reply.header("cache-control", "no-store");

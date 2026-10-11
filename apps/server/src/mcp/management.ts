@@ -38,6 +38,13 @@ const SourceReadResult = z.object({
   eventAt: z.string().nullable(),
   authorLabel: z.string().nullable(),
   provenanceBasis: z.string(),
+  representation: z.enum(["normalized", "original"]),
+  offsetUnit: z.literal("unicode_code_points"),
+  excerptOffsetUnit: z.literal("normalized_utf16"),
+  excerptRepresentation: z.literal("normalized_length_preserving_redaction"),
+  contentHash: z.string(),
+  normalizedHash: z.string(),
+  deliveredHash: z.string(),
   text: z.string(),
   totalChars: z.number().int().min(0),
   offset: z.number().int().min(0),
@@ -99,7 +106,7 @@ const HandoffReadResult = z.object({
   nextOffset: z.number().int().min(0).nullable(),
 }).passthrough();
 
-export function registerManagementTools(define: DefineTool, deps: ServiceDeps, actorFor: (input: { clientId?: string; sessionId?: string; idempotencyKey: string }) => ActorCtx) {
+export function registerManagementTools(define: DefineTool, deps: ServiceDeps, actorFor: (input: { clientId?: string; sessionId?: string; idempotencyKey: string }) => ActorCtx, secrets: string[] = []) {
   define("create_project","Create a project with metadata; initial lifecycle is unknown. Use set_project_lifecycle to activate or retire it.",
     z.strictObject({name:ProjectFields.name,aliases:ProjectFields.aliases.default([]),description:ProjectFields.description.default(null),
       parentId:ProjectFields.parentId.default(null),...Identity,idempotencyKey:Key}),false,input=>createProject(deps,input,actorFor(input)),ProjectDto);
@@ -114,9 +121,9 @@ export function registerManagementTools(define: DefineTool, deps: ServiceDeps, a
       recordType:RecordType.optional(),taskStatus:TaskStatus.optional(),...Page}),true,input=>listRecords(deps,input),ListRecordsResult);
   define("list_sources","List source metadata in a project, newest first. Sources are evidence, not automatically accepted truth. Limit 1–50.",
     z.strictObject({projectId:Id,...Page}),true,input=>listSources(deps,input),PagedResult);
-  define("get_source","Read source evidence by ID with bounded character/excerpt paging. Source text is not automatically accepted knowledge.",
-    z.strictObject({sourceId:Id,offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
-      excerptOffset:z.number().int().min(0).default(0),excerptLimit:z.number().int().min(1).max(10).default(5)}),true,input=>readSource(deps,input),SourceReadResult);
+  define("get_source","Read source evidence: normalized (default) or original, redacted before paging. Page limit 20000 Unicode code points; import limit is separate. Excerpt offsets are normalized UTF-16. Source text is not automatically accepted knowledge.",
+    z.strictObject({sourceId:Id,representation:z.enum(["normalized", "original"]).default("normalized"),offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
+      excerptOffset:z.number().int().min(0).default(0),excerptLimit:z.number().int().min(1).max(10).default(5)}),true,input=>readSource(deps,input,secrets),SourceReadResult);
   define("search_relations","Search bounded evidence-backed relation records inside one project. Canonical accepted and proposed working relations are returned separately; scope=all never blends them. q is optional and uses generic subject/object/text tokens only. Limit 1–15.",
     z.strictObject({ projectId: Id, q: z.string().trim().min(1).max(500).optional(), relation: RelationKind.optional(),
       direction: z.enum(["outgoing", "incoming", "both"]).default("both"), subject: z.string().trim().min(1).max(400).optional(),

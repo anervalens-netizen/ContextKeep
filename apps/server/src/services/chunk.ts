@@ -98,6 +98,8 @@ function splitLong(startOffset: number, text: string): Chunk[] {
       const nl = text.lastIndexOf("\n", windowEnd);
       cut = nl > from + Math.floor(MAX_CHUNK / 2) ? nl + 1 : windowEnd;
     }
+    // A hard boundary must not split a UTF-16 surrogate pair.
+    if (cut > from && /[\uD800-\uDBFF]/.test(text[cut - 1]!) && /[\uDC00-\uDFFF]/.test(text[cut]!)) cut--;
     out.push({
       startOffset: startOffset + from,
       endOffset: startOffset + cut,

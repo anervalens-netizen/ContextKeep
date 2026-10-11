@@ -7,7 +7,7 @@
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7;
 > older installed resource reads remain available.
 
-MCP interface version: 2.17.1. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.18.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
@@ -17,3 +17,38 @@ and is excluded from task resume. Use categorized blocker objects for new
 mentions. Prefer search_context compact=true for agent reads when the legacy
 canonicalRecords alias is not needed. Never put private project records into
 the public repository or CI logs.
+
+## Exact evidence and bounded recovery
+
+Captures preserve original evidence and technical outcome case/whitespace. Source
+reuse requires an exact content hash within the same project; normalized text is
+a separate search representation. Explicitly different event times produce
+distinct proposed observations even when their source is reused. An exact
+outcome without a new explicit time can still gain additional evidence. Same-key
+retries replay their receipt, including receipts from the older trimmed contract.
+These rules do not change canonical record deduplication or accept agent reports.
+
+`get_source` defaults to `representation=normalized`; request `original` for
+the stored original. Both representations are redacted in full before pagination.
+`offset`, `nextOffset` and `totalChars` describe Unicode code points in the
+delivered representation; follow `nextOffset` and keep the representation fixed.
+`contentHash` hashes the stored original, `normalizedHash` the search text, and
+`deliveredHash` the complete redacted representation (SHA-256 over UTF-8).
+Excerpts retain normalized UTF-16 offsets and use length-preserving redaction
+computed against the complete normalized source, including matches across excerpt
+boundaries. Page reads support up to 20,000 code points; capture input supports up
+to 64,000 UTF-16 units. New NUL-containing text is rejected explicitly; historical
+source reads preserve it. Already discarded historical originals cannot be rebuilt.
+
+`resume_task(depth=compact|balanced|deep)` and the HTTP resume route provide the
+same bounded projection used by Copy, Attach and Send. Each summary and next
+action has its own source reference. The latest separate report is visible but
+does not override progress merely because it is newer. Depth loads stored record
+detail before applying a per-field bound (600/1600/4800 UTF-16 units); omissions
+include recovery pointers. State, follow-up, warnings, blockers, unresolved runs
+and continuation remain distinct. Host acknowledgement does not prove execution.
+
+Task history keeps its own cursor while execution/active-blocker pages change.
+Explicit task refresh also refreshes the current history page. Structured errors
+retain safe code, message, retry guidance and next action; uncertain effects still
+require reconciliation before retry.

@@ -186,32 +186,45 @@ describe("app-wide host operation fence", () => {
   });
 });
 
-it("applies context depth to excerpt size while preserving exact identity and no-replay instructions", async () => {
-  const lengths: number[] = [];
+it("uses the shared server projection and requests the selected depth for host actions", async () => {
   for (const contextBudget of ["compact", "balanced", "deep"] as const) {
     const data = result();
-    data.dossier.summary = "S".repeat(6000);
-    data.dossier.nextAction = "N".repeat(4000);
+    data.resumeText =
+      "Synthetic shared projection: warning, follow-up, unresolved receipt, continuation.";
+    const resume = vi.fn(async () => data);
     const attach = vi.fn(async () => ({ updateId: "ack" }));
     const rendered = render(
       <TaskContextActions
         selection={selection}
         title="Synthetic task"
-        resume={async () => data}
+        resume={resume}
         host={{ attach }}
         contextBudget={contextBudget}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Atașează contextul" }));
     await waitFor(() => expect(attach).toHaveBeenCalledTimes(1));
+    expect(resume).toHaveBeenCalledWith("project", "task-a", contextBudget);
     const payload = attach.mock.calls[0][0];
-    expect(payload.text).toContain('"taskId":"task-a"');
-    expect(payload.text).toContain('"revision":3');
-    expect(payload.text).toContain("nu repeta execuții existente");
+    expect(payload.text).toBe(data.resumeText);
+    expect(payload.revision).toBe(data.dossier.taskRevision);
     expect(payload.provenance.report).toEqual(data.dossier.lastReported);
-    lengths.push(payload.text.length);
     rendered.unmount();
   }
-  expect(lengths[0]).toBeLessThan(lengths[1]);
-  expect(lengths[1]).toBeLessThan(lengths[2]);
+});
+
+it("clears an earlier prompt when preparation fails and does not mislabel it as clipboard failure", async () => {
+  const resume = vi
+    .fn()
+    .mockResolvedValueOnce(result())
+    .mockRejectedValueOnce(new Error("offline"));
+  mount({}, resume);
+  fireEvent.click(screen.getByRole("button", { name: "Copiază promptul" }));
+  await screen.findByLabelText("Prompt pentru conversație");
+  fireEvent.click(screen.getByRole("button", { name: "Copiază promptul" }));
+  await screen.findByText(/Contextul nu poate fi pregătit/);
+  expect(screen.queryByLabelText("Prompt pentru conversație")).toBeNull();
+  expect(
+    screen.queryByText(/Copierea automată nu este disponibilă/),
+  ).toBeNull();
 });

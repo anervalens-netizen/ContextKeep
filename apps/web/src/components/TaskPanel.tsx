@@ -1,3 +1,4 @@
+import { describeToolError } from "../lib/tool-error.js";
 import { usePanelText } from "../lib/panel-locale.js";
 import type { PanelPreferences } from "@contextkeep/shared";
 import { schedulePanelRefresh } from "../lib/panel-refresh.js";
@@ -82,6 +83,7 @@ export interface TaskTransport {
   resume?: (
     projectId: string,
     taskId: string,
+    depth?: PanelPreferences["contextBudget"],
   ) => Promise<{
     dossier: TaskDossier;
     resumeText: string;
@@ -171,11 +173,17 @@ export function TaskPanel({
   currentListKey.current = listKey;
   const [resumeText, setResumeText] = useState("");
   const [resuming, setResuming] = useState(false);
+  const resumeGeneration = useRef(0);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const selectedKey = useRef("");
   selectedKey.current = `${projectId}:${taskId}`;
   useEffect(() => {
+    ++resumeGeneration.current;
     setResumeText("");
     setResuming(false);
+    return () => {
+      ++resumeGeneration.current;
+    };
   }, [projectId, taskId]);
   useEffect(() => setOffset(0), [projectId, taskId]);
   const [tasks, setTasks] = useState<Task[]>([]),
@@ -207,7 +215,7 @@ export function TaskPanel({
             setNextProjects(p.nextOffset);
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (active) {
             setProjectsFailed(true);
             setError(tr("Could not load projects."));
@@ -253,10 +261,10 @@ export function TaskPanel({
             setTasksStatus("loaded");
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (active) {
             setTasksStatus("error");
-            setError(tr("Could not load tasks."));
+            setError(describeToolError(error, tr("Could not load tasks.")));
           }
         });
     return () => {
@@ -289,9 +297,14 @@ export function TaskPanel({
           revision: next.task.revision,
           ...(next.dossier ? { stateToken: next.dossier.stateToken } : {}),
         });
-      } catch {
+      } catch (error) {
         if (!stopped && serial.current === request)
-          setError(tr("Could not refresh task. Displayed data may be stale."));
+          setError(
+            describeToolError(
+              error,
+              tr("Could not refresh task. Displayed data may be stale."),
+            ),
+          );
       } finally {
         pending = false;
         if (!stopped && serial.current === request) setLoading(false);
@@ -324,7 +337,7 @@ export function TaskPanel({
         ),
       ]);
       setNextProjects(page.nextOffset);
-    } catch {
+    } catch (error) {
       setError(tr("Could not load more projects."));
     } finally {
       projectsPending.current = false;
@@ -355,7 +368,7 @@ export function TaskPanel({
         ]);
         setNextTasks(r.nextOffset);
       }
-    } catch {
+    } catch (error) {
       if (
         key === currentListKey.current &&
         generation === listGeneration.current
@@ -374,10 +387,16 @@ export function TaskPanel({
   async function prepareResume() {
     if (!transport.resume || resuming) return;
     const key = selectedKey.current;
+    const generation = ++resumeGeneration.current;
+    setResumeText("");
     setResuming(true);
     try {
       const result = await transport.resume(projectId, taskId);
-      if (selectedKey.current !== key) return;
+      if (
+        selectedKey.current !== key ||
+        generation !== resumeGeneration.current
+      )
+        return;
       setResumeText(result.resumeText);
       onResume?.(
         {
@@ -388,11 +407,23 @@ export function TaskPanel({
         },
         result.resumeText,
       );
-    } catch {
-      if (selectedKey.current === key)
-        setError(tr("Contextul de reluare nu poate fi pregătit."));
+    } catch (error) {
+      if (
+        selectedKey.current === key &&
+        generation === resumeGeneration.current
+      )
+        setError(
+          describeToolError(
+            error,
+            tr("Contextul de reluare nu poate fi pregătit."),
+          ),
+        );
     } finally {
-      if (selectedKey.current === key) setResuming(false);
+      if (
+        selectedKey.current === key &&
+        generation === resumeGeneration.current
+      )
+        setResuming(false);
     }
   }
   return (
@@ -550,7 +581,10 @@ export function TaskPanel({
         <div className="ck-refresh-controls">
           <button
             disabled={loading}
-            onClick={() => void refreshTask.current?.()}
+            onClick={() => {
+              setHistoryRefresh((value) => value + 1);
+              void refreshTask.current?.();
+            }}
           >
             {tr("Actualizează taskul")}
           </button>
@@ -725,13 +759,7 @@ export function TaskPanel({
               ))
             )}
           </article>
-          {transport.activity ? (
-            <OperationalHistory
-              projectId={projectId}
-              taskId={taskId}
-              load={transport.activity}
-            />
-          ) : (
+          {!transport.activity && (
             <article>
               <h3>{tr("Evidence timeline")}</h3>
               {view.records.length === 0 ? (
@@ -749,7 +777,7 @@ export function TaskPanel({
               )}
             </article>
           )}
-          <nav aria-label={tr("Task history pages")}>
+          <nav aria-label={tr("Execution and blocker pages")}>
             <button
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - 20))}
@@ -760,7 +788,7 @@ export function TaskPanel({
               disabled={view.pagination.nextOffset === null}
               onClick={() => setOffset(view.pagination.nextOffset ?? offset)}
             >
-              {tr(" More history ")}
+              {tr(" More executions / blockers ")}
             </button>
           </nav>
           <small>
@@ -769,6 +797,15 @@ export function TaskPanel({
             )}
           </small>
         </>
+      )}
+      {projectId && taskId && transport.activity && (
+        <OperationalHistory
+          key={projectId + ":" + taskId}
+          projectId={projectId}
+          taskId={taskId}
+          load={transport.activity}
+          refreshKey={historyRefresh}
+        />
       )}
     </section>
   );

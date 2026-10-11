@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { TaskStatus } from "@contextkeep/shared";
 import { recordEvidence, records, sourceExcerpts, sources } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
@@ -74,13 +74,14 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
     if (input.taskId && input.checkpoint?.projectLevelIntent)
       throw new ApiError(400, "checkpoint_scope_conflict", "A checkpoint cannot be both task-scoped and a project note.");
     const runBinding = input.runEvidence ? validateRunEvidence(deps, input.projectId, input.taskId, input.runEvidence) : null;
+    if (input.outcome.includes("\u0000") || input.subject.includes("\u0000")) throw new ApiError(400, "unsupported_text_character", "Text must not contain NUL.");
     const rawEvidence = input.evidenceText ?? input.outcome;
     const normalized = normalizeText(rawEvidence);
     if (!normalized) throw new ApiError(400, "empty_after_normalization", "Evidence is empty after normalization.");
     const contentHash = sha256(rawEvidence);
     const normalizedHash = sha256(normalized);
     const existing = deps.db.select().from(sources)
-      .where(or(eq(sources.contentHash, contentHash), eq(sources.normalizedHash, normalizedHash))).get();
+      .where(eq(sources.contentHash, contentHash)).get();
 
     let sourceId: string;
     let excerptIds: string[];
@@ -162,7 +163,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
         : input.structuredValueJson === undefined || input.structuredValueJson === null
           ? null
           : JSON.stringify(input.structuredValueJson),
-      dedupIdentity: input.dedupIdentity ?? `agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${checkpoint ? ":event:" + (ctx.requestId ?? newId()) : ""}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
+      dedupIdentity: input.dedupIdentity ?? `exact:${sha256(JSON.stringify([input.subject, input.outcome, input.eventAt]))}:agent_report:${input.taskId ? input.taskId + ":" : ""}${checkpointIdentity(checkpoint)}${checkpoint ? ":event:" + (ctx.requestId ?? newId()) : ""}${runBinding ? ":run:" + JSON.stringify(runBinding) : ""}`,
     }, ctx);
     const outcomeRecord = requireRecord(deps, created.record.id);
     if (input.taskId) deps.sqlite.prepare("INSERT OR IGNORE INTO workflow_task_records(task_id,record_id) VALUES (?,?)").run(input.taskId, outcomeRecord.id);

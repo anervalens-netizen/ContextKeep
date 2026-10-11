@@ -50,7 +50,7 @@ and the host panel; it does not silently promote reports to accepted knowledge.
 
 ## Reliable task continuity
 
-MCP 2.17.1 / schema 19 retains explicit execution-evidence correlation and immutable
+MCP 2.18.0 / schema 19 retains explicit execution-evidence correlation and immutable
 verification receipts and adds task-scope guardrails, current-state-first resume,
 operational task handoffs and no-replay uncertain-run reconciliation. A historical pass and a currently valid proof are different
 states. Read [Execution evidence](docs/VERIFICATION_EVIDENCE.md) for the optional
@@ -61,7 +61,7 @@ The shared task view preserves explicitly cleared next steps, includes task-scop
 blocker-resolution history, and distinguishes subscription configuration from real
 delivery status. Project cards keep loaded pages current after pagination errors.
 Event delivery supports generation-safe renewal and bounded graceful shutdown.
-The host widget advertises v7.2 while retaining compatibility reads of installed v2/v3/v4/v5/v6/v7/v7.1 resources.
+The host widget advertises v7.3 while retaining compatibility reads of installed v2/v3/v4/v5/v6/v7/v7.1 resources.
 
 Private monitoring can use authenticated `GET /api/health`. It reports a real
 SQLite application/schema read, not merely successful delivery of the application's HTML. Production

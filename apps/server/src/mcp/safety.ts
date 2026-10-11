@@ -33,15 +33,19 @@ function replayStoredResult(body: string, secrets: string[]): CallToolResult {
   }
 }
 
+export function safeText(value: string, secrets: string[], preserveLength = false): string {
+  let text = value;
+  for (const secret of secrets) {
+    if (secret.length >= 8) text = text.split(secret).join(preserveLength ? "*".repeat(secret.length) : "<REDACTED_CREDENTIAL>");
+  }
+  return redactCredentialLikeText(text, preserveLength).text;
+}
+
 /** Redact both known credentials and credential-shaped project text at the boundary. */
 export function safeValue(value: unknown, secrets: string[]): unknown {
   return JSON.parse(JSON.stringify(value, (_key, item: unknown) => {
     if (typeof item !== "string") return item;
-    let text = item;
-    for (const secret of secrets) {
-      if (secret.length >= 8) text = text.split(secret).join("<REDACTED_CREDENTIAL>");
-    }
-    return redactCredentialLikeText(text).text;
+    return safeText(item, secrets);
   }));
 }
 
@@ -175,13 +179,14 @@ export async function durableWrite(
 
 /** Synchronous mutations and replay receipt share one transaction, including crash recovery. */
 export function atomicWrite(deps: ServiceDeps, name: string, input: {idempotencyKey: string},
-  operation: () => unknown, secrets: string[]): CallToolResult {
+  operation: () => unknown, secrets: string[], compatibility?: { legacyInput: unknown; version: string }): CallToolResult {
   return deps.sqlite.transaction(() => {
     const key = "mcp:" + input.idempotencyKey;
-    const hash = requestHash("MCP", name, input);
+    const hash = requestHash("MCP", compatibility ? name + ":" + compatibility.version : name, input);
+    const legacyHash = compatibility ? requestHash("MCP", name, compatibility.legacyInput) : null;
     const claim = tryClaim(deps.sqlite, {key,method:"MCP",url:name,requestHash:hash});
     if (!claim.fresh) {
-      if (claim.claim.requestHash !== hash) throw new ApiError(409,"idempotency_key_reused","Use a new idempotencyKey for a different operation.");
+      if (claim.claim.requestHash !== hash && claim.claim.requestHash !== legacyHash) throw new ApiError(409,"idempotency_key_reused","Use a new idempotencyKey for a different operation.");
       if (claim.claim.state === "completed" && claim.claim.responseBody !== null) return replayStoredResult(claim.claim.responseBody, secrets);
       if (claim.claim.state === "completed") throw new ApiError(409,"idempotency_result_expired",IDEMPOTENCY_RESULT_EXPIRED_MESSAGE);
       throw new ApiError(409,claim.claim.state === "pending" ? "idempotency_in_progress" : "idempotency_outcome_unknown","Inspect the earlier operation before retrying.");

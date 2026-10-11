@@ -1,3 +1,4 @@
+import { describeToolError } from "../lib/tool-error.js";
 import { usePanelText } from "../lib/panel-locale.js";
 import { schedulePanelRefresh } from "../lib/panel-refresh.js";
 import type { TaskAttention } from "@contextkeep/shared";
@@ -28,7 +29,20 @@ export interface TaskDossier {
     recordedAt: string;
     reviewStatus: string;
   } | null;
+  summarySource?: {
+    recordId: string;
+    recordedAt: string;
+    provenance: string;
+    reviewStatus: string;
+  } | null;
+  nextActionSource?: {
+    recordId: string;
+    recordedAt: string;
+    provenance: string;
+    reviewStatus: string;
+  } | null;
   lastReported: {
+    text?: string;
     recordId: string;
     recordedAt: string;
     reviewStatus: string;
@@ -327,6 +341,31 @@ export function TaskNow({ dossier }: { dossier: TaskDossier }) {
           </div>
         )}
       </dl>
+      {(dossier.summarySource || dossier.nextActionSource) && (
+        <details>
+          <summary>{tr("Sursele rezumatului și pasului următor")}</summary>
+          <p>
+            {tr("Rezumat: ")}
+            {dossier.summarySource?.recordId} ·{" "}
+            {dossier.summarySource?.recordedAt} ·{" "}
+            {dossier.summarySource?.provenance} ·{" "}
+            {dossier.summarySource?.reviewStatus}
+          </p>
+          <p>
+            {tr("Pas următor: ")}
+            {dossier.nextActionSource?.recordId} ·{" "}
+            {dossier.nextActionSource?.recordedAt} ·{" "}
+            {dossier.nextActionSource?.provenance} ·{" "}
+            {dossier.nextActionSource?.reviewStatus}
+          </p>
+        </details>
+      )}
+      {dossier.lastReported?.text && (
+        <p className="ck-task-evidence">
+          {tr("Raport separat: ")}
+          {dossier.lastReported.text}
+        </p>
+      )}
       {dossier.lastReported && (
         <small>
           {tr(" Raport: ")}
@@ -481,17 +520,20 @@ export function ProjectNow({
           setError("");
           setObservedAt(new Date().toISOString());
         }
-      } catch {
+      } catch (error) {
         if (!stopped && generation.current === g) {
           publish(fresh, true);
           setError(
-            fresh.length > 0
-              ? tr(
-                  "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.",
-                )
-              : tr(
-                  "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
-                ),
+            describeToolError(
+              error,
+              fresh.length > 0
+                ? tr(
+                    "O parte din dosar a fost actualizată. Paginile rămase pot conține date vechi. Actualizează dosarul pentru a reîncerca.",
+                  )
+                : tr(
+                    "Dosarul nu poate fi actualizat. Datele afișate pot fi vechi.",
+                  ),
+            ),
           );
         }
       } finally {
@@ -740,11 +782,14 @@ export function PortfolioNow({
         setData(next);
         setObservedAt(new Date().toISOString());
         setError("");
-      } catch {
+      } catch (error) {
         if (active)
           setError(
-            tr(
-              "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.",
+            describeToolError(
+              error,
+              tr(
+                "Portofoliul nu poate fi actualizat. Datele afișate pot fi vechi.",
+              ),
             ),
           );
       } finally {
@@ -851,8 +896,10 @@ export function OperationalHistory({
   projectId,
   taskId,
   load,
+  refreshKey = 0,
 }: {
   projectId: string;
+  refreshKey?: number;
   taskId?: string;
   load: (
     projectId: string,
@@ -877,13 +924,16 @@ export function OperationalHistory({
       .then((d) => {
         if (active) setData(d);
       })
-      .catch(() => {
-        if (active) setError(tr("Istoricul nu poate fi încărcat."));
+      .catch((error) => {
+        if (active)
+          setError(
+            describeToolError(error, tr("Istoricul nu poate fi încărcat.")),
+          );
       });
     return () => {
       active = false;
     };
-  }, [projectId, taskId, offset, scope, load]);
+  }, [projectId, taskId, offset, scope, load, refreshKey]);
   return (
     <article aria-label={tr("Operational timeline")}>
       <h3>{tr("Istoric operațional")}</h3>

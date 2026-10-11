@@ -6,6 +6,9 @@ import { requireProject, requireRecord, deletionReceipt } from "../services/memo
 import type { ServiceDeps } from "../services/import.js";
 import { sourceProjectIds, sourceProjectScope } from "../services/source-membership.js";
 
+import { safeText } from "./safety.js";
+import { sha256 } from "../lib/hash.js";
+
 export type Page = { offset: number; limit: number };
 const next = (total: number, page: Page) => page.offset + page.limit < total ? page.offset + page.limit : null;
 export function pageResult<T>(items: T[], total: number, page: Page) {
@@ -79,12 +82,16 @@ export function readTimeline(deps: ServiceDeps, input: Page & { projectId: strin
   const total = count(deps, where);
   return { projectId: input.projectId, total, offset: input.offset, nextOffset: next(total, input), entries };
 }
-export function readRecord(deps: ServiceDeps, input: {recordId: string; includeUnreviewed: boolean; evidenceOffset: number; evidenceLimit: number}) {
+export function readRecord(deps: ServiceDeps, input: {recordId: string; includeUnreviewed: boolean; evidenceOffset: number; evidenceLimit: number}, secrets: string[] = []) {
   const row = requireRecord(deps, input.recordId);
   if (!input.includeUnreviewed && !["accepted", "superseded"].includes(row.reviewStatus))
     throw new ApiError(404, "agent_record_not_found", "Accepted or historical record not found. Use includeUnreviewed for inbox/deleted records.");
-  const evidence = deps.sqlite.prepare("SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,se.source_id AS sourceId,s.title AS sourceTitle,substr(se.exact_text,1,4000) AS text,length(se.exact_text)>4000 AS textTruncated FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?")
-    .all(row.id, input.evidenceLimit, input.evidenceOffset);
+  const evidence = deps.sqlite.prepare("SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,se.source_id AS sourceId,s.title AS sourceTitle,se.start_offset AS startOffset,se.end_offset AS endOffset,s.normalized_text AS fullText FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?")
+    .all(row.id, input.evidenceLimit, input.evidenceOffset).map(raw => {
+      const { fullText, startOffset, endOffset, ...metadata } = raw as { fullText: string; startOffset: number; endOffset: number; [key: string]: unknown };
+      const excerpt = safeText(fullText, secrets, true).slice(startOffset, endOffset);
+      return { ...metadata, text: Array.from(excerpt).slice(0, 4000).join(""), textTruncated: Array.from(excerpt).length > 4000 };
+    });
   const total = (deps.sqlite.prepare("SELECT count(*) n FROM record_evidence WHERE record_id=?").get(row.id) as {n:number}).n;
   const freshnessContext = loadRecordFreshnessContext(deps.db, [row]);
   const { evidence: _e, ...dto } = toRecordDto(row, [], freshnessContext);
@@ -101,15 +108,28 @@ export function listSources(deps: ServiceDeps, input: Page & {projectId: string}
   const total = Number(deps.db.select({ n: sql.raw("count(*)") }).from(sources).where(where).get()!.n);
   return pageResult(rows, total, input);
 }
-export function readSource(deps: ServiceDeps, input: { sourceId: string; offset: number; maxChars: number; excerptOffset: number; excerptLimit: number }) {
-  const row = deps.db.select({id:sources.id,projectId:sources.projectId,title:sources.title,kind:sources.kind,eventAt:sources.eventAt,
-    authorLabel:sources.authorLabel,provenanceBasis:sources.provenanceBasis}).from(sources).where(eq(sources.id,input.sourceId)).get();
+export function readSource(deps: ServiceDeps, input: { sourceId: string; representation?: "normalized" | "original"; offset: number; maxChars: number; excerptOffset: number; excerptLimit: number }, secrets: string[] = []) {
+  const row = deps.db.select().from(sources).where(eq(sources.id,input.sourceId)).get();
   if (!row) throw new ApiError(404, "source_not_found", "Source not found.");
-  const text = deps.sqlite.prepare("SELECT substr(normalized_text,?,?) text,length(normalized_text) totalChars FROM sources WHERE id=?")
-    .get(input.offset+1,input.maxChars,input.sourceId) as {text:string;totalChars:number};
-  const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset,substr(exact_text,1,4000) text,length(exact_text)>4000 AS textTruncated FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
-    .all(input.sourceId,input.excerptLimit,input.excerptOffset);
+  const representation = input.representation ?? "normalized";
+  // Redact the complete representation before computing any page boundary.
+  // JS code points also preserve historical NUL text, unlike SQLite substr.
+  const redacted = safeText(representation === "original" ? row.originalText : row.normalizedText, secrets);
+  const points = Array.from(redacted);
+  const normalizedMask = safeText(row.normalizedText, secrets, true);
+  const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
+    .all(input.sourceId,input.excerptLimit,input.excerptOffset).map(raw => {
+      const item = raw as { id: string; startOffset: number; endOffset: number };
+      const excerpt = Array.from(normalizedMask.slice(item.startOffset, item.endOffset));
+      return { ...item, text: excerpt.slice(0, 4000).join(""), textTruncated: excerpt.length > 4000 };
+    });
   const total = (deps.sqlite.prepare("SELECT count(*) n FROM source_excerpts WHERE source_id=?").get(input.sourceId) as {n:number}).n;
-  return {...row,projectIds:sourceProjectIds(deps,row.id),...text,offset:input.offset,nextOffset:input.offset+input.maxChars<text.totalChars?input.offset+input.maxChars:null,
+  return {id:row.id,projectId:row.projectId,title:row.title,kind:row.kind,eventAt:row.eventAt,
+    authorLabel:row.authorLabel,provenanceBasis:row.provenanceBasis,projectIds:sourceProjectIds(deps,row.id),
+    representation, offsetUnit:"unicode_code_points", excerptOffsetUnit:"normalized_utf16",
+    excerptRepresentation:"normalized_length_preserving_redaction",
+    contentHash:row.contentHash, normalizedHash:row.normalizedHash, deliveredHash:sha256(redacted),
+    text:points.slice(input.offset,input.offset+input.maxChars).join(""),totalChars:points.length,
+    offset:input.offset,nextOffset:input.offset+input.maxChars<points.length?input.offset+input.maxChars:null,
     excerpts,excerptTotal:total,excerptNextOffset:input.excerptOffset+input.excerptLimit<total?input.excerptOffset+input.excerptLimit:null,canonicalTruth:false};
 }

@@ -114,3 +114,5 @@ export type AdapterUsageEstimate = AdapterUsage | null;
 export type { AttentionCategory, BlockerCategoryCounts, TaskAttention } from "./attention.js";
 
 export * from "./panel-preferences.js";
+
+export { redactCredentialLikeText, type RedactionResult } from "./redaction.js";
