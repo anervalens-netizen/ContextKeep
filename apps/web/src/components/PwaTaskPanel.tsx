@@ -16,7 +16,7 @@ export const transport: TaskTransport = {
     ),
   tasks: (p, offset = 0, options) =>
     apiFetch(
-      `/api/projects/${p}/tasks?selection=${options?.selection ?? "actual_tasks"}&view=${options?.view ?? "recent"}&offset=${offset}${options?.q ? `&q=${encodeURIComponent(options.q)}` : ""}`,
+      `/api/projects/${p}/tasks?selection=${options?.selection ?? "actual_tasks"}${options?.view && options.view !== "recent" ? `&view=${options.view}` : ""}&offset=${offset}${options?.q ? `&q=${encodeURIComponent(options.q)}` : ""}`,
     ),
   task: (p, t, offset = 0) =>
     apiFetch(`/api/projects/${p}/tasks/${t}?offset=${offset}`),

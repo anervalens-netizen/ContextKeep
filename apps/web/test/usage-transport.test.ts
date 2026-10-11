@@ -51,3 +51,17 @@ it("keeps safe structured error guidance across MCP and display", () => {
   expect(text).toContain("Retryable: false");
   expect(text).not.toContain("Z".repeat(25));
 });
+it("keeps default recent task pages on the bounded backend route", async () => {
+  await transport.tasks("p", 20, {
+    selection: "actual_tasks",
+    view: "recent",
+    q: "fixture",
+  });
+  const url = new URL(
+    vi.mocked(apiFetch).mock.calls.at(-1)![0],
+    "https://example.test",
+  );
+  expect(url.searchParams.has("view")).toBe(false);
+  expect(url.searchParams.get("offset")).toBe("20");
+  expect(url.searchParams.get("q")).toBe("fixture");
+});

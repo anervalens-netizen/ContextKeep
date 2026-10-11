@@ -128,7 +128,7 @@ export function readSource(deps: ServiceDeps, input: { sourceId: string; represe
     authorLabel:row.authorLabel,provenanceBasis:row.provenanceBasis,projectIds:sourceProjectIds(deps,row.id),
     representation, offsetUnit:"unicode_code_points", excerptOffsetUnit:"normalized_utf16",
     excerptRepresentation:"normalized_length_preserving_redaction",
-    contentHash:row.contentHash, normalizedHash:row.normalizedHash, deliveredHash:sha256(redacted),
+    contentHash:sha256(row.originalText), normalizedHash:sha256(row.normalizedText), deliveredHash:sha256(redacted),
     text:points.slice(input.offset,input.offset+input.maxChars).join(""),totalChars:points.length,
     offset:input.offset,nextOffset:input.offset+input.maxChars<points.length?input.offset+input.maxChars:null,
     excerpts,excerptTotal:total,excerptNextOffset:input.excerptOffset+input.excerptLimit<total?input.excerptOffset+input.excerptLimit:null,canonicalTruth:false};

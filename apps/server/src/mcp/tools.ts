@@ -549,7 +549,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("settings.update", "Set panel preferences; omitted fields are retained. No task selection or authorization changes.", SettingsUpdateInput, false, input => updatePanelSettings(requirePreferencesPath(), input.set), SettingsUpdateResult);
   registerManagementTools(define, deps, actorFor, secrets);
   registerWorkflowTools(define, deps, actorFor);
-  registerDossierTools(define, deps, actorFor);
+  registerDossierTools(define, deps, actorFor, secrets);
   define("open_task_panel","Open the project dossier or selected task in the ContextKeep panel. Does not start any execution.",
     z.strictObject({projectId:z.string().uuid().optional(),taskId:z.string().uuid().optional(),revision:z.number().int().optional()}),true,
     input=>panelBootstrap(deps,input,readPanelSettings(requirePreferencesPath()).values),z.object({}).passthrough());

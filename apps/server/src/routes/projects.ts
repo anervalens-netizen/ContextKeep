@@ -84,7 +84,7 @@ export function registerProjectRoutes(app: FastifyInstance): void {
       .extend({ taskId: z.string().uuid() })
       .parse(request.params);
     const { depth } = z.object({ depth: z.enum(["compact", "balanced", "deep"]).default("balanced") }).parse(request.query);
-    return resumeTask(deps, p.id, p.taskId, 0, 20, depth);
+    return resumeTask(deps, p.id, p.taskId, 0, 20, depth, [app.ck.config.mcpToken ?? "", app.ck.config.sessionSecret]);
   });
   app.get("/api/projects/:id/activity", async (request, reply) => {
     reply.header("cache-control", "no-store");

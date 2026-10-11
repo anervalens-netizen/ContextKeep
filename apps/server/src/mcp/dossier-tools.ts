@@ -42,6 +42,7 @@ export function registerDossierTools(
   define: Define,
   deps: ServiceDeps,
   actorFor: (input: Identity) => ActorCtx,
+  secrets: string[] = [],
 ) {
   define(
     "get_project_dossier",
@@ -88,6 +89,7 @@ export function registerDossierTools(
         i.unresolvedOffset,
         i.unresolvedLimit,
         i.depth,
+        secrets,
       ),
     result,
   );

@@ -1,3 +1,4 @@
+import { safeText } from "./redaction.js";
 import { taskSelectionPredicate, type TaskSelection } from "./task-selection.js";
 import { classifyTaskAttention, type AttentionInput } from "./task-attention.js";
 import { createHash } from "node:crypto";
@@ -519,7 +520,7 @@ export function taskDossier(
     r.recorded_at AS recordedAt,r.evidence_basis AS evidenceBasis,r.review_status AS reviewStatus
     FROM records r JOIN workflow_task_records tr ON tr.record_id=r.id
     WHERE tr.task_id=? AND ${currentRecords}
-    AND (NOT json_valid(r.value_json) OR coalesce(json_extract(r.value_json,'$.kind'),'') NOT IN ('continuation_policy','project_link','task_operational_handoff'))
+    AND (NOT json_valid(r.value_json) OR coalesce(json_extract(r.value_json,'$.kind'),'') NOT IN ('continuation_policy','project_link','task_operational_handoff','working_checkpoint','task_progress'))
     ORDER BY r.recorded_at DESC,r.id DESC LIMIT 1`,
     )
     .get(taskId) as
@@ -766,6 +767,7 @@ export function resumeTask(
   unresolvedOffset = 0,
   unresolvedLimit = 20,
   depth: "compact" | "balanced" | "deep" = "balanced",
+  secrets: string[] = [],
 ) {
   const dossier = taskDossier(deps, projectId, taskId, {
     offset: unresolvedOffset,
@@ -785,15 +787,24 @@ export function resumeTask(
     }
     if (typeof value !== "string") return null;
     if (value.length > max) omitted.push({ field, recordId, tool: "get_record" });
-    return clip(value, max);
+    return clip(safeText(value, secrets), max);
   };
+  dossier.objective = clip(safeText(requireRecord(deps, taskId).text, secrets), 1600);
   dossier.summary = detail(dossier.summarySource?.recordId, "summary", dossier.summary);
-  if (!dossier.lifecycleSuppressed) dossier.nextAction = detail(dossier.nextActionSource?.recordId, "nextAction", dossier.nextAction);
+  const next = detail(dossier.nextActionSource?.recordId, "nextAction", dossier.nextAction);
+  if (!dossier.lifecycleSuppressed) dossier.nextAction = next;
+  else dossier.suppressedNextAction = next;
+  if (dossier.checkpoint) {
+    dossier.checkpoint.summary = detail(dossier.checkpoint.recordId, "summary", dossier.checkpoint.summary) ?? "";
+    dossier.checkpoint.nextAction = detail(dossier.checkpoint.recordId, "nextAction", dossier.checkpoint.nextAction);
+  }
   if (dossier.lastReported) dossier.lastReported.text = detail(dossier.lastReported.recordId, "text", dossier.lastReported.text)!;
   if (dossier.followUp) {
     dossier.followUp.summary = detail(dossier.followUp.checkpointRecordId, "summary", dossier.followUp.summary);
     dossier.followUp.nextAction = detail(dossier.followUp.checkpointRecordId, "nextAction", dossier.followUp.nextAction);
   }
+  // Apply the same credential boundary to full nested fields on HTTP and MCP.
+  Object.assign(dossier, JSON.parse(JSON.stringify(dossier, (_key, value: unknown) => typeof value === "string" ? safeText(value, secrets) : value)));
   const text = [
     `Resume ContextKeep project ${projectId}, task ${taskId}.`,
     `Task identity: ${JSON.stringify({ taskId, revision: dossier.taskRevision, stateToken: dossier.stateToken })}.`,

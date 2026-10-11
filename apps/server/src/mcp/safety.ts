@@ -3,7 +3,8 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { McpToolErrorResult } from "@contextkeep/shared";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps } from "../services/import.js";
-import { redactCredentialLikeText } from "../services/redaction.js";
+import { safeText } from "../services/redaction.js";
+export { safeText } from "../services/redaction.js";
 import {
   finalizeClaim,
   IDEMPOTENCY_RESULT_EXPIRED_MESSAGE,
@@ -31,14 +32,6 @@ function replayStoredResult(body: string, secrets: string[]): CallToolResult {
     // identity and never invoke the mutation again merely to rebuild a reply.
     throw new ApiError(409, "idempotency_result_unavailable", "The earlier request completed, but its stored reply cannot be returned safely. Reconcile existing state; do not replace the event key.");
   }
-}
-
-export function safeText(value: string, secrets: string[], preserveLength = false): string {
-  let text = value;
-  for (const secret of secrets) {
-    if (secret.length >= 8) text = text.split(secret).join(preserveLength ? "*".repeat(secret.length) : "<REDACTED_CREDENTIAL>");
-  }
-  return redactCredentialLikeText(text, preserveLength).text;
 }
 
 /** Redact both known credentials and credential-shaped project text at the boundary. */

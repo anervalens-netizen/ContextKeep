@@ -360,3 +360,104 @@ it("attributes a legacy checkpoint summary fallback to reported progress", async
   expect(resume.dossier.summarySource.recordId).toBe(progress.recordId);
   expect(resume.dossier.nextActionSource.recordId).toBe(cp.outcome.recordId);
 });
+
+it("exposes text hashes independently of a salted correction storage identity", async () => {
+  const { t, capture } = await setup();
+  const raw = "Original correction evidence";
+  const r = await ok(t, "capture_work", capture({ evidenceText: raw }));
+  t.app.ck.handle.sqlite
+    .prepare(
+      "UPDATE sources SET kind='owner_correction',content_hash=? WHERE id=?",
+    )
+    .run(
+      crypto
+        .createHash("sha256")
+        .update(raw + "salt")
+        .digest("hex"),
+      r.source.id,
+    );
+  const source = await ok(t, "get_source", {
+    sourceId: r.source.id,
+    representation: "original",
+  });
+  expect(source.contentHash).toBe(
+    crypto.createHash("sha256").update(raw).digest("hex"),
+  );
+});
+it("does not label a state checkpoint as a separate report", async () => {
+  const { t, capture } = await setup();
+  const task = await ok(
+    t,
+    "capture_work",
+    capture({ recordType: "action", outcome: "State-bearing fixture" }),
+  );
+  const taskId = task.outcome.recordId,
+    projectId = capture().projectId;
+  await ok(
+    t,
+    "capture_work",
+    capture({
+      taskId,
+      outcome: "Checkpoint",
+      checkpoint: {
+        summary: "Latest summary",
+        nextAction: "New explicit next",
+      },
+    }),
+  );
+  const resumed = await ok(t, "resume_task", { projectId, taskId });
+  expect(resumed.dossier.lastReported).toBeNull();
+  expect(resumed.resumeText).not.toContain("Latest separate report:");
+  expect(resumed.dossier.nextAction).toBe("New explicit next");
+});
+it("redacts complete resume fields before every depth boundary on HTTP and MCP", async () => {
+  const { t, capture } = await setup();
+  const task = await ok(
+    t,
+    "capture_work",
+    capture({ recordType: "action", outcome: "Secret boundary fixture" }),
+  );
+  const taskId = task.outcome.recordId,
+    projectId = capture().projectId;
+  const cp = await ok(
+    t,
+    "capture_work",
+    capture({
+      taskId,
+      outcome: "Checkpoint",
+      checkpoint: { summary: "Fixture", nextAction: "Fixture next" },
+    }),
+  );
+  const report = await ok(
+    t,
+    "capture_work",
+    capture({ taskId, outcome: "Separate report" }),
+  );
+  for (const [depth, limit] of [
+    ["compact", 600],
+    ["balanced", 1600],
+    ["deep", 4800],
+  ] as const) {
+    const raw = "a".repeat(limit - 10) + token + " end";
+    t.app.ck.handle.sqlite
+      .prepare(
+        "UPDATE records SET value_json=json_set(value_json,'$.summary',?,'$.nextAction',?) WHERE id=?",
+      )
+      .run(raw, raw, cp.outcome.recordId);
+    t.app.ck.handle.sqlite
+      .prepare("UPDATE records SET text=? WHERE id=?")
+      .run(raw, report.outcome.recordId);
+    t.app.ck.handle.sqlite
+      .prepare("UPDATE records SET text=? WHERE id=?")
+      .run("a".repeat(1590) + token, taskId);
+    const result = await ok(t, "resume_task", { projectId, taskId, depth });
+    const http = (
+      await t.get(
+        `/api/projects/${projectId}/tasks/${taskId}/resume?depth=${depth}`,
+      )
+    ).json();
+    expect(JSON.stringify(result)).not.toContain(token.slice(0, 10));
+    expect(JSON.stringify(http)).not.toContain(token.slice(0, 10));
+    expect(http.resumeText).toBe(result.resumeText);
+  }
+});
