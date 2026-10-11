@@ -19,13 +19,17 @@ import {
   SESSION_COOKIE,
 } from "../services/session.js";
 
+import { registerOidcRoutes } from "./oidc.js";
+
 /** Public auth routes: status, first-run setup, login. Logout lives in the authed scope. */
 export function registerPublicAuthRoutes(app: FastifyInstance): void {
   const { deps, config } = app.ck;
+  registerOidcRoutes(app);
 
   app.get("/api/auth/status", async (request, reply) => {
     const session = readSession(deps.db, request.cookies[SESSION_COOKIE], (renewed) => setAuthCookies(reply, config, renewed));
-    return { needsSetup: needsSetup(deps.db), authenticated: session !== null };
+    return { needsSetup: needsSetup(deps.db), authenticated: session !== null,
+      ...(config.oidc && !needsSetup(deps.db) ? { oidcAvailable: true } : {}) };
   });
 
   app.post(

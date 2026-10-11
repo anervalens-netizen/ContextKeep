@@ -132,3 +132,29 @@ sync when deploying operational changes.
 
 Validate with `python3 ops/contextkeep-minimal-retention.py --self-test` and the
 operational recovery suite. A retention test is not a full application restore.
+
+### Optional owner single sign-on
+
+Local owner password login remains available. To add OpenID Connect, configure
+all of `CK_OIDC_ISSUER`, `CK_OIDC_CLIENT_ID`, `CK_OIDC_CLIENT_SECRET`,
+`CK_OIDC_OWNER_SUBJECT` and `CK_OIDC_CALLBACK_URL` privately. The issuer and
+callback must use HTTPS, with secure cookies enabled. Register the exact
+callback path `/api/auth/oidc/callback` as a strict redirect URI on a confidential
+client with a signing key and the `openid` scope. `CK_OIDC_OWNER_SUBJECT` must be
+the owner's exact, stable `sub` claim for this provider, not an email, role or a
+claim inferred from an unverified token. All other subjects are refused.
+
+Complete local owner setup first. The sign-in page then offers a top-level SSO
+link, including when the application is embedded. The provider can reuse its
+existing browser session. The callback creates the normal ContextKeep session
+and CSRF cookies; provider tokens are not stored. `CK_OIDC_RETURN_URL` defaults
+to `/`; operators may set a fixed HTTPS application URL for returning to a shell.
+No request parameter controls this destination.
+
+Each authorization attempt has PKCE, state, nonce and a five-minute HttpOnly
+browser binding. Attempts are single-use and held in bounded server memory;
+restarting the server invalidates incomplete sign-ins. Signed ID tokens are
+validated against the provider's published keys. Session lifetime and logout
+remain the same as local password sessions. ContextKeep logout does not sign out
+other applications at the identity provider. Removing the OIDC configuration
+hides the SSO link and leaves local owner login available.

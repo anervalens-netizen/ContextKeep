@@ -679,6 +679,7 @@ export const SearchResultDto = z.object({
 export type SearchResultDto = z.infer<typeof SearchResultDto>;
 
 export const AuthStatusDto = z.object({
+  oidcAvailable: z.boolean().optional(),
   needsSetup: z.boolean(),
   authenticated: z.boolean(),
 });

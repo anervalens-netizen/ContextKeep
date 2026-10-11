@@ -71,6 +71,12 @@ export default function Login(): ReactNode {
             ? "Choose the local owner password. It is stored hashed (scrypt) on this machine only — no external identity provider."
             : "Single-user, owner-only access. Sessions use a Secure/HttpOnly cookie with CSRF protection."}
         </p>
+        {auth.data?.oidcAvailable && !needsSetup ? (
+          <a href="/api/auth/oidc/start" target="_top"
+            className="mt-3 block w-full rounded-xl bg-ck-teal px-3 py-2 text-center text-sm font-semibold text-on-brand">
+            Continue with single sign-on
+          </a>
+        ) : null}
         <input
           type="password"
             aria-label="Password"

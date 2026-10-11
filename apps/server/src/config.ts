@@ -19,6 +19,12 @@ const EnvSchema = z.object({
   CK_MCP_DELEGATE_WORKING_MEMORY: z.enum(["true", "false"]).default("false"),
   CK_SESSION_SECRET: z.preprocess(emptyToUndef, z.string().min(8).optional()),
   CK_BUILD_SHA: z.preprocess(emptyToUndef, z.string().regex(/^[0-9a-fA-F]{7,64}$/).optional()),
+  CK_OIDC_ISSUER: z.preprocess(emptyToUndef, z.string().url().optional()),
+  CK_OIDC_CLIENT_ID: z.preprocess(emptyToUndef, z.string().min(1).optional()),
+  CK_OIDC_CLIENT_SECRET: z.preprocess(emptyToUndef, z.string().min(16).optional()),
+  CK_OIDC_OWNER_SUBJECT: z.preprocess(emptyToUndef, z.string().min(1).optional()),
+  CK_OIDC_CALLBACK_URL: z.preprocess(emptyToUndef, z.string().url().optional()),
+  CK_OIDC_RETURN_URL: z.string().default("/"),
   CK_COOKIE_SECURE: z.enum(["true", "false"]).default("true"),
   CK_BACKUP_DIR: z.string().min(1).default("./backups"),
   CK_BACKUP_KEEP: z.coerce.number().int().min(1).max(1000).default(14),
@@ -75,6 +81,8 @@ export interface AppConfig {
   secretIsEphemeral: boolean;
   /** Exact deployed Git commit when provided by the release environment. */
   buildSha: string | null;
+  /** Optional OIDC provider; only this exact subject may become the owner. */
+  oidc?: { issuer: string; clientId: string; clientSecret: string; ownerSubject: string; callbackUrl: string; returnUrl: string };
   cookieSecure: boolean;
   backupDir: string;
   backupKeep: number;
@@ -130,6 +138,23 @@ export function loadConfig(
   if (parsed.CK_MCP_DELEGATE_WORKING_MEMORY === "true" && !parsed.CK_MCP_DEFAULT_CLIENT_ID) {
     throw new Error("CK_MCP_DEFAULT_CLIENT_ID is required when CK_MCP_DELEGATE_WORKING_MEMORY=true.");
   }
+  const oidcFields = [parsed.CK_OIDC_ISSUER, parsed.CK_OIDC_CLIENT_ID, parsed.CK_OIDC_CLIENT_SECRET,
+    parsed.CK_OIDC_OWNER_SUBJECT, parsed.CK_OIDC_CALLBACK_URL];
+  let oidc: AppConfig["oidc"];
+  if (oidcFields.some(Boolean)) {
+    if (!oidcFields.every(Boolean)) throw new Error("All CK_OIDC provider and owner settings are required.");
+    const issuer = new URL(parsed.CK_OIDC_ISSUER!);
+    const callback = new URL(parsed.CK_OIDC_CALLBACK_URL!);
+    const returnUrl = parsed.CK_OIDC_RETURN_URL;
+    const safeUrl = (url: URL) => url.protocol === "https:" && !url.username && !url.password && !url.hash;
+    if (!safeUrl(issuer) || issuer.search || !safeUrl(callback) || callback.search ||
+        callback.pathname !== "/api/auth/oidc/callback" || parsed.CK_COOKIE_SECURE !== "true") {
+      throw new Error("OIDC requires HTTPS issuer/callback, secure cookies and the fixed callback path.");
+    }
+    if (returnUrl !== "/" && !safeUrl(new URL(returnUrl))) throw new Error("Invalid OIDC return URL.");
+    oidc = { issuer: issuer.href, clientId: parsed.CK_OIDC_CLIENT_ID!, clientSecret: parsed.CK_OIDC_CLIENT_SECRET!,
+      ownerSubject: parsed.CK_OIDC_OWNER_SUBJECT!, callbackUrl: callback.href, returnUrl };
+  }
   const base: AppConfig = {
     sqliteSynchronous: parsed.CK_SQLITE_SYNCHRONOUS ?? (parsed.NODE_ENV === "production" ? "FULL" : "NORMAL"),
     dataDir,
@@ -142,6 +167,7 @@ export function loadConfig(
     mcpDelegateWorkingMemory: parsed.CK_MCP_DELEGATE_WORKING_MEMORY === "true",
     secretIsEphemeral,
     buildSha: parsed.CK_BUILD_SHA?.toLowerCase() ?? null,
+    oidc,
     cookieSecure: parsed.CK_COOKIE_SECURE === "true",
     backupDir,
     backupKeep: parsed.CK_BACKUP_KEEP,
