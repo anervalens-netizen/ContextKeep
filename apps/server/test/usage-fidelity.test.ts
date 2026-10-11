@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { afterEach, expect, it } from "vitest";
+import Database from "better-sqlite3";
+import { afterEach, expect, it, vi } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
 import { readSource } from "../src/mcp/reads.js";
 import { requestHash } from "../src/services/idempotency.js";
@@ -459,5 +460,61 @@ it("redacts complete resume fields before every depth boundary on HTTP and MCP",
     expect(JSON.stringify(result)).not.toContain(token.slice(0, 10));
     expect(JSON.stringify(http)).not.toContain(token.slice(0, 10));
     expect(http.resumeText).toBe(result.resumeText);
+  }
+});
+
+it("reuses bounded source preparation across large pages and invalidates on writes and secrets", async () => {
+  const { t, capture } = await setup();
+  const r = await ok(t, "capture_work", capture());
+  const db = t.app.ck.handle.sqlite;
+  const deps = { db: t.app.ck.handle.db, sqlite: db } as any;
+  const raw = "a".repeat(4 * 1024 * 1024 - 128) + "😀" + token;
+  db.prepare(
+    "UPDATE sources SET original_text=?,normalized_text=? WHERE id=?",
+  ).run(raw, raw, r.source.id);
+  const select = vi.spyOn(deps.db, "select");
+  const input = {
+    sourceId: r.source.id,
+    offset: 0,
+    maxChars: 20000,
+    excerptOffset: 0,
+    excerptLimit: 1,
+  };
+  try {
+    let joined = "",
+      offset: number | null = 0;
+    while (offset !== null) {
+      const page = readSource(deps, { ...input, offset }, [token]);
+      joined += page.text;
+      offset = page.nextOffset;
+    }
+    expect(joined).toBe(raw.replace(token, "<REDACTED_CREDENTIAL>"));
+    expect(select).toHaveBeenCalledTimes(1);
+    const updated = "synthetic-rotated-credential";
+    db.prepare(
+      "UPDATE sources SET original_text=?,normalized_text=? WHERE id=?",
+    ).run(updated, updated, r.source.id);
+    expect(readSource(deps, input, [token]).text).toBe(updated);
+    expect(select).toHaveBeenCalledTimes(2);
+    expect(readSource(deps, input, [token, updated]).text).toBe(
+      "<REDACTED_CREDENTIAL>",
+    );
+    expect(select).toHaveBeenCalledTimes(3);
+    const external = new Database(db.name);
+    try {
+      external
+        .prepare(
+          "UPDATE sources SET original_text='External update',normalized_text='External update' WHERE id=?",
+        )
+        .run(r.source.id);
+    } finally {
+      external.close();
+    }
+    expect(readSource(deps, input, [token, updated]).text).toBe(
+      "External update",
+    );
+    expect(select).toHaveBeenCalledTimes(4);
+  } finally {
+    select.mockRestore();
   }
 });

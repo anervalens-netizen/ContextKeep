@@ -4,7 +4,7 @@ export const transport: TaskTransport = {
   projects: () => apiFetch("/api/projects"),
   overview: (p, offset = 0, attentionOffset, options) =>
     apiFetch(
-      `/api/projects/${p}/dossier?selection=${options?.selection ?? "actual_tasks"}&view=${options?.view ?? "recent"}${options?.q ? `&q=${encodeURIComponent(options.q)}` : ""}&offset=${offset}&limit=10${attentionOffset === undefined ? "" : `&attentionOffset=${attentionOffset}&attentionLimit=10`}`,
+      `/api/projects/${p}/dossier?selection=${options?.selection ?? "actual_tasks"}${options?.view && options.view !== "recent" ? `&view=${options.view}` : ""}${options?.q ? `&q=${encodeURIComponent(options.q)}` : ""}&offset=${offset}&limit=10${attentionOffset === undefined ? "" : `&attentionOffset=${attentionOffset}&attentionLimit=10`}`,
     ),
   portfolio: (offset = 0) =>
     apiFetch(`/api/portfolio?selection=actual_tasks&offset=${offset}&limit=20`),

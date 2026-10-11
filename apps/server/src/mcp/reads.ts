@@ -108,15 +108,64 @@ export function listSources(deps: ServiceDeps, input: Page & {projectId: string}
   const total = Number(deps.db.select({ n: sql.raw("count(*)") }).from(sources).where(where).get()!.n);
   return pageResult(rows, total, input);
 }
-export function readSource(deps: ServiceDeps, input: { sourceId: string; representation?: "normalized" | "original"; offset: number; maxChars: number; excerptOffset: number; excerptLimit: number }, secrets: string[] = []) {
-  const row = deps.db.select().from(sources).where(eq(sources.id,input.sourceId)).get();
+const SOURCE_CACHE_BYTES = 64 * 1024 * 1024;
+const SOURCE_INDEX_STRIDE = 1024;
+function prepareSource(deps: ServiceDeps, sourceId: string, representation: "normalized" | "original", secrets: string[]) {
+  const row = deps.db.select().from(sources).where(eq(sources.id, sourceId)).get();
   if (!row) throw new ApiError(404, "source_not_found", "Source not found.");
-  const representation = input.representation ?? "normalized";
-  // Redact the complete representation before computing any page boundary.
-  // JS code points also preserve historical NUL text, unlike SQLite substr.
-  const redacted = safeText(representation === "original" ? row.originalText : row.normalizedText, secrets);
-  const points = Array.from(redacted);
+  const text = safeText(representation === "original" ? row.originalText : row.normalizedText, secrets);
   const normalizedMask = safeText(row.normalizedText, secrets, true);
+  // Sparse code-point anchors avoid an array entry for every character of a large source.
+  const anchors: number[] = [];
+  let totalChars = 0;
+  for (let i = 0; i < text.length; totalChars++) {
+    if (totalChars % SOURCE_INDEX_STRIDE === 0) anchors.push(i);
+    i += text.codePointAt(i)! > 0xffff ? 2 : 1;
+  }
+  return { text, normalizedMask, anchors, totalChars,
+    bytes: (text.length + normalizedMask.length) * 2 + anchors.length * 8 + 1024,
+    metadata: { id: row.id, projectId: row.projectId, title: row.title, kind: row.kind, eventAt: row.eventAt,
+      authorLabel: row.authorLabel, provenanceBasis: row.provenanceBasis,
+      contentHash: sha256(row.originalText), normalizedHash: sha256(row.normalizedText), deliveredHash: sha256(text) } };
+}
+type PreparedSource = ReturnType<typeof prepareSource>;
+const sourceCaches = new WeakMap<ServiceDeps["sqlite"], { stamp: string; bytes: number; entries: Map<string, PreparedSource> }>();
+function cachedSource(deps: ServiceDeps, sourceId: string, representation: "normalized" | "original", secrets: string[]) {
+  // Own-connection writes, external commits and credential rotation all invalidate.
+  const changes = (deps.sqlite.prepare("SELECT total_changes() n").get() as { n: number }).n;
+  const stamp = `${changes}:${deps.sqlite.pragma("data_version", { simple: true })}:${sha256(JSON.stringify(secrets))}`;
+  let cache = sourceCaches.get(deps.sqlite);
+  if (!cache || cache.stamp !== stamp) {
+    cache = { stamp, bytes: 0, entries: new Map() };
+    sourceCaches.set(deps.sqlite, cache);
+  }
+  const key = `${sourceId}:${representation}`;
+  const existing = cache.entries.get(key);
+  if (existing) { cache.entries.delete(key); cache.entries.set(key, existing); return existing; }
+  const prepared = prepareSource(deps, sourceId, representation, secrets);
+  if (prepared.bytes <= SOURCE_CACHE_BYTES) {
+    while (cache.entries.size && (cache.entries.size >= 4 || cache.bytes + prepared.bytes > SOURCE_CACHE_BYTES)) {
+      const oldest = cache.entries.keys().next().value!;
+      cache.bytes -= cache.entries.get(oldest)!.bytes;
+      cache.entries.delete(oldest);
+    }
+    cache.entries.set(key, prepared); cache.bytes += prepared.bytes;
+  }
+  return prepared;
+}
+function sourcePage(source: PreparedSource, offset: number, limit: number) {
+  if (offset >= source.totalChars) return "";
+  const anchor = Math.floor(offset / SOURCE_INDEX_STRIDE);
+  let start = source.anchors[anchor]!;
+  for (let n = anchor * SOURCE_INDEX_STRIDE; n < offset; n++) start += source.text.codePointAt(start)! > 0xffff ? 2 : 1;
+  let end = start;
+  for (let n = 0; n < limit && end < source.text.length; n++) end += source.text.codePointAt(end)! > 0xffff ? 2 : 1;
+  return source.text.slice(start, end);
+}
+export function readSource(deps: ServiceDeps, input: { sourceId: string; representation?: "normalized" | "original"; offset: number; maxChars: number; excerptOffset: number; excerptLimit: number }, secrets: string[] = []) {
+  const representation = input.representation ?? "normalized";
+  const prepared = cachedSource(deps, input.sourceId, representation, secrets);
+  const { metadata, normalizedMask, totalChars } = prepared;
   const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
     .all(input.sourceId,input.excerptLimit,input.excerptOffset).map(raw => {
       const item = raw as { id: string; startOffset: number; endOffset: number };
@@ -124,12 +173,10 @@ export function readSource(deps: ServiceDeps, input: { sourceId: string; represe
       return { ...item, text: excerpt.slice(0, 4000).join(""), textTruncated: excerpt.length > 4000 };
     });
   const total = (deps.sqlite.prepare("SELECT count(*) n FROM source_excerpts WHERE source_id=?").get(input.sourceId) as {n:number}).n;
-  return {id:row.id,projectId:row.projectId,title:row.title,kind:row.kind,eventAt:row.eventAt,
-    authorLabel:row.authorLabel,provenanceBasis:row.provenanceBasis,projectIds:sourceProjectIds(deps,row.id),
+  return {...metadata, projectIds:sourceProjectIds(deps,metadata.id),
     representation, offsetUnit:"unicode_code_points", excerptOffsetUnit:"normalized_utf16",
     excerptRepresentation:"normalized_length_preserving_redaction",
-    contentHash:sha256(row.originalText), normalizedHash:sha256(row.normalizedText), deliveredHash:sha256(redacted),
-    text:points.slice(input.offset,input.offset+input.maxChars).join(""),totalChars:points.length,
-    offset:input.offset,nextOffset:input.offset+input.maxChars<points.length?input.offset+input.maxChars:null,
+    text:sourcePage(prepared,input.offset,input.maxChars),totalChars,
+    offset:input.offset,nextOffset:input.offset+input.maxChars<totalChars?input.offset+input.maxChars:null,
     excerpts,excerptTotal:total,excerptNextOffset:input.excerptOffset+input.excerptLimit<total?input.excerptOffset+input.excerptLimit:null,canonicalTruth:false};
 }
