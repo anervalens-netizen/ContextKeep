@@ -51,6 +51,19 @@ describe("A03 sliding expiry renews browser and server together", () => {
       expect(f.expiry()).toBe(renewed);
     },
   );
+  it("never caches session status across authenticated and anonymous reads", async () => {
+    const f = await fixture();
+    const authenticated = await f.t.get("/api/auth/status");
+    expect(authenticated.json().authenticated).toBe(true);
+    expect(authenticated.headers["cache-control"]).toBe("no-store");
+    const anonymous = await f.t.raw("GET", "/api/auth/status");
+    expect(anonymous.json().authenticated).toBe(false);
+    expect(anonymous.headers["cache-control"]).toBe("no-store");
+    f.setExpiry(Date.now() - 1);
+    const expired = await f.t.get("/api/auth/status");
+    expect(expired.json().authenticated).toBe(false);
+    expect(expired.headers["cache-control"]).toBe("no-store");
+  });
   it("does not renew fresh, missing, invalid or expired sessions", async () => {
     const f = await fixture();
     const before = f.expiry();

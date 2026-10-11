@@ -27,6 +27,7 @@ export function registerPublicAuthRoutes(app: FastifyInstance): void {
   registerOidcRoutes(app);
 
   app.get("/api/auth/status", async (request, reply) => {
+    reply.header("cache-control", "no-store");
     const session = readSession(deps.db, request.cookies[SESSION_COOKIE], (renewed) => setAuthCookies(reply, config, renewed));
     return { needsSetup: needsSetup(deps.db), authenticated: session !== null,
       ...(config.oidc && !needsSetup(deps.db) ? { oidcAvailable: true } : {}) };
