@@ -41,9 +41,11 @@ export function describeToolError(error: unknown, fallback: string): string {
       fallback,
       `[${code}] ${message}`,
       typeof next === "string" ? `Next: ${next}.` : "",
-      typeof retryable === "boolean"
-        ? `Retryable: ${retryable}; inspect uncertain effects before retry.`
+      code === "idempotency_outcome_unknown" ||
+      next === "reconcile_state_before_retry"
+        ? "Inspect uncertain effects before retry."
         : "",
+      typeof retryable === "boolean" ? `Retryable: ${retryable}.` : "",
     ]
       .filter(Boolean)
       .join(" "),

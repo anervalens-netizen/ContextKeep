@@ -786,14 +786,19 @@ export function resumeTask(
       value = field === "summary" ? parsed.summary ?? parsed.outcome ?? row.text : parsed.nextAction ?? null;
     }
     if (typeof value !== "string") return null;
-    if (value.length > max) omitted.push({ field, recordId, tool: "get_record" });
-    return clip(safeText(value, secrets), max);
+    const redacted = safeText(value, secrets);
+    if (redacted.length > max && !omitted.some(item => item.field === field && item.recordId === recordId)) omitted.push({ field, recordId, tool: "get_record" });
+    return clip(redacted, max);
   };
   dossier.objective = clip(safeText(requireRecord(deps, taskId).text, secrets), 1600);
   dossier.summary = detail(dossier.summarySource?.recordId, "summary", dossier.summary);
   const next = detail(dossier.nextActionSource?.recordId, "nextAction", dossier.nextAction);
   if (!dossier.lifecycleSuppressed) dossier.nextAction = next;
   else dossier.suppressedNextAction = next;
+  if (dossier.progress) {
+    dossier.progress.summary = detail(dossier.progress.recordId, "summary", dossier.progress.summary) ?? "";
+    dossier.progress.nextAction = detail(dossier.progress.recordId, "nextAction", dossier.progress.nextAction);
+  }
   if (dossier.checkpoint) {
     dossier.checkpoint.summary = detail(dossier.checkpoint.recordId, "summary", dossier.checkpoint.summary) ?? "";
     dossier.checkpoint.nextAction = detail(dossier.checkpoint.recordId, "nextAction", dossier.checkpoint.nextAction);
@@ -808,7 +813,7 @@ export function resumeTask(
   const text = [
     `Resume ContextKeep project ${projectId}, task ${taskId}.`,
     `Task identity: ${JSON.stringify({ taskId, revision: dossier.taskRevision, stateToken: dossier.stateToken })}.`,
-    `Context depth: ${depth}; text field limit: ${max} UTF-16 units (not tokens).`,
+    `Context depth: ${depth}; summary/next-action/report content limit: ${max} UTF-16 units (not tokens).`,
     `Summary source: ${JSON.stringify(dossier.summarySource)}.`,
     `Next action source: ${JSON.stringify(dossier.nextActionSource)}.`,
     ...(dossier.lastReported ? [
@@ -881,16 +886,19 @@ function taskRows(
   offset: number,
   limit: number,
   selection: TaskSelection = "all_actions",
+  q?: string,
 ): TaskRow[] {
+  const query = q?.trim();
+  const search = query ? " AND instr(lower(r.subject),lower(?)) > 0" : "";
   return deps.sqlite
     .prepare(
       `SELECT r.id,r.project_id AS projectId,r.subject,r.text,r.task_status AS taskStatus,r.review_status AS reviewStatus,r.revision,
     max(r.updated_at,coalesce((SELECT max(e.recorded_at) FROM records e JOIN workflow_task_records tr ON tr.record_id=e.id WHERE tr.task_id=r.id AND e.review_status IN ('accepted','proposed')),r.updated_at),
     coalesce((SELECT max(w.updated_at) FROM workflow_runs w WHERE w.task_id=r.id),r.updated_at)) AS lastActivityAt
-    FROM records r WHERE r.project_id=? AND r.type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}
+    FROM records r WHERE r.project_id=? AND r.type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)}${search}
     ORDER BY lastActivityAt DESC,r.id DESC LIMIT ? OFFSET ?`,
     )
-    .all(projectId, limit, offset) as TaskRow[];
+    .all(...(query ? [projectId, query] : [projectId]), limit, offset) as TaskRow[];
 }
 
 function sqlPlaceholders(values: readonly unknown[]): string {
@@ -1154,7 +1162,7 @@ export function projectDossier(
 ) {
   const project = requireProject(deps, projectId);
   const navigation=view ? taskNavigationPage(deps,projectId,offset,limit,selection,view,q) : null;
-  const rows = navigation?.items ?? taskRows(deps, projectId, offset, limit, selection);
+  const rows = navigation?.items ?? taskRows(deps, projectId, offset, limit, selection, q);
   const projectTotal = (
     deps.sqlite
       .prepare(
@@ -1162,7 +1170,9 @@ export function projectDossier(
       )
       .get(projectId) as { n: number }
   ).n;
-  const total = navigation?.total ?? projectTotal;
+  const query = q?.trim();
+  const filteredTotal = query ? (deps.sqlite.prepare(`SELECT count(*) n FROM records r WHERE r.project_id=? AND r.type='action' AND ${currentRecords} AND ${taskSelectionPredicate(selection)} AND instr(lower(r.subject),lower(?)) > 0`).get(projectId, query) as { n: number }).n : projectTotal;
+  const total = navigation?.total ?? filteredTotal;
   const goals = deps.sqlite
     .prepare(
       `SELECT id AS recordId,subject,text,review_status AS reviewStatus,recorded_at AS recordedAt

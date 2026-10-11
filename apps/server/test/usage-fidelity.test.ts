@@ -518,3 +518,92 @@ it("reuses bounded source preparation across large pages and invalidates on writ
     select.mockRestore();
   }
 });
+
+it("filters bounded recent dossier rows and totals without filtering global attention", async () => {
+  const { t, capture } = await setup();
+  const projectId = capture().projectId;
+  await ok(
+    t,
+    "capture_work",
+    capture({
+      recordType: "action",
+      subject: "Matching title",
+      outcome: "First task",
+    }),
+  );
+  await ok(
+    t,
+    "capture_work",
+    capture({
+      recordType: "action",
+      subject: "Other title",
+      outcome: "Second task",
+    }),
+  );
+  const filtered = await ok(t, "get_project_dossier", {
+    projectId,
+    q: "Matching",
+  });
+  expect(filtered.tasks.map((task: any) => task.title)).toEqual([
+    "Matching title",
+  ]);
+  expect(filtered.pagination.total).toBe(1);
+  const empty = await ok(t, "get_project_dossier", { projectId, q: "Absent" });
+  expect(empty.tasks).toEqual([]);
+  expect(empty.pagination.total).toBe(0);
+});
+it("reports omissions after redaction and bounds duplicate progress fields", async () => {
+  const { t, capture } = await setup();
+  const task = await ok(
+    t,
+    "capture_work",
+    capture({ recordType: "action", outcome: "Depth fixture" }),
+  );
+  const taskId = task.outcome.recordId,
+    projectId = capture().projectId;
+  const progress = await ok(t, "report_task_progress", {
+    projectId,
+    taskId,
+    taskRevision: 1,
+    expectedProgressRecordId: null,
+    status: "in_progress",
+    summary: "s".repeat(1900),
+    nextAction: "n".repeat(1900),
+    ownerAction: null,
+    evidenceText: "Synthetic",
+    clientId: "test",
+    sessionId: "fidelity",
+    idempotencyKey: crypto.randomUUID(),
+  });
+  const compact = await ok(t, "resume_task", {
+    projectId,
+    taskId,
+    depth: "compact",
+  });
+  expect(compact.dossier.progress.summary).toBe(compact.dossier.summary);
+  expect(compact.dossier.progress.nextAction).toBe(compact.dossier.nextAction);
+  expect(compact.dossier.progress.summary.length).toBeLessThan(1900);
+  expect(
+    compact.omitted.filter(
+      (item: any) =>
+        item.recordId === progress.recordId && item.field === "summary",
+    ),
+  ).toHaveLength(1);
+  t.app.ck.handle.sqlite
+    .prepare(
+      "UPDATE records SET value_json=json_set(value_json,'$.summary',?) WHERE id=?",
+    )
+    .run("x".repeat(580) + "PASSWORD=abcdef", progress.recordId);
+  const expanded = await ok(t, "resume_task", {
+    projectId,
+    taskId,
+    depth: "compact",
+  });
+  expect(
+    expanded.omitted.some(
+      (item: any) =>
+        item.recordId === progress.recordId && item.field === "summary",
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(expanded)).not.toContain("abcdef");
+});
