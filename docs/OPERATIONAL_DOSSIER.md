@@ -65,6 +65,12 @@ acceptance snapshot, including historical edits with intermediate audit revision
 The older report is retained with its provenance; it cannot authorize a new
 continuation claim. Changing a report is not an implicit owner reopening.
 
+A matching terminal progress report bound to the current task revision
+acknowledges preceding follow-up checkpoints without changing the explicit
+task-record status or its provenance. A later checkpoint requires reconciliation
+again. Stale, rejected or differently stated reports cannot acknowledge that
+follow-up; independent blocker and execution attention remains visible.
+
 Resume text includes `historicalVerification`, `currentEvidenceValidity`, and
 all actionable dossier warnings. A historical pass is never presented as proof
 that edited, retracted, or legacy-unbound evidence remains valid. Completion and
@@ -75,14 +81,12 @@ page, including the case where the latest run is valid but an older proof change
 Reads and handoffs never reopen or rerun the task because of that projection.
 Resume stays read-only and instructs the next consumer to reread the selected task.
 
-
 `get_operational_timeline` combines record history and retained latest run
 observations with source/review labels. It is not a complete OS process log.
 `get_project_timeline` retains its canonical-only compatibility contract.
 `get_changes_digest` supports explicit time windows and pagination; unreturned
 pages must not be described as an empty or complete result. Retired projects are
 excluded by default from portfolio and change summaries.
-
 
 ## Usage-hardening and consistency contracts (MCP 2.15)
 
@@ -221,6 +225,7 @@ the same operational projection used by task resume.
 
 Task and project/portfolio summaries expose `attention.items`, with category,
 reason, count and `requiresAction`:
+
 - `actionable_now`: present blocking state or a live/uncertain execution to inspect.
 - `verification_needed`: explicit verification blockers, unverified results or expired continuation claims.
 - `owner_optional`: a reported owner preference; it does not invent a blocking requirement.

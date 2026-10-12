@@ -226,8 +226,19 @@ export function effectiveTaskContinuity(
         ? progressOrder
         : null;
   const stateEstablishedAt = stateEstablishedOrder?.timestamp ?? null;
+  // A compatible report on the current identity revision explicitly
+  // reconciles earlier follow-up evidence without changing record authority.
+  // Old/mismatching reports cannot acknowledge a later explicit closure.
+  const followUpBaseline =
+    terminal &&
+    stateSource === "task_record" &&
+    progress?.status === state &&
+    progress.taskRevision === task.revision &&
+    eventAfter(progressOrder, stateEstablishedOrder)
+      ? progressOrder
+      : stateEstablishedOrder;
   const checkpointAfterTerminalState =
-    terminal && eventAfter(checkpointOrder, stateEstablishedOrder);
+    terminal && eventAfter(checkpointOrder, followUpBaseline);
 
   let nextAction: string | null;
   if (terminal && stateSource === "task_record") {

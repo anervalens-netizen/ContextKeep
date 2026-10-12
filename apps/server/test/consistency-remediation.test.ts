@@ -1150,3 +1150,121 @@ describe("checkpoint selection uses durable event order", () => {
     ).toContain("post_closure_follow_up");
   });
 });
+
+describe("terminal checkpoint reconciliation", () => {
+  it.each(["done", "cancelled"] as const)(
+    "acknowledges %s follow-up without changing explicit authority",
+    async (status) => {
+      const { t, projectId, taskId } = await setup();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2031-01-01T12:00:00.000Z"));
+      await call(t, "edit_record", {
+        recordId: taskId,
+        revision: 1,
+        taskStatus: status,
+        ...identity(),
+      });
+      const cp = await checkpoint(t, projectId, taskId, "Synthetic follow-up");
+      expect(
+        (await call(t, "resume_task", { projectId, taskId })).dossier.followUp
+          .checkpointRecordId,
+      ).toBe(cp.outcome.recordId);
+      const args = {
+        projectId,
+        taskId,
+        taskRevision: 2,
+        expectedProgressRecordId: null,
+        status,
+        summary: "Synthetic follow-up reconciled",
+        nextAction: null,
+        ownerAction: null,
+        evidenceText: "Synthetic reconciliation evidence",
+      };
+      const acknowledged = await call(t, "report_task_progress", {
+        ...args,
+        ...identity(),
+      });
+      const resumed = await call(t, "resume_task", { projectId, taskId });
+      expect(resumed.dossier).toMatchObject({
+        state: status,
+        stateSource: "task_record",
+        nextAction: null,
+        followUp: null,
+        needsAttention: false,
+      });
+      const project = await call(t, "get_project_dossier", {
+        projectId,
+        offset: 0,
+        limit: 10,
+      });
+      expect(
+        project.attention.tasks.some(
+          (item: { taskId: string }) => item.taskId === taskId,
+        ),
+      ).toBe(false);
+      const newer = await checkpoint(
+        t,
+        projectId,
+        taskId,
+        "Synthetic later follow-up",
+      );
+      expect(
+        (await call(t, "resume_task", { projectId, taskId })).dossier.followUp
+          .checkpointRecordId,
+      ).toBe(newer.outcome.recordId);
+      // A mismatching report cannot acknowledge or reopen the explicit state.
+      await call(t, "report_task_progress", {
+        ...args,
+        status: "open",
+        expectedProgressRecordId: acknowledged.recordId,
+        ...identity(),
+      });
+      expect(
+        (await call(t, "resume_task", { projectId, taskId })).dossier,
+      ).toMatchObject({
+        state: status,
+        stateSource: "task_record",
+        followUp: { checkpointRecordId: newer.outcome.recordId },
+      });
+    },
+  );
+
+  it("does not let a stale or rejected terminal report hide follow-up", async () => {
+    const { t, projectId, taskId } = await setup();
+    await call(t, "edit_record", {
+      recordId: taskId,
+      revision: 1,
+      taskStatus: "done",
+      ...identity(),
+    });
+    const cp = await checkpoint(t, projectId, taskId, "Synthetic follow-up");
+    const report = await call(t, "report_task_progress", {
+      projectId,
+      taskId,
+      taskRevision: 2,
+      expectedProgressRecordId: null,
+      status: "done",
+      summary: "Synthetic reconciliation",
+      nextAction: null,
+      ownerAction: null,
+      evidenceText: "Synthetic proof",
+      ...identity(),
+    });
+    // Retained legacy report bound to an older identity revision is not acknowledgement.
+    const db = t.app.ck.deps.sqlite;
+    db.prepare(
+      "UPDATE records SET value_json=json_set(value_json,'$.taskRevision',1) WHERE id=?",
+    ).run(report.recordId);
+    expect(
+      (await call(t, "resume_task", { projectId, taskId })).dossier.followUp
+        .checkpointRecordId,
+    ).toBe(cp.outcome.recordId);
+    db.prepare(
+      "UPDATE records SET value_json=json_set(value_json,'$.taskRevision',2),review_status='rejected' WHERE id=?",
+    ).run(report.recordId);
+    expect(
+      (await call(t, "resume_task", { projectId, taskId })).dossier.followUp
+        .checkpointRecordId,
+    ).toBe(cp.outcome.recordId);
+  });
+});
