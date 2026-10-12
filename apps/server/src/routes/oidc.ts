@@ -36,12 +36,15 @@ export function registerOidcRoutes(app: FastifyInstance): void {
       const url = oidc.buildAuthorizationUrl(client, { redirect_uri: settings.callbackUrl, scope: "openid",
         code_challenge: await oidc.calculatePKCECodeChallenge(verifier), code_challenge_method: "S256",
         state: flow.state, nonce: flow.nonce });
+      // Provider discovery and PKCE generation yield: fence capacity again immediately before insertion.
+      if (pending.size >= MAX_PENDING) throw new ApiError(503, "oidc_busy", "Try single sign-on again later.");
       // A new attempt supersedes only this browser's previous attempt.
       if (request.cookies[FLOW_COOKIE]) pending.delete(request.cookies[FLOW_COOKIE]);
       pending.set(binding, flow);
       reply.setCookie(FLOW_COOKIE, binding, { ...cookieOptions, maxAge: FLOW_TTL_MS / 1000 });
       return reply.redirect(url.href);
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw new ApiError(503, "oidc_unavailable", "Single sign-on is unavailable. Use the owner password or try again later.");
     }
   });

@@ -11,7 +11,7 @@ vi.mock("openid-client", async (original) => {
   const actual = await original<typeof import("openid-client")>();
   return { ...actual, enableNonRepudiationChecks: vi.fn(), discovery: vi.fn(async () => ({})),
     buildAuthorizationUrl: vi.fn((_config, params) => { const url = new URL("https://identity.example/authorize"); url.search = new URLSearchParams(params).toString(); return url; }),
-    authorizationCodeGrant: vi.fn() };
+    calculatePKCECodeChallenge: vi.fn(actual.calculatePKCECodeChallenge), authorizationCodeGrant: vi.fn() };
 });
 const env = {
   NODE_ENV: "test", CK_SESSION_SECRET: "synthetic-oidc-test-secret",
@@ -115,4 +115,40 @@ describe("optional single-owner OIDC", () => {
     expect(response.cookies.some(c => c.name === "ck_session")).toBe(false);
     expect(response.body).not.toContain("provider validation failed");
   });
+  it("keeps the global pending-flow cap across concurrent asynchronous starts", async () => {
+    const { app, cookie, callback } = await fixture();
+    const actual = await vi.importActual<typeof import("openid-client")>("openid-client");
+    let entered = 0;
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => { release = resolve; });
+    vi.mocked(oidc.calculatePKCECodeChallenge).mockImplementation(async () => {
+      entered += 1;
+      await barrier;
+      return "synthetic-concurrent-challenge";
+    });
+    const requests = Promise.all(Array.from({ length: 1001 }, (_, index) =>
+      app.inject({ method: "GET", url: "/api/auth/oidc/start",
+        remoteAddress: `192.0.${Math.floor(index / 250)}.${index % 250 + 1}` })));
+    try {
+      await vi.waitFor(() => expect(entered).toBe(1001));
+      release();
+      const responses = await requests;
+      expect(responses.filter(response => response.statusCode === 302)).toHaveLength(999);
+      const refused = responses.filter(response => response.statusCode === 503);
+      expect(refused).toHaveLength(2);
+      for (const response of refused) {
+        expect(response.json().error.code).toBe("oidc_busy");
+        expect(response.cookies.some(value => value.name === "__Host-ck_oidc")).toBe(false);
+      }
+      ownerResponse();
+      expect((await app.inject({ method: "GET", url: callback, headers: { cookie } })).statusCode).toBe(302);
+      expect((await app.inject({ method: "GET", url: "/api/auth/oidc/start",
+        remoteAddress: "2001:db8:1::1" })).statusCode).toBe(302);
+    } finally {
+      release();
+      await requests;
+      vi.mocked(oidc.calculatePKCECodeChallenge).mockImplementation(actual.calculatePKCECodeChallenge);
+    }
+  });
+
 });
