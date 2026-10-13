@@ -131,6 +131,17 @@ class BackupWorkflowTests(unittest.TestCase):
                 self.assertTrue(member.isfile())
                 self.assertEqual(archive.extractfile(member).read(),b'SYNTHETIC_SETTING=fixture')
 
+    def test_retention_components_are_included_in_recovery_snapshot(self):
+        helper=self.home/'.local/bin/contextkeep-minimal-retention.py'
+        dropin=self.home/'.config/systemd/user/contextkeep-backup.service.d/minimal-retention.conf'
+        put(helper,'# offline retention helper fixture')
+        put(dropin,'[Service]\nExecStartPost=/usr/bin/python3 /some/retention-helper\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            status=self.invoke()
+        with tarfile.open(self.base/status['snapshot'],'r:gz') as archive:
+            self.assertEqual(archive.extractfile('ops/contextkeep-minimal-retention.py').read(),helper.read_bytes())
+            self.assertEqual(archive.extractfile('systemd/contextkeep-backup.service.d/minimal-retention.conf').read(),dropin.read_bytes())
+
     def test_nas_unavailable_does_not_prevent_dell_success(self):
         self.available=False
         with contextlib.redirect_stdout(io.StringIO()),self.assertRaises(SystemExit) as error:
