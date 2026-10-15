@@ -109,6 +109,7 @@ describe("private ContextKeep MCP", () => {
     expect(successSchema("capture_work").properties.outcome.type).toBe("object");
     expect(successSchema("list_blockers").properties.pagination.type).toBe("object");
     expect(successSchema("get_capabilities").properties.protocols.type).toBe("object");
+    expect(byName.get("resume_task").inputSchema.required).not.toContain("format");
     const catalogBytes = Buffer.byteLength(JSON.stringify(tools));
     console.log("MCF09_CATALOG_BYTES", catalogBytes);
     expect(catalogBytes).toBeLessThan(200_000);

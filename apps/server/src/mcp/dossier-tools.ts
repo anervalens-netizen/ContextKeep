@@ -80,7 +80,7 @@ export function registerDossierTools(
     z.strictObject({
       ...scope,
       depth: z.enum(["compact", "balanced", "deep"]).default("balanced"),
-      format: z.enum(["both", "structured"]).default("both"),
+      format: z.enum(["both", "structured"]).optional(),
       totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(),
       unresolvedOffset: z.number().int().min(0).optional(),
       unresolvedLimit: z.number().int().min(1).max(50).optional(),
