@@ -1,3 +1,6 @@
+import { ApiError } from "../lib/errors.js";
+import { workflowResults } from "./workflow-results.js";
+import { structuredResume } from "../services/resume-response.js";
 import { createTaskHandoff } from "../services/task-handoff.js";
 import { z } from "zod";
 import type { ActorCtx, ServiceDeps } from "../services/import.js";
@@ -36,7 +39,7 @@ const write = {
   clientId: z.string().min(1).max(80),
   sessionId: z.string().min(1).max(160),
 };
-const result = z.object({}).passthrough();
+
 type Identity = { idempotencyKey: string; clientId: string; sessionId: string };
 export function registerDossierTools(
   define: Define,
@@ -69,29 +72,27 @@ export function registerDossierTools(
         i.view,
         i.q,
       ),
-    result,
+    workflowResults.get_project_dossier!,
   );
   define(
     "resume_task",
-    "Read-only, task-scoped resume context. Never starts a job.",
+    "Read current task state once. Prefer format=structured with an explicit totalContextBudgetChars; both preserves legacy text exports. Read get_task only for additional evidence or stale revisions. Never starts a job.",
     z.strictObject({
       ...scope,
       depth: z.enum(["compact", "balanced", "deep"]).default("balanced"),
+      format: z.enum(["both", "structured"]).default("both"),
+      totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(),
       unresolvedOffset: z.number().int().min(0).optional(),
       unresolvedLimit: z.number().int().min(1).max(50).optional(),
     }),
     true,
-    (i) =>
-      resumeTask(
-        deps,
-        i.projectId,
-        i.taskId,
-        i.unresolvedOffset,
-        i.unresolvedLimit,
-        i.depth,
-        secrets,
-      ),
-    result,
+    (i) => {
+      const resumed = resumeTask(deps, i.projectId, i.taskId, i.unresolvedOffset, i.unresolvedLimit, i.depth, secrets);
+      if (i.format === "structured") return structuredResume(resumed.dossier, i.depth, i.totalContextBudgetChars ?? 6000);
+      if (i.totalContextBudgetChars !== undefined && JSON.stringify(resumed).length > i.totalContextBudgetChars) throw new ApiError(413, "context_budget_unrepresentable", "Use format=structured or increase the resume budget.");
+      return resumed;
+    },
+    workflowResults.resume_task!,
   );
   define(
     "create_task_handoff",
@@ -99,7 +100,7 @@ export function registerDossierTools(
     z.strictObject({ ...scope, ...write }),
     false,
     (i) => createTaskHandoff(deps, i, actorFor(i)),
-    result,
+    workflowResults.create_task_handoff!,
   );
   define(
     "report_task_progress",
@@ -117,7 +118,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => reportTaskProgress(deps, i, actorFor(i)),
-    result,
+    workflowResults.report_task_progress!,
   );
   define(
     "get_portfolio",
@@ -125,7 +126,7 @@ export function registerDossierTools(
     z.strictObject({ ...page, includeRetired: z.boolean().default(false), selection: z.enum(["all_actions", "actual_tasks"]).default("all_actions") }),
     true,
     (i) => portfolioOverview(deps, i.offset, i.limit, i.includeRetired, i.selection),
-    result,
+    workflowResults.get_portfolio!,
   );
   define(
     "get_operational_timeline",
@@ -140,7 +141,7 @@ export function registerDossierTools(
     }),
     true,
     (i) => operationalTimeline(deps, { ...i, includeRetired: true }),
-    result,
+    workflowResults.get_operational_timeline!,
   );
   define(
     "get_changes_digest",
@@ -154,7 +155,7 @@ export function registerDossierTools(
     }),
     true,
     (i) => operationalTimeline(deps, i),
-    result,
+    workflowResults.get_changes_digest!,
   );
   define(
     "get_project_links",
@@ -162,7 +163,7 @@ export function registerDossierTools(
     z.strictObject({ projectId: uuid, ...page }),
     true,
     (i) => projectLinks(deps, i.projectId, i.offset, i.limit),
-    result,
+    workflowResults.get_project_links!,
   );
   define(
     "link_project",
@@ -177,7 +178,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => linkProject(deps, i, actorFor(i)),
-    result,
+    workflowResults.link_project!,
   );
   define(
     "set_task_continuation",
@@ -192,7 +193,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => setContinuationPolicy(deps, i, actorFor(i)),
-    result,
+    workflowResults.set_task_continuation!,
   );
   define(
     "claim_continuation",
@@ -206,7 +207,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => claimContinuation(deps, i),
-    result,
+    workflowResults.claim_continuation!,
   );
   define(
     "finish_continuation",
@@ -222,7 +223,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => finishContinuation(deps, i),
-    result,
+    workflowResults.finish_continuation!,
   );
   define(
     "reconcile_continuation",
@@ -238,6 +239,7 @@ export function registerDossierTools(
     }),
     false,
     (i) => reconcileContinuation(deps, i),
-    result,
+    workflowResults.reconcile_continuation!,
   );
 }
+

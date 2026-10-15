@@ -1,4 +1,5 @@
 function telemetryOrigins(): string[] { try {return process.env.GLITCHTIP_DSN ? [new URL(process.env.GLITCHTIP_DSN).origin] : [];} catch {return [];} }
+import { workflowResults } from "./workflow-results.js";
 import { panelBootstrap } from "./panel-bootstrap.js";
 import { PANEL_SETTINGS_CAPABILITIES, SettingsReadResult, SettingsUpdateInput, SettingsUpdateResult, readPanelSettings, updatePanelSettings } from "./panel-settings.js";
 import { requireTaskScope } from "../services/task-scope.js";
@@ -552,7 +553,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   registerDossierTools(define, deps, actorFor, secrets);
   define("open_task_panel","Open the project dossier or selected task in the ContextKeep panel. Does not start any execution.",
     z.strictObject({projectId:z.string().uuid().optional(),taskId:z.string().uuid().optional(),revision:z.number().int().optional()}),true,
-    input=>panelBootstrap(deps,input,readPanelSettings(requirePreferencesPath()).values),z.object({}).passthrough());
+    input=>panelBootstrap(deps,input,readPanelSettings(requirePreferencesPath()).values),workflowResults.open_task_panel!);
   const panel=tools.get("open_task_panel")!;
   panel.metadata={...panel.metadata,title:"ContextKeep",icons:PANEL_ICONS,_meta:{
     ui:{resourceUri:TASK_PANEL_RESOURCE_URI},

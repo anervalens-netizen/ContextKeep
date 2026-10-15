@@ -99,20 +99,37 @@ export function compactLatestCheckpoint(
     checkpoint: checkpoint
       ? {
           ...(typeof checkpoint.summary === "string"
-            ? { summary: checkpoint.summary.slice(0, 240) }
+            ? {
+                summary: clipped(checkpoint.summary, 240),
+                summaryTruncated: checkpoint.summary.length > 240,
+              }
             : {}),
           ...(typeof checkpoint.outcome === "string"
-            ? { outcome: checkpoint.outcome.slice(0, 240) }
+            ? {
+                outcome: clipped(checkpoint.outcome, 240),
+                outcomeTruncated: checkpoint.outcome.length > 240,
+              }
             : {}),
           nextAction:
             typeof checkpoint.nextAction === "string"
-              ? checkpoint.nextAction.slice(0, 300)
+              ? clipped(checkpoint.nextAction, 300)
               : null,
+          nextActionTruncated:
+            typeof checkpoint.nextAction === "string" &&
+            checkpoint.nextAction.length > 300,
+          blockersOmitted: Array.isArray(checkpoint.blockers)
+            ? Math.max(0, checkpoint.blockers.length - 2)
+            : 0,
+          blockersTruncated:
+            Array.isArray(checkpoint.blockers) &&
+            checkpoint.blockers.some(
+              (item) => typeof item === "string" && item.length > 180,
+            ),
           blockers: Array.isArray(checkpoint.blockers)
             ? checkpoint.blockers
                 .filter((item): item is string => typeof item === "string")
                 .slice(0, 2)
-                .map((item) => item.slice(0, 180))
+                .map((item) => clipped(item, 180))
             : [],
           ...(typeof checkpoint.artifactRefCount === "number"
             ? { artifactRefCount: checkpoint.artifactRefCount }

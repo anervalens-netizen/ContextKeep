@@ -8,6 +8,7 @@ export interface TaskScope {
   text: string;
   revision: number;
   taskStatus: string | null;
+  evidenceBasis: string;
   reviewStatus: 'accepted' | 'proposed';
 }
 
@@ -19,7 +20,7 @@ export function requireTaskScope(
 ): TaskScope {
   const row = deps.sqlite.prepare(`
     SELECT id, project_id AS projectId, type, subject, text, revision,
-           task_status AS taskStatus, review_status AS reviewStatus
+           task_status AS taskStatus, review_status AS reviewStatus, evidence_basis AS evidenceBasis
     FROM records WHERE id = ?
   `).get(taskId) as (TaskScope & { type: string }) | undefined;
   if (!row) throw new ApiError(404, 'task_not_found', 'Task action record was not found.');

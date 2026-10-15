@@ -52,3 +52,26 @@ Task history keeps its own cursor while execution/active-blocker pages change.
 Explicit task refresh also refreshes the current history page. Structured errors
 retain safe code, message, retry guidance and next action; uncertain effects still
 require reconciliation before retry.
+
+### Bounded operational resume (MCP 2.19)
+
+For agent continuation, call `resume_task` with `format=structured`,
+`depth=compact` and `totalContextBudgetChars=6000`. This returns one dossier,
+without a duplicate prose export or the historical original objective.
+Current state includes its source, review status and evidence provenance,
+plus task revision and expected progress record ID for subsequent fences.
+`get_task` is needed only for missing evidence or a stale snapshot.
+
+The default `format=both` preserves existing panel and export consumers.
+An explicit budget bounds the serialized structured payload in characters,
+not tokens or the complete MCP transport envelope. If essential authority or
+next-action metadata cannot fit, the call returns
+`context_budget_unrepresentable`; increase the budget instead of dropping
+authority. Reduced pages retain exact counts and recovery offsets.
+
+`get_work_context` keeps state provenance even at its minimum budget.
+Checkpoint excerpts mark field truncation and omitted blockers. Compact
+working-memory indexes retain record IDs and recovery pointers before
+discarding current reports. Historical task objectives are explicitly
+labelled and cannot override effective state. Central workflow tools
+advertise and validate required result identities, revisions and pagination.

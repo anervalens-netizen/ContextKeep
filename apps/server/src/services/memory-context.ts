@@ -1068,6 +1068,9 @@ export class ContextKeepMemoryService {
             taskId: input.taskId,
             state: continuity.state,
             stateSource: continuity.stateSource,
+            stateProvenance: continuity.stateSource === "reported_progress" && continuity.progress
+              ? { reviewStatus: continuity.progress.reviewStatus, evidenceBasis: continuity.progress.evidenceBasis }
+              : { reviewStatus: continuity.task.reviewStatus, evidenceBasis: continuity.task.evidenceBasis },
             nextAction: continuity.nextAction,
             followUp: continuity.followUp,
             ownerAction: continuity.progress?.ownerAction ?? null,
@@ -1460,3 +1463,4 @@ export class ContextKeepMemoryService {
     };
   }
 }
+

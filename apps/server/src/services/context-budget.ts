@@ -397,9 +397,25 @@ export function fitWorkContext(
 
   // If canonical detail alone cannot fit, trim the compact working index only
   // after the canonical claims have had their deterministic detail reduction.
+  const workingIndex = candidate.workingMemory as
+    Record<string, unknown> | undefined;
+  if (workingIndex && Array.isArray(workingIndex.items)) {
+    workingIndex.items = workingIndex.items.map(
+      (raw: Record<string, unknown>) => ({
+        recordId: raw.recordId,
+        revision: raw.revision,
+        recordedAt: raw.recordedAt,
+        status: raw.status,
+        provenance: raw.provenance,
+        recovery: { tool: "get_record", includeUnreviewed: true },
+      }),
+    );
+    if (fits()) return finalize(candidate);
+  }
   const selectedWorkingMemory = structuredClone(candidate.workingMemory);
   const selectedDiagnostics = diagnostics ? structuredClone(diagnostics) : null;
-  if (trimSection("workingMemory")) return finalize(candidate);
+  if (trimSection("workingMemory", preserveCompactClaims ? 1 : 0))
+    return finalize(candidate);
   // Only restore when the existing path already needs structural projection.
   candidate.workingMemory = selectedWorkingMemory;
   if (diagnostics && selectedDiagnostics)
@@ -488,6 +504,7 @@ export function fitWorkContext(
         taskId: resumeCapsule.taskId,
         state: resumeCapsule.state,
         stateSource: resumeCapsule.stateSource,
+        stateProvenance: resumeCapsule.stateProvenance,
         nextAction:
           typeof resumeCapsule.nextAction === "string"
             ? clip(resumeCapsule.nextAction, 300)
@@ -564,7 +581,8 @@ export function fitWorkContext(
   // duplicated working index and background facts first. Their recovery
   // metadata makes the omission explicit without losing canonical authority.
   if (trimCompactSection("currentState")) return finalize(compact);
-  if (trimCompactSection("workingMemory")) return finalize(compact);
+  if (trimCompactSection("workingMemory", preserveCompactClaims ? 1 : 0))
+    return finalize(compact);
   if (trimCompactSection("facts", preserveCompactClaims ? 1 : 0))
     return finalize(compact);
 
@@ -609,6 +627,9 @@ export function fitWorkContext(
       ? {
           taskId: compactResumeCapsule.taskId,
           state: compactResumeCapsule.state,
+          stateSource: compactResumeCapsule.stateSource,
+          stateRecordId: compactResumeCapsule.stateRecordId,
+          stateProvenance: compactResumeCapsule.stateProvenance,
           nextAction: compactResumeCapsule.nextAction,
           ...(minimalFollowUp ? { followUp: minimalFollowUp } : {}),
         }
@@ -670,7 +691,15 @@ export function fitWorkContext(
       omitted: total,
       truncated: total > 0,
       items: [],
-      ...(omittedIds.length > 0 ? { budgetOmittedRecordIds: omittedIds } : {}),
+      ...(omittedIds.length > 0
+        ? {
+            budgetOmittedRecordIds:
+              budget <= 3000 ? omittedIds.slice(0, 1) : omittedIds,
+            ...(budget <= 3000 && omittedIds.length > 1
+              ? { budgetOmittedRecordIdsTruncated: true }
+              : {}),
+          }
+        : {}),
       ...(section.recovery
         ? { recovery: section.recovery }
         : total > 0

@@ -1,3 +1,4 @@
+import { workflowResults } from "./workflow-results.js";
 import { createTask } from "../services/create-task.js";
 import type { ActorCtx } from "../services/import.js";
 import { z } from "zod";
@@ -27,10 +28,10 @@ type Define = <S extends z.ZodType>(
   run: (input: z.output<S>) => unknown | Promise<unknown>,
   contract: z.ZodType,
 ) => void;
-const result = z.object({}).passthrough();
+
 export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFor: (input: {clientId: string; sessionId: string; idempotencyKey: string}) => ActorCtx) {
   define("create_task", "Create an evidence-linked proposed task, never execution. Reuse the key only for retries; distinct keys preserve equal-title tasks.",
-    z.strictObject({projectId: scope.projectId, ...write, title: z.string().trim().min(1).max(400), objective: z.string().trim().min(1).max(8000), status: z.enum(["open", "in_progress", "blocked"]).default("open"), evidenceText: z.string().trim().min(1).max(64000).nullable().default(null)}), false, i => createTask(deps, i, actorFor(i)), result);
+    z.strictObject({projectId: scope.projectId, ...write, title: z.string().trim().min(1).max(400), objective: z.string().trim().min(1).max(8000), status: z.enum(["open", "in_progress", "blocked"]).default("open"), evidenceText: z.string().trim().min(1).max(64000).nullable().default(null)}), false, i => createTask(deps, i, actorFor(i)), workflowResults.create_task!);
   define(
     "list_tasks",
     "List all_actions (legacy) or actual_tasks. Optional q matches literal title text for reuse candidates. Filtered totals and provenance retained.",
@@ -44,7 +45,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     true,
     (i) => listTasks(deps, i.projectId, i.offset, i.limit, i.selection, i.q, i.view),
-    result,
+    workflowResults.list_tasks!,
   );
   define(
     "get_task",
@@ -56,7 +57,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     true,
     (i) => getTaskView(deps, i),
-    result,
+    workflowResults.get_task!,
   );
   define(
     "reserve_run",
@@ -72,7 +73,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     false,
     (i) => reserveRun(deps, i),
-    result,
+    workflowResults.reserve_run!,
   );
   define(
     "begin_run",
@@ -80,7 +81,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     z.strictObject({ ...run, ...write, revision: z.number().int().min(1) }),
     false,
     (i) => beginRun(deps, i),
-    result,
+    workflowResults.begin_run!,
   );
   define(
     "attach_run_job",
@@ -97,7 +98,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     false,
     (i) => attachJob(deps, i),
-    result,
+    workflowResults.attach_run_job!,
   );
   define(
     "reconcile_uncertain_run",
@@ -111,7 +112,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
       evidenceText: z.string().trim().min(1).max(64000),
       evidenceSource: z.string().trim().min(1).max(1000), observedAt: z.string().datetime(),
     }), false,
-    i => reconcileUncertainRun(deps, i, { actor: `owner:mcp:${i.clientId}:${i.sessionId}`, requestId: i.idempotencyKey }), result,
+    i => reconcileUncertainRun(deps, i, { actor: `owner:mcp:${i.clientId}:${i.sessionId}`, requestId: i.idempotencyKey }), workflowResults.reconcile_uncertain_run!,
   );
   define(
     "observe_run",
@@ -129,7 +130,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     false,
     (i) => observeRun(deps, i),
-    result,
+    workflowResults.observe_run!,
   );
   define(
     "verify_run",
@@ -143,6 +144,7 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     }),
     false,
     (i) => verifyRun(deps, i),
-    result,
+    workflowResults.verify_run!,
   );
 }
+
