@@ -34,4 +34,3 @@ export function runtimeMetadata(buildSha: string | null): RuntimeMetadata {
     },
   };
 }
-

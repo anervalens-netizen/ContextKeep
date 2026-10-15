@@ -11,13 +11,13 @@ beforeEach(() => {
   sqlite = new Database(':memory:');
   sqlite.exec(`CREATE TABLE records (
     id TEXT PRIMARY KEY, project_id TEXT, type TEXT, subject TEXT,
-    text TEXT, revision INTEGER, task_status TEXT, review_status TEXT
+    text TEXT, revision INTEGER, task_status TEXT, review_status TEXT, evidence_basis TEXT
   )`);
   projectId = randomUUID();
   taskId = randomUUID();
-  sqlite.prepare('INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+  sqlite.prepare('INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
     taskId, projectId, 'action', 'Synthetic task', 'Inspect synthetic result',
-    3, 'in_progress', 'accepted',
+    3, 'in_progress', 'accepted', 'document',
   );
 });
 afterEach(() => sqlite.close());
@@ -27,7 +27,7 @@ describe('task identity scope', () => {
     const task = requireTaskScope({ sqlite }, projectId, taskId);
     expect(task).toEqual({
       id: taskId, projectId, subject: 'Synthetic task', text: 'Inspect synthetic result',
-      revision: 3, taskStatus: 'in_progress', reviewStatus: 'accepted',
+      revision: 3, taskStatus: 'in_progress', reviewStatus: 'accepted', evidenceBasis: 'document',
     });
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM records').get()).toEqual({ n: 1 });
   });

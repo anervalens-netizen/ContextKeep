@@ -325,6 +325,14 @@ export interface ContextKeepMcpOptions {
   preferencesPath?: string;
 }
 
+/** UUID format already describes the generated regex; keep runtime Zod validation exact. */
+function compactUuidSchema(value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  const node = value as Record<string, unknown>;
+  if (node.format === "uuid") delete node.pattern;
+  for (const child of Object.values(node)) compactUuidSchema(child);
+}
+
 export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[], options: ContextKeepMcpOptions = {}) {
   const service = new ContextKeepMemoryService(deps);
   const runtime = runtimeMetadata(options.buildSha ?? null);
@@ -345,9 +353,11 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         ...(definitions ? {definitions} : {}),
       } as Tool["outputSchema"];
       metadata = { name, description,
-        inputSchema: z.toJSONSchema(schema, { target: "draft-7" }) as Tool["inputSchema"],
+        inputSchema: z.toJSONSchema(schema, { target: "draft-7", reused: "ref" }) as Tool["inputSchema"],
         outputSchema,
         annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly && ["delete_record", "confirm_correction", "set_project_lifecycle", "review_records", "edit_record", "update_project", "restore_record"].includes(name), idempotentHint: true, openWorldHint: false } };
+      compactUuidSchema(metadata.inputSchema);
+      compactUuidSchema(metadata.outputSchema);
       MCP_TOOL_METADATA_CACHE.set(name, metadata);
       mcpToolMetadataCompileCount += 1;
     }

@@ -403,10 +403,13 @@ export function fitWorkContext(
     workingIndex.items = workingIndex.items.map(
       (raw: Record<string, unknown>) => ({
         recordId: raw.recordId,
+        subject: typeof raw.subject === "string" ? clip(raw.subject, 120) : "",
         revision: raw.revision,
         recordedAt: raw.recordedAt,
         status: raw.status,
         provenance: raw.provenance,
+        requiresReview: raw.requiresReview,
+        detailOmittedForBudget: true,
         recovery: { tool: "get_record", includeUnreviewed: true },
       }),
     );

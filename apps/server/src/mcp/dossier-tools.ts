@@ -242,4 +242,3 @@ export function registerDossierTools(
     workflowResults.reconcile_continuation!,
   );
 }
-

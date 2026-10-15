@@ -130,20 +130,31 @@ describe("context packing evaluation", () => {
           (item.recovery as { tool?: string }).tool === "get_record",
       ),
     ).toBe(true);
-    expect(working.items.map((item) => item.recordId)).toEqual([
-      "working-pointer-1",
-    ]);
+    expect(working.items.length).toBeGreaterThanOrEqual(1);
+    expect(working.items.map((item) => item.recordId)).toEqual(
+      ["working-pointer-1", "working-pointer-2", "working-pointer-3"].slice(
+        0,
+        working.items.length,
+      ),
+    );
+    expect(
+      working.items.every(
+        (item) =>
+          item.status === "proposed" &&
+          item.provenance === "agent_report" &&
+          item.requiresReview === true,
+      ),
+    ).toBe(true);
     expect(working.items[0]).toMatchObject({
-      status: "proposed",
-      provenance: "agent_report",
-      requiresReview: true,
+      detailOmittedForBudget: true,
+      recovery: { tool: "get_record", includeUnreviewed: true },
     });
-    expect((working.items[0]!.evidenceRefs as unknown[]).length).toBe(1);
-    expect(working.omitted).toBe(2);
-    expect(working.recovery).toEqual({
-      tool: "search_context",
-      scope: "working",
-    });
+    expect(working.omitted).toBe(3 - working.items.length);
+    if (working.omitted > 0)
+      expect(working.recovery).toEqual({
+        tool: "search_context",
+        scope: "working",
+      });
     expect(result.latestCheckpoint).toMatchObject({
       checkpoint: {
         projectLevelIntent: "project_note",

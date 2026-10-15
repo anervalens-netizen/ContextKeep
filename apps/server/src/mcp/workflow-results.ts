@@ -49,6 +49,7 @@ const run = z
       "failed",
       "cancelled",
       "lost",
+      "not_started",
     ]),
     externalJobId: z.string().nullable(),
     verification: z.enum(["pending", "passed", "failed"]),

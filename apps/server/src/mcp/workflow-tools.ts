@@ -147,4 +147,3 @@ export function registerWorkflowTools(define: Define, deps: ServiceDeps, actorFo
     workflowResults.verify_run!,
   );
 }
-

@@ -1619,4 +1619,3 @@ export function taskNavigationPage(
   return {selection,view,items:candidates.slice(offset,offset+limit),total,offset,limit,
     nextOffset:offset+limit<total?offset+limit:null};
 }
-
