@@ -88,7 +88,7 @@ export function registerDossierTools(
     true,
     (i) => {
       const resumed = resumeTask(deps, i.projectId, i.taskId, i.unresolvedOffset, i.unresolvedLimit, i.depth, secrets);
-      if (i.format === "structured") return structuredResume(resumed.dossier, i.depth, i.totalContextBudgetChars ?? 6000);
+      if (i.format === "structured") return structuredResume(resumed.dossier, i.depth, i.totalContextBudgetChars ?? 6000, resumed.omitted);
       if (i.totalContextBudgetChars !== undefined && JSON.stringify(resumed).length > i.totalContextBudgetChars) throw new ApiError(413, "context_budget_unrepresentable", "Use format=structured or increase the resume budget.");
       return resumed;
     },

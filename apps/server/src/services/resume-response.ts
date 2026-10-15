@@ -5,13 +5,30 @@ type Dossier = ReturnType<typeof taskDossier>;
 export type ResumeFormat = "both" | "structured";
 
 /** A single bounded agent representation. Legacy human/panel exports keep both. */
-export function structuredResume(d: Dossier, depth: string, budget = 6000) {
+export function structuredResume(
+  d: Dossier,
+  depth: string,
+  budget = 6000,
+  inheritedOmissions: Array<{
+    field: string;
+    recordId: string;
+    tool: string;
+  }> = [],
+) {
   const recovery = {
     tool: "get_task",
     projectId: d.projectId,
     taskId: d.taskId,
   };
-  const fieldsOmitted: string[] = [];
+  const fieldsOmitted: Array<
+    | string
+    | {
+        field: string;
+        recordId: string;
+        tool: string;
+        includeUnreviewed: boolean;
+      }
+  > = inheritedOmissions.map((item) => ({ ...item, includeUnreviewed: true }));
   const summary =
     d.summary && d.summary.length > 600
       ? `${d.summary.slice(0, 599)}…`

@@ -167,6 +167,45 @@ describe("bounded operational resume", () => {
     );
   });
 
+  it("preserves source omission markers when compact depth clips a current instruction", async () => {
+    const { app, projectId } = await setup();
+    const task = await call(app, "create_task", {
+      projectId,
+      title: "Synthetic long action",
+      objective: "Inspect synthetic evidence",
+      ...identity(),
+    });
+    const progress = await call(app, "report_task_progress", {
+      projectId,
+      taskId: task.taskId,
+      taskRevision: task.task.revision,
+      expectedProgressRecordId: null,
+      status: "in_progress",
+      summary: "Still inspecting",
+      nextAction:
+        "Inspect synthetic evidence. ".repeat(50) +
+        "Do not execute before verification.",
+      ownerAction: null,
+      evidenceText: "Synthetic action requires further inspection.",
+      ...identity(),
+    });
+    const resumed = await call(app, "resume_task", {
+      projectId,
+      taskId: task.taskId,
+      depth: "compact",
+      format: "structured",
+      totalContextBudgetChars: 6000,
+    });
+    expect(resumed.truncated).toBe(true);
+    expect(resumed.omitted).toContainEqual({
+      field: "nextAction",
+      recordId: progress.recordId,
+      tool: "get_record",
+      includeUnreviewed: true,
+    });
+    expect(JSON.stringify(resumed).length).toBeLessThanOrEqual(6000);
+  });
+
   it("marks local checkpoint omissions and rejects missing result authority", () => {
     const compact = compactLatestCheckpoint({
       recordId: randomUUID(),
