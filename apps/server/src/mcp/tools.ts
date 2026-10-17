@@ -1,3 +1,4 @@
+import { PanelProjectsInput, PanelTasksInput } from "./panel-schemas.js";
 function telemetryOrigins(): string[] { try {return process.env.GLITCHTIP_DSN ? [new URL(process.env.GLITCHTIP_DSN).origin] : [];} catch {return [];} }
 import { workflowResults } from "./workflow-results.js";
 import { panelBootstrap, panelProjects, panelTasks } from "./panel-bootstrap.js";
@@ -564,12 +565,11 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   registerWorkflowTools(define, deps, actorFor);
   registerDossierTools(define, deps, actorFor, secrets);
   define("panel_list_projects", "Read compact project selector names and IDs for the panel.",
-    z.strictObject({ offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(50), q: z.string().trim().min(1).max(200).optional() }), true,
+    PanelProjectsInput, true,
     input => panelProjects(deps, input, input.q),
     ProjectListResult.extend({ projection: z.literal("selector"), projects: z.array(z.object({id: ProjectId, name: z.string()})) }));
   define("panel_list_tasks", "Read compact task selector labels with state provenance for the panel.",
-    z.strictObject({ projectId: ProjectId, offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(50),
-      selection: z.enum(["all_actions","actual_tasks"]).default("actual_tasks"), view: z.enum(["recent","attention","active"]).optional(), q: z.string().trim().min(1).max(200).optional() }), true,
+    PanelTasksInput, true,
     input => panelTasks(deps, input),
     PageResult.extend({ projection: z.literal("selector"), items: z.array(z.object({
       id: z.string().uuid(), subject: z.string(), taskStatus: z.string().nullable(), effectiveState: z.string(),

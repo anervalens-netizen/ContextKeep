@@ -5,14 +5,19 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { z } from "zod";
+import { PanelProjectsInput, PanelTasksInput } from "../../server/dist/mcp/panel-schemas.js";
 import { registerWorkflowTools } from "../../server/dist/mcp/workflow-tools.js";
 import { registerDossierTools } from "../../server/dist/mcp/dossier-tools.js";
 
 // Consume the server's actual published contracts. Zod parsing alone would
 // insert defaults and hide arguments missing at the host validation boundary.
-const taskInputs = {};
+const taskInputs = {
+  panel_list_projects: z.toJSONSchema(PanelProjectsInput, { target: "draft-7" }),
+  panel_list_tasks: z.toJSONSchema(PanelTasksInput, { target: "draft-7" }),
+};
+assert.ok(taskInputs.panel_list_tasks.required.includes("projectId"), "selector host contract requires projectId");
 registerWorkflowTools((name, _description, schema) => {
-  if (["panel_list_tasks", "get_task"].includes(name))
+  if (name === "get_task")
     taskInputs[name] = z.toJSONSchema(schema, { target: "draft-7" });
 }, {});
 registerDossierTools(
