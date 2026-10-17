@@ -1706,5 +1706,9 @@
   "Load projects": {
     "ro": "Încarcă proiectele",
     "en": "Load projects"
+  },
+  "Pregătește contextul": {
+    "ro": "Pregătește contextul",
+    "en": "Prepare context"
   }
 }

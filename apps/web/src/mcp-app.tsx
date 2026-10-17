@@ -98,12 +98,12 @@ const transport: TaskTransport = {
       ReturnType<NonNullable<TaskTransport["activity"]>>
     >,
   projects: async () =>
-    (await call("list_projects", { offset: 0, limit: 50 })).projects as Array<{
+    (await call("panel_list_projects", { offset: 0, limit: 50 })).projects as Array<{
       id: string;
       name: string;
     }>,
   projectPage: async (offset = 0) => {
-    const result = await call("list_projects", { offset, limit: 50 });
+    const result = await call("panel_list_projects", { offset, limit: 50 });
     const projects = result.projects as Array<{ id: string; name: string }>;
     const selected = bootstrap.selectedProject;
     return {
@@ -115,7 +115,7 @@ const transport: TaskTransport = {
     };
   },
   tasks: async (projectId, offset = 0, options) =>
-    (await call("list_tasks", {
+    (await call("panel_list_tasks", {
       projectId,
       offset,
       limit: 50,
@@ -274,7 +274,7 @@ function takeSelection(value: unknown) {
 }
 app.ontoolresult = (result) => {
   const value = result.structuredContent as Record<string, unknown> | undefined;
-  bootstrap.prime(value?.bootstrap);
+  bootstrap.prime(result._meta?.contextkeepPanelBootstrap ?? value?.bootstrap);
   initialResult = true;
   ++launchRevision;
   preferencesError = "";

@@ -120,3 +120,14 @@ describe("public route code preloading with the existing auth gate", () => {
     expect(loader).toHaveBeenCalledTimes(2);
   });
 });
+
+it("pauses private network reads after a 401 until a verified authentication transition releases them", async () => {
+  fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }));
+  await expect(apiFetch("/api/projects")).rejects.toMatchObject({ status: 401 });
+  await expect(apiFetch("/api/projects")).rejects.toMatchObject({ name: "CallerAbortedError" });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  setPrivateReadsPausedForAuthTransition(false);
+  fetchMock.mockImplementation(async (_url, init) => dataResponse(init));
+  await expect(apiFetch("/api/projects")).resolves.toMatchObject({ message: "Authenticated page data" });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});

@@ -58,6 +58,18 @@ export function toolResult(value: unknown, secrets: string[]): CallToolResult {
   return boundedResult(result);
 }
 
+/** The host receives UI bootstrap once in metadata; the model sees only the
+ * opener selection and a small summary. Older widgets can refetch their reads. */
+export function panelToolResult(value: unknown, secrets: string[]): CallToolResult {
+  const clean = safeValue(value, secrets) as Record<string, unknown>;
+  const bootstrap = clean.bootstrap as Record<string, unknown>;
+  const structuredContent = { ...clean, bootstrap: { ...bootstrap, reads: [], uiData: "metadata" } };
+  return boundedResult({
+    content: [{ type: "text", text: "ContextKeep panel opened. Selecting a task does not start execution." }],
+    structuredContent, _meta: { contextkeepPanelBootstrap: bootstrap },
+  });
+}
+
 /** Only for readSource output: its text fields were redacted in full before slicing.
  * Redacting fragments again can expand a partial marker and invalidate offsets/hash.
  * Metadata still passes through the ordinary credential boundary.

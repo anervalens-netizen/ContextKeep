@@ -24,3 +24,11 @@ describe("offline auth shell",()=>{
  it("does not use cached authentication for semantic HTTP-style errors",async()=>{useUiStore.getState().setOffline(false);localStorage.setItem(LAST_AUTHENTICATED_KEY,"1");apiFetchMock.mockRejectedValue(new Error("server rejected request"));mount();expect(await screen.findByText("Could not verify the ContextKeep session.")).toBeTruthy();expect(screen.queryByTestId("app-shell")).toBeNull()});
  it("makes auth-status cancellable so stale authenticated responses cannot survive logout fencing",async()=>{useUiStore.getState().setOffline(false);let signal:AbortSignal|undefined;apiFetchMock.mockImplementation((_url:string,opts?:{signal?:AbortSignal})=>new Promise((_resolve,reject)=>{signal=opts?.signal;signal?.addEventListener("abort",()=>reject(new DOMException("Aborted","AbortError")),{once:true})}));const{q}=mount();await waitFor(()=>expect(signal).toBeDefined());await q.cancelQueries();expect(signal?.aborted).toBe(true)});
 });
+
+it("releases the private-read fence after fresh authentication even if the authenticated boolean stays true",async()=>{
+ useUiStore.getState().setOffline(false);apiFetchMock.mockResolvedValue({authenticated:true});mount();
+ await screen.findByTestId("app-shell");await waitFor(()=>expect(privateReadsPauseMock).toHaveBeenCalledWith(false));
+ privateReadsPauseMock.mockClear();window.dispatchEvent(new CustomEvent("ck:unauthorized"));
+ await waitFor(()=>expect(apiFetchMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+ await waitFor(()=>expect(privateReadsPauseMock.mock.calls.map(c=>c[0])).toEqual([true,false]));
+});

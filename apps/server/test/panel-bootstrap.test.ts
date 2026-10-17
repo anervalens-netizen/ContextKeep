@@ -32,12 +32,18 @@ describe("bounded panel bootstrap", () => {
       expect(r.statusCode).toBe(200);
       const result = r.json().result;
       expect(result.isError === true, JSON.stringify(result)).toBe(error);
+      if (name === "open_task_panel" && !error) {
+        expect(result.structuredContent.bootstrap.reads).toEqual([]);
+        expect(JSON.stringify(result.structuredContent).length).toBeLessThan(2000);
+        expect(JSON.stringify(result.content)).not.toContain("Synthetic task");
+        return { ...result.structuredContent, bootstrap: result._meta.contextkeepPanelBootstrap };
+      }
       return result.structuredContent;
     }
     const global = await call("open_task_panel");
     expect(global.startsExecution).toBe(false);
     expect(global.bootstrap.reads.map((r: { tool: string }) => r.tool)).toEqual(
-      ["list_projects", "get_portfolio"],
+      ["panel_list_projects", "get_portfolio"],
     );
     const p = await call("create_project", {
       name: "Synthetic bootstrap",
@@ -74,7 +80,7 @@ describe("bounded panel bootstrap", () => {
     expect(opened.bootstrap.preferences.refreshInterval).toBe("manual");
     expect(
       opened.bootstrap.reads.find(
-        (r: { tool: string }) => r.tool === "list_tasks",
+        (r: { tool: string }) => r.tool === "panel_list_tasks",
       ).arguments.selection,
     ).toBe("all_actions");
     expect(Date.now() - Date.parse(opened.bootstrap.observedAt)).toBeLessThan(
@@ -85,6 +91,11 @@ describe("bounded panel bootstrap", () => {
       name: "Synthetic bootstrap",
     });
     expect(opened.bootstrap.reads).toHaveLength(4);
+    const selector = opened.bootstrap.reads.find((r: {tool: string}) => r.tool === "panel_list_tasks").value;
+    expect(selector.projection).toBe("selector");
+    expect(selector.items[0].subject).toBe("Synthetic task");
+    expect(selector.items[0]).not.toHaveProperty("text");
+    expect(opened.bootstrap.reads[0].value.projects[0]).not.toHaveProperty("description");
     for (const read of opened.bootstrap.reads) {
       expect(read.arguments.limit).toBeLessThanOrEqual(50);
       const fresh = await call(read.tool, read.arguments);

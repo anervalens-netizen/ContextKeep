@@ -668,7 +668,7 @@ export function TaskPanel({
           {transport.resume && (
             <div className="ck-resume-controls">
               <button disabled={resuming} onClick={() => void prepareResume()}>
-                {resuming ? tr("Se pregătește…") : tr("Reia lucrarea")}
+                {resuming ? tr("Se pregătește…") : ["done", "cancelled"].includes(view.dossier?.state ?? view.task.taskStatus ?? "") ? tr("Pregătește contextul") : tr("Reia lucrarea")}
               </button>
               <small>
                 {tr(

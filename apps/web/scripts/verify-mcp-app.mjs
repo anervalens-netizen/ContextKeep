@@ -12,7 +12,7 @@ import { registerDossierTools } from "../../server/dist/mcp/dossier-tools.js";
 // insert defaults and hide arguments missing at the host validation boundary.
 const taskInputs = {};
 registerWorkflowTools((name, _description, schema) => {
-  if (["list_tasks", "get_task"].includes(name))
+  if (["panel_list_tasks", "get_task"].includes(name))
     taskInputs[name] = z.toJSONSchema(schema, { target: "draft-7" });
 }, {});
 registerDossierTools(
@@ -132,11 +132,11 @@ try {
                 total: 0,
                 nextOffset: null,
               },
-              list_projects: {
+              panel_list_projects: {
                 projects: [{ id: "demo-project", name: "Demo project" }],
                 nextOffset: null,
               },
-              list_tasks: { items: [task], nextOffset: null },
+              panel_list_tasks: { items: [task], nextOffset: null },
               get_task: {
                 task,
                 dossier,
@@ -191,13 +191,13 @@ try {
                   projectId: "demo-project",
                   taskId: "demo-task",
                   revision: 1,
-                  ...(["hydrated", "stale"].includes(mode) ? {bootstrap:{version:1,preferences,observedAt:new Date(Date.now()-(mode==="stale"?60000:0)).toISOString(),reads:[
-                    {tool:"list_projects",arguments:{offset:0,limit:50},value:results.list_projects},
-                    {tool:"list_tasks",arguments:{projectId:"demo-project",offset:0,limit:50,selection:"actual_tasks",view:"recent"},value:results.list_tasks},
+                } : {},
+                  ...(["hydrated", "stale"].includes(mode) ? {_meta:{contextkeepPanelBootstrap:{version:1,preferences,observedAt:new Date(Date.now()-(mode==="stale"?60000:0)).toISOString(),reads:[
+                    {tool:"panel_list_projects",arguments:{offset:0,limit:50},value:results.panel_list_projects},
+                    {tool:"panel_list_tasks",arguments:{projectId:"demo-project",offset:0,limit:50,selection:"actual_tasks",view:"recent"},value:results.panel_list_tasks},
                     {tool:"get_task",arguments:{projectId:"demo-project",taskId:"demo-task",offset:0,limit:20},value:results.get_task},
                     {tool:"get_operational_timeline",arguments:{projectId:"demo-project",taskId:"demo-task",offset:0,limit:20,scope:"all"},value:results.get_operational_timeline},
-                  ]}}:{}),
-                } : {},
+                  ]}}}:{}),
               },
             });
           } else if (message.method === "ui/request-display-mode") {
@@ -333,8 +333,8 @@ try {
               "ui/initialize",
               "ui/request-display-mode",
               "settings.read",
-              "list_projects",
-              "list_tasks",
+              "panel_list_projects",
+              "panel_list_tasks",
               "get_task",
               "get_project_dossier",
               "get_portfolio",

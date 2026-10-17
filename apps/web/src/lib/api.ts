@@ -473,6 +473,7 @@ export async function apiFetch<T>(url: string, opts: FetchOptions = {}): Promise
   }
 
   if (res.status === 401) {
+    if (isPrivateRead(url, method)) setPrivateReadsPausedForAuthTransition(true);
     window.dispatchEvent(new CustomEvent("ck:unauthorized"));
     // Auth is a retryable delivery condition; keep the staged row so the
     // post-login resume (Login.tsx → ck:retry-offline-queue → main.tsx) can

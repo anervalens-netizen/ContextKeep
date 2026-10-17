@@ -86,6 +86,8 @@ export function Layout(): ReactNode {
     });
 
     const unauthorized = (): void => {
+      setPrivateReadsPausedForAuthTransition(true);
+      void qc.cancelQueries({ predicate: query => query.queryKey[0] !== "auth-status" });
       clearRememberedAuth();
       setLastAuth(false);
       void qc.invalidateQueries({ queryKey: ["auth-status"] });
@@ -124,7 +126,7 @@ export function Layout(): ReactNode {
       clearRememberedAuth();
       setLastAuth(false);
     }
-  }, [auth.isSuccess, authenticated]);
+  }, [auth.isSuccess, authenticated, auth.dataUpdatedAt]);
 
   useEffect(() => {
     if (auth.isError && lastAuth && isNetworkUnavailableError(auth.error)) {

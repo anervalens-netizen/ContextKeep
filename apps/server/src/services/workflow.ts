@@ -506,7 +506,7 @@ export function listTasks(
   return {
     selection,
     items: rows.map((row) => {
-      const r = row as { id: string; taskStatus: string | null; revision: number };
+      const r = row as { id: string; projectId: string; subject: string; text: string; reviewStatus: string; taskStatus: string | null; revision: number };
       const operationalProgress = getTaskProgress(deps, r.id);
       const state = effectiveTaskState(deps, r, operationalProgress);
       return { ...r, operationalProgress, effectiveState: state.state, stateSource: state.stateSource };

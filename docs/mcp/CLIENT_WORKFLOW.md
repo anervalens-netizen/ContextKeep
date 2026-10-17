@@ -1,12 +1,12 @@
 # Client workflow
 
-MCP interface version: 2.19.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.20.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 
 ## Correlating a Remote Control job
 
-Reserve the run before starting the executor. The reserved `inputHash` must be
+Prefer the discovered read-only Remote Control `job_input_hash` tool to prepare the exact input hash. Reserve the run before starting the executor. The reserved `inputHash` must be
 Remote Control's canonical **job input** hash, not a hash of a deployment plan or
 higher-level intent. Use the same exact command, working directory and environment
 in the reservation calculation and the subsequent `job_start` call.

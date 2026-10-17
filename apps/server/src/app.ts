@@ -1,3 +1,4 @@
+import { requestLogFields } from "./lib/request-log.js";
 import { captureError } from "./lib/error-reporting.js";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -140,8 +141,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       redact: ["req.headers.authorization", "req.headers.cookie", 'req.headers["x-csrf-token"]'],
       serializers: {
         // A rejected credential-in-query must not become a credential-in-log.
-        req: (req: { id?: string; method?: string; url?: string }) =>
-          ({ id: req.id, method: req.method, url: req.url?.split("?")[0] }),
+        req: requestLogFields,
       },
     },
     genReqId: () => crypto.randomUUID(),

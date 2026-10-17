@@ -13,6 +13,22 @@ import {
 import { requireProject } from "../services/memory-management.js";
 import { ApiError } from "../lib/errors.js";
 
+/** Selectors carry names and routing identity only, never full project memory. */
+export function panelProjects(deps: ServiceDeps, page: { offset: number; limit: number }, q?: string) {
+  const result = listProjects(deps, page, q);
+  return { ...result, projection: "selector" as const, projects: result.projects.map(({ id, name }) => ({ id, name })) };
+}
+export function panelTasks(deps: ServiceDeps, input: {
+  projectId: string; offset: number; limit: number;
+  selection: "all_actions" | "actual_tasks"; q?: string; view?: "recent" | "attention" | "active";
+}) {
+  const result = listTasks(deps, input.projectId, input.offset, input.limit, input.selection, input.q, input.view);
+  return { ...result, projection: "selector" as const, items: result.items.map(task => ({
+    id: task.id, subject: task.subject, taskStatus: task.taskStatus, effectiveState: task.effectiveState,
+    stateSource: task.stateSource, reviewStatus: task.reviewStatus, revision: task.revision,
+  })) };
+}
+
 export function panelBootstrap(
   deps: ServiceDeps,
   input: { projectId?: string; taskId?: string },
@@ -32,17 +48,17 @@ export function panelBootstrap(
     }> = [];
     const add = (tool: string, args: Record<string, unknown>, value: unknown) =>
       reads.push({ tool, arguments: args, value });
-    const projects = listProjects(deps, { offset: 0, limit: 50 });
+    const projects = panelProjects(deps, { offset: 0, limit: 50 });
     let selectedProject: { id: string; name: string } | undefined;
     if (input.projectId) {
       const project = requireProject(deps, input.projectId);
       selectedProject = { id: project.id, name: project.name };
     }
-    add("list_projects", { offset: 0, limit: 50 }, projects);
+    add("panel_list_projects", { offset: 0, limit: 50 }, projects);
     if (input.projectId) {
       const projectId = input.projectId;
       add(
-        "list_tasks",
+        "panel_list_tasks",
         {
           projectId,
           offset: 0,
@@ -50,15 +66,10 @@ export function panelBootstrap(
           selection: preferences.taskVisibility,
           view: preferences.landingView,
         },
-        listTasks(
-          deps,
-          projectId,
-          0,
-          50,
-          preferences.taskVisibility,
-          undefined,
-          preferences.landingView,
-        ),
+        panelTasks(deps, {
+          projectId, offset: 0, limit: 50,
+          selection: preferences.taskVisibility, view: preferences.landingView,
+        }),
       );
       if (input.taskId) {
         add(

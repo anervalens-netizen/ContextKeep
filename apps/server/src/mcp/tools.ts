@@ -1,6 +1,7 @@
 function telemetryOrigins(): string[] { try {return process.env.GLITCHTIP_DSN ? [new URL(process.env.GLITCHTIP_DSN).origin] : [];} catch {return [];} }
 import { workflowResults } from "./workflow-results.js";
-import { panelBootstrap } from "./panel-bootstrap.js";
+import { panelBootstrap, panelProjects, panelTasks } from "./panel-bootstrap.js";
+import { panelToolResult } from "./safety.js";
 import { PANEL_SETTINGS_CAPABILITIES, SettingsReadResult, SettingsUpdateInput, SettingsUpdateResult, readPanelSettings, updatePanelSettings } from "./panel-settings.js";
 import { requireTaskScope } from "../services/task-scope.js";
 import fs from "node:fs";
@@ -30,7 +31,7 @@ import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-me
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
 
 // The host caches resources by URI. Bump this when shipped UI behavior changes.
-const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v7.3.html";
+const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v7.4.html";
 const PANEL_ICONS = (["light","dark"] as const).map(theme=>({
   src:"data:image/svg+xml;base64,"+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><g fill="'+(theme==="light"?"#0F1119":"#FFFFFF")+'"><path d="M500 220H345C190 220 90 335 90 500S190 780 345 780H500L410 650H345C260 650 215 590 215 500S260 350 345 350H410Z"/><path d="M440 500L690 220H850L610 500L850 780H690Z"/></g></svg>').toString("base64"),
   mimeType:"image/svg+xml",sizes:["any"],theme,
@@ -394,7 +395,8 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
 
           let result: unknown;
           if (readOnly) {
-            result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) : toolResult(await runChecked(), secrets);
+            result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) :
+              name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) : toolResult(await runChecked(), secrets);
           } else {
             rejectCredentials(input, secrets);
             if (name === "settings.update") {
@@ -561,6 +563,19 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   registerManagementTools(define, deps, actorFor, secrets);
   registerWorkflowTools(define, deps, actorFor);
   registerDossierTools(define, deps, actorFor, secrets);
+  define("panel_list_projects", "Read compact project selector names and IDs for the panel.",
+    z.strictObject({ offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(50), q: z.string().trim().min(1).max(200).optional() }), true,
+    input => panelProjects(deps, input, input.q),
+    ProjectListResult.extend({ projection: z.literal("selector"), projects: z.array(z.object({id: ProjectId, name: z.string()})) }));
+  define("panel_list_tasks", "Read compact task selector labels with state provenance for the panel.",
+    z.strictObject({ projectId: ProjectId, offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(50),
+      selection: z.enum(["all_actions","actual_tasks"]).default("actual_tasks"), view: z.enum(["recent","attention","active"]).optional(), q: z.string().trim().min(1).max(200).optional() }), true,
+    input => panelTasks(deps, input),
+    PageResult.extend({ projection: z.literal("selector"), items: z.array(z.object({
+      id: z.string().uuid(), subject: z.string(), taskStatus: z.string().nullable(), effectiveState: z.string(),
+      stateSource: z.string(), reviewStatus: z.string(), revision: z.number().int().positive(),
+    })) }));
+  for (const name of ["panel_list_projects", "panel_list_tasks"]) tools.get(name)!.metadata._meta = { ui: { visibility: ["app"] } };
   define("open_task_panel","Open the project dossier or selected task in the ContextKeep panel. Does not start any execution.",
     z.strictObject({projectId:z.string().uuid().optional(),taskId:z.string().uuid().optional(),revision:z.number().int().optional()}),true,
     input=>panelBootstrap(deps,input,readPanelSettings(requirePreferencesPath()).values),workflowResults.open_task_panel!);
@@ -599,7 +614,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   });
   server.setRequestHandler("resources/list",async()=>({resources:[{uri:TASK_PANEL_RESOURCE_URI,name:"ContextKeep task dossier",title:"ContextKeep",icons:PANEL_ICONS,mimeType:"text/html;profile=mcp-app"}]}));
   server.setRequestHandler("resources/read",async request=>{
-    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html" && request.params.uri!=="ui://contextkeep/tasks/v4.html" && request.params.uri!=="ui://contextkeep/tasks/v5.html" && request.params.uri!=="ui://contextkeep/tasks/v6.html" && request.params.uri!=="ui://contextkeep/tasks/v7.html" && request.params.uri!=="ui://contextkeep/tasks/v7.1.html" && request.params.uri!=="ui://contextkeep/tasks/v7.2.html")throw new ProtocolError(-32602,"Unknown UI resource.");
+    if(request.params.uri!==TASK_PANEL_RESOURCE_URI && request.params.uri!==LEGACY_TASK_PANEL_RESOURCE_URI && request.params.uri!=="ui://contextkeep/tasks/v2.html" && request.params.uri!=="ui://contextkeep/tasks/v3.html" && request.params.uri!=="ui://contextkeep/tasks/v4.html" && request.params.uri!=="ui://contextkeep/tasks/v5.html" && request.params.uri!=="ui://contextkeep/tasks/v6.html" && request.params.uri!=="ui://contextkeep/tasks/v7.html" && request.params.uri!=="ui://contextkeep/tasks/v7.1.html" && request.params.uri!=="ui://contextkeep/tasks/v7.2.html" && request.params.uri!=="ui://contextkeep/tasks/v7.3.html")throw new ProtocolError(-32602,"Unknown UI resource.");
     const root=options.webDist??path.resolve(import.meta.dirname,"../../../web/dist");
     const js=fs.readFileSync(path.join(root,"mcp/widget.js"),"utf8");
     const css=fs.readFileSync(path.join(root,"mcp/widget.css"),"utf8");

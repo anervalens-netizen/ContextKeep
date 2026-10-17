@@ -1,5 +1,7 @@
 import { PanelPreferences } from "@contextkeep/shared";
 const READ_TOOLS = new Set([
+  "panel_list_projects",
+  "panel_list_tasks",
   "list_projects",
   "list_tasks",
   "get_task",

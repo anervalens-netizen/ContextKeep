@@ -1,13 +1,13 @@
 # MCP interface
 
-> Current operational contract: MCP 2.19 / schema 19. Explicit task creation,
+> Current operational contract: MCP 2.20 / schema 19. Explicit task creation,
 > compatible task selection and classified attention build on the existing
 > task-scope, execution-evidence and no-replay contracts. Reports remain proposed.
 > See [Operational dossier](OPERATIONAL_DOSSIER.md) and
-> [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.3;
+> [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.19.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.20.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
@@ -75,3 +75,11 @@ working-memory indexes retain record IDs and recovery pointers before
 discarding current reports. Historical task objectives are explicitly
 labelled and cannot override effective state. Central workflow tools
 advertise and validate required result identities, revisions and pagination.
+
+## MCP 2.20 panel transport
+
+The versioned v7.4 task panel keeps its initial UI data in result `_meta.contextkeepPanelBootstrap`. Model-facing structured content retains selection, revision and bootstrap metadata without duplicating full memory; the visible text is a short acknowledgement. Older resource URIs remain readable. App-only `panel_list_projects` and `panel_list_tasks` return compact selectors with routing identity and state provenance. Full dossier/evidence reads retain their existing contracts. The bootstrap remains bounded, redacted and read-only.
+
+The PWA pauses private reads after an authentication failure until authentication is revalidated. Request logs record bounded client categories and credential-presence booleans, never header values or query credentials. These categories are diagnostic hints, not trusted caller identity.
+
+Generic sources for the six installed continuity workflows are versioned under `plugins/contextkeep-workflows`; private account bindings remain in the owned plugin release.

@@ -1,13 +1,13 @@
 # SDK compatibility
 
-MCP interface version: 2.19.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.20.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 Runtime dependency: @modelcontextprotocol/server@2.1.0. Verify the dependency version in apps/server/package.json when upgrading.
 
-## Panel v7.3 contract
+## Panel v7.4 contract
 
-MCP 2.18 exposes 60 tools, including native `settings.read` and
+MCP 2.20 exposes 62 tools (60 model-visible and two app-only selectors), including native `settings.read` and
 `settings.update`. Preferences live in a separate atomic JSON file in the
 configured data directory. Partial updates preserve omitted fields; they do
 not create memory records or execution receipts. Unlike memory mutations,
@@ -19,7 +19,7 @@ routes; it does not use the SDK1 registration helper. The fallback panel editor
 uses the same tools and offers explicit preference readback. It is not evidence
 that a host implements native settings.
 
-The opener points to `ui://contextkeep/tasks/v7.3.html` and includes a bounded,
+The opener points to `ui://contextkeep/tasks/v7.4.html` and includes a bounded,
 timestamped first-screen projection. Matching fresh reads consume that
 projection once. Missing or expired preferences are read before data loading.
 Task selection belongs to each panel; saving preferences does not select a
