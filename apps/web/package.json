@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "icons": "node --import tsx/esm scripts/generate-icons.ts",
     "screenshots": "node --import tsx/esm scripts/screenshot.ts",
-    "verify:nav": "node scripts/verify-nav.mjs && node scripts/verify-mcp-app.mjs",
+    "verify:nav": "node --test scripts/nav-telemetry.test.mjs && node scripts/verify-nav.mjs && node scripts/verify-mcp-app.mjs",
     "verify:mcp": "node scripts/verify-mcp-app.mjs"
   },
   "dependencies": {

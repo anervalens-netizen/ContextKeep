@@ -2,6 +2,7 @@
 // Optional: CK_NAV_SHOT_DIR and CK_NAV_EXECUTABLE_PATH.
 // Always starts a disposable local fixture; CK_BASE_URL is deliberately unused.
 import { chromium } from "playwright";
+import { envelopeMatcher } from "./nav-telemetry.mjs";
 import { fork } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -37,6 +38,8 @@ let stopping = false;
 let expectedUnauthorized = false;
 let unauthorizedResponses = 0;
 const runtimeFailures = [];
+const isBuildTelemetry = envelopeMatcher(process.env.VITE_GLITCHTIP_DSN);
+let locallyInterceptedTelemetry = 0;
 const pendingRequests = new Set();
 const deliberateUnauthorizedRequests = new WeakSet();
 
@@ -163,7 +166,7 @@ async function startBrowser() {
   });
   context.setDefaultTimeout(10000);
   context.setDefaultNavigationTimeout(15000);
-  // A build accidentally referencing an external origin fails without sending it data.
+  // Only the configured build telemetry is fulfilled locally; no external request is sent.
   await context.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (
@@ -172,6 +175,9 @@ async function startBrowser() {
       url.protocol === "blob:"
     ) {
       await route.continue();
+    } else if (isBuildTelemetry(route.request())) {
+      locallyInterceptedTelemetry++;
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
     } else {
       runtimeFailures.push({
         kind: "external-request",
@@ -1029,6 +1035,7 @@ report.status =
   report.deniedStorage?.status === "PASS"
     ? "PASS"
     : "FAIL";
+report.locallyInterceptedTelemetry = locallyInterceptedTelemetry;
 if (OUT) {
   try {
     await writeFile(
