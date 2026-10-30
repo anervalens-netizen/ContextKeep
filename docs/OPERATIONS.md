@@ -44,6 +44,24 @@ Adoption is an operator change: create and review the private profile, run a
 synthetic dry-run, then update the installed service arguments deliberately.
 Do not blindly overwrite an installed operational script or profile.
 
+## Private metrics scraping
+
+Set an independent `CK_METRICS_TOKEN` of 32–256 characters in the private
+service environment to enable `GET /metrics`. This bearer grants access only
+to aggregate Prometheus metrics; it cannot access owner APIs or MCP tools.
+The endpoint fails closed when unset and rejects cookie-only authentication,
+URL credentials and browser origins. Existing owner-authenticated
+`GET /api/metrics` remains available. Keep the scrape route on private
+transport and store the credential in a protected file, never in the URL.
+Startup rejects reuse of the MCP token or session secret for scraping.
+
+An existing Prometheus installation can use `metrics_path: /metrics` and
+`authorization.credentials_file` with a privately configured target. Validate
+configuration before reload, then verify `up` and real
+`ck_mcp_tool_calls_total` samples after MCP traffic. Retention determines the
+available comparison window; enabling scraping does not backfill history.
+Keep task, run, user and request IDs, arguments and result text out of labels.
+
 ## Startup and recovery invariants
 
 Startup claims the single-primary writer before migrations or recovery. A

@@ -31,6 +31,7 @@ import {
 import { readSession, setAuthCookies, SESSION_COOKIE } from "./services/session.js";
 import { registerPublicAuthRoutes, registerLogoutRoute } from "./routes/auth.js";
 import { registerMcpRoutes } from "./routes/mcp.js";
+import { registerMetricsRoute } from "./routes/metrics.js";
 import { registerProjectRoutes } from "./routes/projects.js";
 import { registerImportRoutes } from "./routes/imports.js";
 import { registerInboxRoutes } from "./routes/inbox.js";
@@ -209,6 +210,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
 
   registerPublicAuthRoutes(app);
   registerMcpRoutes(app);
+  registerMetricsRoute(app);
 
   app.register(async (inst) => {
     // CK-A04: authenticated API reads carry a marker that can only be added by

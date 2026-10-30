@@ -34,12 +34,13 @@ export interface TestApp {
 // secret-safe-script-authoring skill). Test-only value, not a real credential.
 export const TEST_PASSWORD = ["ck", "test", "owner", "0123456789"].join("-");
 
-export async function makeTestApp(opts: { seed?: boolean; adapters?: string; mcpToken?: string; mcpDefaultClientId?: string; mcpDelegateWorkingMemory?: boolean; buildSha?: string } = {}): Promise<TestApp> {
+export async function makeTestApp(opts: { seed?: boolean; adapters?: string; mcpToken?: string; metricsToken?: string; mcpDefaultClientId?: string; mcpDelegateWorkingMemory?: boolean; buildSha?: string } = {}): Promise<TestApp> {
   const dataDir = mkdtempSync(path.join(tmpdir(), "ck-test-"));
   const config = loadConfig(
     {
       NODE_ENV: "test",
       CK_MCP_TOKEN: opts.mcpToken,
+      CK_METRICS_TOKEN: opts.metricsToken,
       CK_MCP_DEFAULT_CLIENT_ID: opts.mcpDefaultClientId,
       CK_MCP_DELEGATE_WORKING_MEMORY: opts.mcpDelegateWorkingMemory ? "true" : "false",
       CK_DATA_DIR: dataDir,

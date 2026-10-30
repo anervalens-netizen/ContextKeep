@@ -15,6 +15,7 @@ const EnvSchema = z.object({
   CK_PORT: z.coerce.number().int().min(1).max(65535).default(3082),
   CK_HOST: z.string().min(1).default("127.0.0.1"),
   CK_MCP_TOKEN: z.preprocess(emptyToUndef, z.string().min(32).max(256).optional()),
+  CK_METRICS_TOKEN: z.preprocess(emptyToUndef, z.string().min(32).max(256).optional()),
   CK_MCP_DEFAULT_CLIENT_ID: z.preprocess(emptyToUndef, z.string().trim().min(1).max(80).optional()),
   CK_MCP_DELEGATE_WORKING_MEMORY: z.enum(["true", "false"]).default("false"),
   CK_SESSION_SECRET: z.preprocess(emptyToUndef, z.string().min(8).optional()),
@@ -73,6 +74,8 @@ export interface AppConfig {
   sessionSecret: string;
   /** Private MCP transport credential; independent from owner web login. */
   mcpToken: string | undefined;
+  /** Read-only monitoring credential; never grants owner or MCP access. */
+  metricsToken?: string;
   /** Optional stable identity for this configured MCP/tunnel client. */
   mcpDefaultClientId: string | null;
   /** Allows proposal-only working-memory capture without per-write owner confirmation. */
@@ -163,6 +166,7 @@ export function loadConfig(
     host: parsed.CK_HOST,
     sessionSecret,
     mcpToken: parsed.CK_MCP_TOKEN,
+    metricsToken: parsed.CK_METRICS_TOKEN,
     mcpDefaultClientId: parsed.CK_MCP_DEFAULT_CLIENT_ID ?? null,
     mcpDelegateWorkingMemory: parsed.CK_MCP_DELEGATE_WORKING_MEMORY === "true",
     secretIsEphemeral,
@@ -198,5 +202,10 @@ export function loadConfig(
     seedOnStart: parsed.CK_SEED_ON_START === "demo",
     env: parsed.NODE_ENV,
   };
-  return { ...base, ...overrides };
+  const config = { ...base, ...overrides };
+  if (config.metricsToken &&
+      (config.metricsToken === config.mcpToken || config.metricsToken === config.sessionSecret)) {
+    throw new Error("CK_METRICS_TOKEN must be independent of MCP and session credentials.");
+  }
+  return config;
 }
