@@ -83,3 +83,12 @@ The versioned v7.4 task panel keeps its initial UI data in result `_meta.context
 The PWA pauses private reads after an authentication failure until authentication is revalidated. Request logs record bounded client categories and credential-presence booleans, never header values or query credentials. These categories are diagnostic hints, not trusted caller identity.
 
 Generic sources for the six installed continuity workflows are versioned under `plugins/contextkeep-workflows`; private account bindings remain in the owned plugin release.
+
+### Blocker pages
+
+`list_blockers` defaults to the existing active, resolved and history pages. Set
+`state` to `active` or `resolved` to select those records, and set
+`includeHistory: false` to omit the duplicate history page. Counts remain exact
+for the full task or project scope; `selection.historyCount` describes the
+filtered history. Each included array has its own next offset; omitted arrays
+have a null next offset. Use that array's offset to continue paging.

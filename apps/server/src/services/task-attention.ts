@@ -12,6 +12,7 @@ export interface AttentionInput {
   invalidEvidence: number;
   reconciliationNeeded: number;
   followUp: boolean;
+  followUpAction: boolean;
   ownerAction: boolean;
 }
 export function classifyTaskAttention(input: AttentionInput): TaskAttention {
@@ -32,11 +33,14 @@ export function classifyTaskAttention(input: AttentionInput): TaskAttention {
     : lifecycleSuppressed
       ? "deferred"
       : "actionable_now";
+  const deferredOnly = input.blockerCounts.deferred > 0 &&
+    input.blockerCounts.blocking === 0 && input.blockerCounts.verification === 0 &&
+    input.blockerCounts.legacy === 0;
   add(
-    workCategory,
+    deferredOnly ? "deferred" : workCategory,
     "blocked_state",
     Number(input.state === "blocked"),
-    !lifecycleSuppressed,
+    !lifecycleSuppressed && !deferredOnly,
   );
   add(
     workCategory,
@@ -82,7 +86,7 @@ export function classifyTaskAttention(input: AttentionInput): TaskAttention {
     "historical_integrity",
     "post_closure_follow_up",
     Number(input.followUp),
-    true,
+    input.followUpAction,
   );
   add("owner_optional", "owner_action", Number(input.ownerAction), false);
   return {

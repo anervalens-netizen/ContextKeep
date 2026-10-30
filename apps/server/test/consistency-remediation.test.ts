@@ -1019,10 +1019,10 @@ describe("actionless post-closure follow-up", () => {
       summary: "Synthetic follow-up evidence requires reconciliation",
       checkpointRecordId: checkpointResult.outcome.recordId,
     });
-    expect(resumed.dossier.needsAttention).toBe(true);
-    expect(resumed.dossier.attentionReasons).toContain(
-      "post_closure_follow_up",
-    );
+    expect(resumed.dossier.needsAttention).toBe(false);
+    expect(resumed.dossier.attention.items).toContainEqual(expect.objectContaining({
+      reason: "post_closure_follow_up", requiresAction: false,
+    }));
     expect(resumed.resumeText).toContain(
       `Post-closure follow-up checkpoint: ${checkpointResult.outcome.recordId}`,
     );
@@ -1041,7 +1041,31 @@ describe("actionless post-closure follow-up", () => {
     const attention = project.attention.tasks.find(
       (item: { taskId: string }) => item.taskId === taskId,
     );
-    expect(attention?.attentionReasons).toContain("post_closure_follow_up");
+    expect(attention).toBeUndefined();
+  });
+});
+
+describe("deferred blocker attention propagation", () => {
+  it("does not add urgency for deferred-only blocked work, but does for a mixed blocker", async () => {
+    const { t, projectId, taskId } = await setup();
+    await progress(t, projectId, taskId, "blocked", null);
+    await call(t, "capture_work", { projectId, taskId, outcome: "Synthetic deferred checkpoint", checkpoint: {
+      blockers: [{ text: "Synthetic deferred check", category: "deferred" }],
+    }, ...identity() });
+    const deferred = await call(t, "resume_task", { projectId, taskId });
+    expect(deferred.dossier.blockers.categoryCounts.deferred).toBe(1);
+    expect(deferred.dossier.needsAttention).toBe(false);
+    expect(deferred.dossier.attention.items).toContainEqual(expect.objectContaining({ reason: "blocked_state", category: "deferred", requiresAction: false }));
+    let project = await call(t, "get_project_dossier", { projectId, offset: 0, limit: 10 });
+    expect(project.attention.tasks.find((item: { taskId: string }) => item.taskId === taskId)).toBeUndefined();
+    await call(t, "capture_work", { projectId, taskId, outcome: "Synthetic blocking checkpoint", checkpoint: {
+      blockers: [{ text: "Synthetic blocking check", category: "blocking" }],
+    }, ...identity() });
+    const mixed = await call(t, "resume_task", { projectId, taskId });
+    expect(mixed.dossier.needsAttention).toBe(true);
+    expect(mixed.dossier.blockers.categoryCounts).toMatchObject({ deferred: 1, blocking: 1 });
+    project = await call(t, "get_project_dossier", { projectId, offset: 0, limit: 10 });
+    expect(project.attention.tasks.find((item: { taskId: string }) => item.taskId === taskId)?.attentionReasons).toContain("active_blocker");
   });
 });
 

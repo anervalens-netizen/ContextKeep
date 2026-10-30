@@ -113,10 +113,11 @@ function checkpointBlockersForProjects(
         AND value_json IS NOT NULL
         AND json_valid(value_json)=1
         AND json_extract(value_json, '$.kind')='working_checkpoint'
+        ${taskId ? "AND json_extract(value_json, '$.taskId')=?" : ""}
       ORDER BY recorded_at ASC, id ASC
     `,
     )
-    .all(...projectIds) as Array<{
+    .all(...projectIds, ...(taskId ? [taskId] : [])) as Array<{
     id: string;
     revision: number;
     reviewStatus: string;
@@ -226,7 +227,7 @@ export function activeBlockerCountsByTask(
 export function getBlockerState(
   deps: ServiceDeps,
   projectId: string,
-  page: { offset?: number; limit?: number; taskId?: string } = {},
+  page: { offset?: number; limit?: number; taskId?: string; state?: "active" | "resolved" | "all"; includeHistory?: boolean } = {},
 ) {
   requireProject(deps, projectId);
   const blockers = checkpointBlockersForProject(deps, projectId, page.taskId);
@@ -290,6 +291,10 @@ export function getBlockerState(
       b.checkpointRecordedAt.localeCompare(a.checkpointRecordedAt) ||
       b.blockerId.localeCompare(a.blockerId),
   );
+  const state = page.state ?? "all";
+  const includeHistory = page.includeHistory ?? true;
+  const selectedHistory = state === "all" ? orderedHistory : orderedHistory.filter(item =>
+    state === "active" ? item.status === "active" : item.status === "resolved" || item.status === "withdrawn");
   const offset = Math.max(0, page.offset ?? 0);
   const limit = Math.min(50, Math.max(1, page.limit ?? 25));
   const nextOffset = (total: number) =>
@@ -297,9 +302,10 @@ export function getBlockerState(
 
   return {
     projectId,
-    active: activeAll.slice(offset, offset + limit),
-    resolved: resolvedAll.slice(offset, offset + limit),
-    history: orderedHistory.slice(offset, offset + limit),
+    active: state !== "resolved" ? activeAll.slice(offset, offset + limit) : [],
+    resolved: state !== "active" ? resolvedAll.slice(offset, offset + limit) : [],
+    history: includeHistory ? selectedHistory.slice(offset, offset + limit) : [],
+    selection: { state, includeHistory, historyCount: selectedHistory.length },
     activeCount: activeAll.length,
     categoryCounts: activeAll.reduce<BlockerCategoryCounts>((counts, item) => { counts[item.category ?? "legacy"]++; return counts; }, { blocking: 0, verification: 0, deferred: 0, legacy: 0 }),
     resolvedCount: resolvedAll.length,
@@ -307,9 +313,9 @@ export function getBlockerState(
     pagination: {
       offset,
       limit,
-      activeNextOffset: nextOffset(activeAll.length),
-      resolvedNextOffset: nextOffset(resolvedAll.length),
-      historyNextOffset: nextOffset(orderedHistory.length),
+      activeNextOffset: state !== "resolved" ? nextOffset(activeAll.length) : null,
+      resolvedNextOffset: state !== "active" ? nextOffset(resolvedAll.length) : null,
+      historyNextOffset: includeHistory ? nextOffset(selectedHistory.length) : null,
     },
     semantics:
       "Blocker identity derives from checkpoint record+index and remains stable across review/archive revisions. checkpointRevision is a stale-write fence. Only an explicit proposed/accepted blocker_resolution event suppresses an active blocker; later blockers=[] does not. Arrays are bounded pages; counts are exact.",

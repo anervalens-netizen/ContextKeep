@@ -11,6 +11,6 @@ Read resume_task once for current state. When its schema supports format and tot
 
 A timeout, expired lease or missing history does not prove non-start. Inspect the exact executor receipt by job ID or operation/idempotency key; never start a replacement to bypass uncertainty. Reading memory starts no execution. Continue only already authorized work; paused/retired projects and closed tasks do not authorize new implementation.
 
-Inspect effective state, attention, current evidence validity, unresolved executions and blockers. Keep later follow-up separate from a closed task. If a run is uncertain, use recover-uncertain-run.
+Inspect effective state, attention, current evidence validity, unresolved executions and blockers. When further blocker pages are needed and the schema supports them, use list_blockers with state=active and includeHistory=false; follow activeNextOffset and request history separately when relevant. Keep later follow-up separate from a closed task. If a run is uncertain, use recover-uncertain-run.
 
 Report the current outcome, next action and verification limits with short source IDs. Describe the original objective as historical when it differs. Continue authorized work with the recovered IDs; context attachment or a chat send is not an execution receipt.

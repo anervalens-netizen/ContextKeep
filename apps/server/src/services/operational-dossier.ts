@@ -657,7 +657,9 @@ export function taskDossier(
     );
   if (followUp)
     warnings.push(
-      "A checkpoint newer than the terminal task state is preserved as a follow-up, not as the current resume instruction. Reconcile it explicitly before starting new work.",
+      followUp.nextAction?.trim()
+        ? "A checkpoint newer than the terminal task state contains a follow-up action; reconcile it before starting new work."
+        : "A checkpoint newer than the terminal task state is preserved as an informational follow-up without an explicit action.",
     );
   else if (
     newerCheckpoint &&
@@ -692,7 +694,7 @@ export function taskDossier(
     verificationRequired: unresolved.counts.verificationRequired,
     invalidEvidence: unresolved.counts.invalidEvidence,
     reconciliationNeeded: health.reconciliationNeeded,
-    followUp: !!followUp, ownerAction: !!progress?.ownerAction,
+    followUp: !!followUp, followUpAction: !!followUp?.nextAction?.trim(), ownerAction: !!progress?.ownerAction,
   });
   const attentionReasons = [...new Set(attention.items.map(item => item.reason))];
   return {
@@ -1070,14 +1072,15 @@ function projectAttentionReasonsForProjects(
     const progress = progressByTask.get(row.id) ?? null;
     const effective = effectiveTaskState(deps, row, progress);
     const checkpoint = checkpoints.get(row.id);
+    const followUp = checkpoint ? effectiveTaskContinuity(deps, row.projectId, row.id, {
+      task: row, progress, checkpoint,
+    }).followUp : null;
     inputs.set(row.id, {
       state: effective.state, lifecycle: lifecycles.get(row.projectId) ?? "active",
       blockerCounts: blockerCategories.get(row.id) ?? {blocking:0,verification:0,deferred:0,legacy:0},
       liveExecutions: 0, verificationRequired: 0, invalidEvidence: 0,
       reconciliationNeeded: 0, ownerAction: !!progress?.ownerAction,
-      followUp: !!(checkpoint && effectiveTaskContinuity(deps, row.projectId, row.id, {
-        task: row, progress, checkpoint,
-      }).followUp),
+      followUp: !!followUp, followUpAction: !!followUp?.nextAction?.trim(),
     });
   }
 

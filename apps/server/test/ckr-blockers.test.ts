@@ -106,6 +106,14 @@ describe("CKR-18 explicit blocker identity and resolution", () => {
 
     const aAfter = await call(t, "list_blockers", { projectId: a });
     const bAfter = await call(t, "list_blockers", { projectId: b });
+    const filtered = await call(t, "list_blockers", { projectId: a, state: "resolved", includeHistory: false, limit: 1 });
+    expect(filtered).toMatchObject({ active: [], resolvedCount: 1, activeCount: 0, history: [],
+      selection: { state: "resolved", includeHistory: false, historyCount: 1 },
+      pagination: { activeNextOffset: null, resolvedNextOffset: null, historyNextOffset: null } });
+    expect(filtered.resolved).toHaveLength(1);
+    const activeOnly = await call(t, "list_blockers", { projectId: a, state: "active" });
+    expect(activeOnly).toMatchObject({ active: [], resolved: [], history: [], resolvedCount: 1,
+      selection: { state: "active", includeHistory: true, historyCount: 0 } });
     expect(aAfter.active).toHaveLength(0);
     expect(aAfter.resolved).toHaveLength(1);
     expect(bAfter.active).toHaveLength(1);
