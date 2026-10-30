@@ -177,7 +177,11 @@ async function startBrowser() {
       await route.continue();
     } else if (isBuildTelemetry(route.request())) {
       locallyInterceptedTelemetry++;
-      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "{}",
+      });
     } else {
       runtimeFailures.push({
         kind: "external-request",
