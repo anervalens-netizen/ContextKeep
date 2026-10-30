@@ -7,7 +7,7 @@
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.20.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.21.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
