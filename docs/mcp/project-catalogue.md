@@ -160,8 +160,12 @@ an MCP error result with `isError: true` and this structured error:
 Discard pages from the interrupted pass and restart at offset 0 without the
 stale fence. Do not merge old and new pages or retry the identical stale request.
 The consumer must cap restarts and report persistent churn as an incomplete
-check. `expectedCatalogVersion` is optional for compatibility, so a consumer
-that omits it cannot claim that several calls form one stable snapshot.
+check. `expectedCatalogVersion` is optional for compatibility. A consumer that
+omits it must compare every returned `catalogVersion` with the first page's
+version before combining pages, and discard the entire pass on any mismatch.
+An unfenced response is not a claim that separate calls share one snapshot.
+Sending the fence is preferred: it rejects a changed catalogue before returning
+a page that the consumer would have to discard.
 
 ## Versions, invalidation and cost
 

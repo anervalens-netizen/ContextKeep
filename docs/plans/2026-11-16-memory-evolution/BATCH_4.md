@@ -118,6 +118,25 @@ The final record must include public PR/commit references, reviewed head/base,
 review dispositions and applicable gate results. Host names, endpoints, private
 task IDs, operational reports and private metrics stay outside this repository.
 
+## Review follow-ups
+
+Initial review of `0385fe22dda64f176e337fd0ad4698fbef8ae67c` found two
+current-guide headers still declaring MCP 2.22.0. The operational contract test
+failed. Both headers now declare 2.23.0; the same assertion passes locally.
+Qualification must be repeated on the corrected head before promotion.
+
+The pagination contract now explicitly requires clients that omit the optional
+server fence to compare every page's catalogue version and discard a changed
+pass. The controlled consumer sends the fence and validates returned versions.
+
+| Follow-up | Disposition and acceptance |
+| --- | --- |
+| ME-24 scaling cost | Keep response-byte savings separate from database work. Every compact or conditional page performs an O(N) metadata read. Characterise larger catalogues and actual call rates before claiming a server CPU or latency improvement. |
+| Import lifecycle validation | Deferred existing defect in `dump-import.ts`: invalid lifecycle strings can make legacy and compact output fail their schema. Validate imports against the shared lifecycle enum and add invalid/valid import regressions in a subsequent integrity change. Preserve the imported source and report invalid values rather than silently rewriting them. |
+
+These follow-ups remain open. Neither is covered by a successful 120-project
+serialization comparison, and this batch does not claim to fix them.
+
 ## Continuation
 
 Complete [V-24/V-25](VALIDATION.md#v-24), then update the two item statuses and
