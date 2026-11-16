@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { EvidenceDto, RecordDto } from "@contextkeep/shared";
+import type { EvidenceDto, SearchRecordDto } from "@contextkeep/shared";
 import { BasisBadge, StatusBadge, TaskBadge, TypeBadge } from "./Badge.js";
 
 export function EvidenceList({ evidence }: { evidence: EvidenceDto[] }): ReactNode {
@@ -26,13 +26,48 @@ export function EvidenceList({ evidence }: { evidence: EvidenceDto[] }): ReactNo
   );
 }
 
+
+function TaskStateDetails({ record }: { record: SearchRecordDto }): ReactNode {
+  const state = record.taskState;
+  if (!state) return null;
+  const source = state.stateProvenance;
+  const sourceLabel = state.stateSource === "reported_progress" ? "progress report"
+    : state.stateSource === "task_record" ? "task record" : "unknown source";
+  const recordHref = (recordId: string) =>
+    `/projects/${encodeURIComponent(state.resume.projectId)}?recordId=${encodeURIComponent(recordId)}`;
+  const separateProgress = state.progress && state.progress.recordId !== source?.recordId
+    ? state.progress : null;
+
+  return (
+    <div className="mt-1.5 space-y-1 text-[11px] text-ck-muted" data-testid="task-state-provenance">
+      <p className="flex flex-wrap items-center gap-1.5">
+        <span>Effective state from {sourceLabel}.</span>
+        {source ? <>
+          <StatusBadge status={source.reviewStatus} />
+          <BasisBadge basis={source.evidenceBasis} />
+          <span>{state.stateSource === "reported_progress" ? "report recorded" : state.stateSource === "task_record" ? "task updated" : "source timestamp"} {source.recordedAt.slice(0, 10)}</span>
+          <a className="text-ck-teal underline" href={recordHref(source.recordId)}>{state.stateSource === "unknown" ? "Inspect task record" : "Inspect state source"}</a>
+        </> : <span>State provenance is unavailable.</span>}
+      </p>
+      <p>Task record status: {record.taskStatus?.replaceAll("_", " ") ?? "unknown"}.</p>
+      {separateProgress ? <p className="flex flex-wrap items-center gap-1.5">
+        <span>Latest progress: {separateProgress.status.replaceAll("_", " ")}.</span>
+        <StatusBadge status={separateProgress.reviewStatus} />
+        <BasisBadge basis={separateProgress.evidenceBasis} />
+        <span>report recorded {separateProgress.recordedAt.slice(0, 10)}</span>
+        <a className="text-ck-teal underline" href={recordHref(separateProgress.recordId)}>Inspect latest progress</a>
+      </p> : null}
+    </div>
+  );
+}
+
 export function RecordCard({
   record,
   footer,
   selected,
   onSelect,
 }: {
-  record: RecordDto;
+  record: SearchRecordDto;
   footer?: ReactNode;
   selected?: boolean;
   onSelect?: (checked: boolean) => void;
@@ -73,7 +108,12 @@ export function RecordCard({
             <TypeBadge type={record.type} />
             <StatusBadge status={record.reviewStatus} />
             <BasisBadge basis={record.evidenceBasis} />
-            {record.taskStatus ? <TaskBadge status={record.taskStatus} /> : null}
+            {record.taskState ? (
+              <span className="inline-flex items-center gap-1.5" data-testid="effective-task-state">
+                <span className="text-[11px] text-ck-muted">Effective task state</span>
+                <TaskBadge status={record.taskState.effectiveState} />
+              </span>
+            ) : record.taskStatus ? <TaskBadge status={record.taskStatus} /> : null}
             {record.volatile ? (
               <span
                 className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
@@ -117,6 +157,7 @@ export function RecordCard({
             {record.sourceEventAt ? ` · event ${record.sourceEventAt.slice(0, 10)}` : ""}
             {record.reviewedAt ? ` · reviewed ${record.reviewedAt.slice(0, 10)}` : ""}
           </p>
+          <TaskStateDetails record={record} />
           {record.projectId && (record.freshness?.requiresReview || record.freshness?.supportRecordIds.length || record.freshness?.possiblyRelatedRecordIds.length) ? <div className="mt-2 flex flex-wrap gap-3 text-xs">
             {record.freshness.requiresReview ? <a className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId)}?recordId=${encodeURIComponent(record.id)}`}>Review record</a> : null}
             {record.freshness.supportRecordIds.map((id, index) => <a key={`support:${id}`} className="text-ck-teal underline" href={`/projects/${encodeURIComponent(record.projectId!)}?recordId=${encodeURIComponent(id)}`}>Inspect supporting record {index + 1}</a>)}

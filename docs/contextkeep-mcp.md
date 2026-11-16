@@ -1,13 +1,13 @@
 # MCP interface
 
-> Current operational contract: MCP 2.20 / schema 19. Explicit task creation,
+> Current operational contract: MCP 2.22 / schema 19. Explicit task creation,
 > compatible task selection and classified attention build on the existing
 > task-scope, execution-evidence and no-replay contracts. Reports remain proposed.
 > See [Operational dossier](OPERATIONAL_DOSSIER.md) and
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.21.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.22.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
@@ -17,6 +17,35 @@ and is excluded from task resume. Use categorized blocker objects for new
 mentions. Prefer search_context compact=true for agent reads when the legacy
 canonicalRecords alias is not needed. Never put private project records into
 the public repository or CI logs.
+
+## Effective task state in search
+
+Current actual-task hits expose an additive `taskState` projection in HTTP search
+and both compact and legacy `search_context` responses. The original
+`taskStatus`, record review status, evidence basis and freshness remain intact.
+
+- `effectiveState` and `stateSource` use the dossier's task/progress precedence.
+- `stateProvenance` identifies the winning record and its own review status,
+  evidence basis and timestamp. A proposed report remains proposed.
+- `progress` identifies the latest valid progress report, including its task
+  revision; it can differ from the winning state source.
+- `resume` supplies `resume_task`, project and task identity. It is a read pointer,
+  not an instruction to reopen a terminal task or repeat execution.
+
+For reported progress, `stateProvenance.recordedAt` is the report capture time.
+For a task-record source it is the task update time, matching the dossier; it
+is not the event or validity time. Unknown state can retain the inspected task
+record as provenance without establishing a known effective state.
+
+A terminal task record can retain precedence over later open/blocked progress.
+Rejected, superseded or historical hits and actions classified as evidence do
+not acquire current task state. Absence of `taskState` is not a completion signal.
+Consumers should read the selected task's dossier/resume for blockers, unresolved
+runs and current evidence validity before executing work.
+
+The PWA card labels effective state and shows its provenance separately from the
+task record status. Search performs no business-state mutation. Compact mode
+still does not impose a total context budget.
 
 ## Exact evidence and bounded recovery
 

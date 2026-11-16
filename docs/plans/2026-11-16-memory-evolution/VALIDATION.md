@@ -1,7 +1,7 @@
 # Memory evolution acceptance catalogue
 
 Date: 2026-11-16\
-Status: future acceptance contracts; **all 50 cases are NOT RUN**\
+Status: acceptance contracts; dated execution evidence is maintained in the tracker\
 Plan: [PLAN.md](PLAN.md)\
 Work tracker: [MEMORY_EVOLUTION_TRACKER.md](../../../MEMORY_EVOLUTION_TRACKER.md)
 
@@ -9,6 +9,14 @@ Creating or reviewing this document does not execute its scenarios. A structural
 documentation check is not evidence that application behavior passes. Each V item
 maps to the ME item with the same number. The tracker owns implementation status;
 this catalogue defines the evidence needed to assess that item's acceptance.
+
+## Execution status
+
+The initial planning snapshot had all 50 cases NOT RUN. Batch 1 adds a bounded
+ME-05 task-state regression suite and the [baseline protocol](BASELINE_PROTOCOL.md).
+A passing subset does not complete the full programme catalogue. Check the
+tracker and exact candidate receipts for implemented, verified and deployed scope;
+the private real-question baseline and broader currentness work remain open.
 
 ## Method and evidence rules
 

@@ -7,6 +7,15 @@ export interface ChangelogEntry {
 /** Shown in the update prompt and under Menu → Changelog (handoff §14). */
 export const changelog: ChangelogEntry[] = [
   {
+    version: "Effective task search",
+    date: "2026-11-16",
+    notes: [
+      "Search shows effective task state and preserves the original task record status.",
+      "State-source links keep proposed progress reports distinct from accepted task records.",
+      "Later follow-up progress remains inspectable when a terminal task state takes precedence.",
+    ],
+  },
+  {
     version: "Read contracts",
     date: "2026-09-24",
     notes: [

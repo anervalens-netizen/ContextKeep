@@ -462,6 +462,149 @@ class BackupWorkflowTests(unittest.TestCase):
                 self.assertEqual(backup.load_profile(str(valid))['dell_target'],target)
 
 
+class RuntimeKitContractTests(unittest.TestCase):
+    """Synthetic archives exercise producer and consumer identity boundaries."""
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory(prefix='ck-runtime-contract-')
+        self.addCleanup(self.temp.cleanup)
+        self.root=P(self.temp.name)
+        self.release=self.root/('a'*40)
+        self.home=self.root/'home'
+        self.node=self.root/'node'
+        self.kit=self.root/'runtime.tar.gz'
+        put(self.node,'synthetic node binary')
+        put(self.release/'SOURCE_SHA',self.release.name+'\n')
+        put(self.release/'package.json','{}')
+        put(self.release/'apps/server/dist/cli/restore.js','// synthetic restore')
+        self.manifest={'schemaVersion':1,'release':self.release.name,
+                       'nodeSha256':hashlib.sha256(self.node.read_bytes()).hexdigest(),
+                       'components':{'release':True,'node':True,'tunnel':False}}
+
+    def archive(self, *, manifest=True, tunnel=False):
+        with tarfile.open(self.kit,'w:gz') as archive:
+            archive.add(self.release,arcname='release')
+            archive.add(self.node,arcname='node')
+            if manifest is not False:
+                payload=(json.dumps(self.manifest) if manifest is True else manifest).encode()
+                member=tarfile.TarInfo('runtime-kit.json');member.size=len(payload)
+                archive.addfile(member,io.BytesIO(payload))
+            if tunnel:
+                member=tarfile.TarInfo('tunnel');member.type=tarfile.DIRTYPE
+                archive.addfile(member)
+        return self.kit
+
+    def test_application_only_producer_declares_identity_and_reuses_exact_kit(self):
+        backup.ensure_runtime_kit(self.kit,self.release,self.home,self.node,include_tunnel=False)
+        self.assertFalse(self.home.exists())
+        self.assertEqual(backup.validate_runtime_kit(self.kit,expected_tunnel=False),self.manifest)
+        with tarfile.open(self.kit,'r:gz') as archive:
+            self.assertEqual(json.load(archive.extractfile('runtime-kit.json')),self.manifest)
+            self.assertFalse(any(member.name.split('/')[0]=='tunnel' for member in archive))
+        original=self.kit.read_bytes()
+        backup.ensure_runtime_kit(self.kit,self.release,self.home,self.node,include_tunnel=False)
+        self.assertEqual(self.kit.read_bytes(),original)
+        with self.assertRaisesRegex(ValueError,'missing required'):
+            backup.validate_runtime_kit(self.kit)
+
+    def test_legacy_default_requires_tunnel_without_requiring_new_manifest(self):
+        put(self.home/'.local/lib/contextkeep-tunnel/main.js','// synthetic tunnel')
+        (self.release/'SOURCE_SHA').unlink()
+        backup.ensure_runtime_kit(self.kit,self.release,self.home,self.node)
+        self.assertIsNone(backup.validate_runtime_kit(self.kit))
+        with tarfile.open(self.kit,'r:gz') as archive:
+            self.assertNotIn('runtime-kit.json',archive.getnames())
+            self.assertIn('tunnel/main.js',archive.getnames())
+        with self.assertRaisesRegex(ValueError,'unexpected tunnel'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_consumer_requires_explicit_manifest(self):
+        self.archive(manifest=False)
+        with self.assertRaisesRegex(ValueError,'requires an explicit manifest'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_consumer_rejects_manifest_contract_mismatches(self):
+        variants=[
+            {**self.manifest,'schemaVersion':True},
+            {**self.manifest,'schemaVersion':2},
+            {**self.manifest,'release':'not-a-source-sha'},
+            {**self.manifest,'components':{'release':True,'node':True}},
+            {**self.manifest,'components':{'release':True,'node':True,'tunnel':True}},
+            {**self.manifest,'components':{'release':1,'node':True,'tunnel':False}},
+            {**self.manifest,'unrecognized':True},
+        ]
+        for variant in variants:
+            with self.subTest(variant=variant):
+                self.archive(manifest=json.dumps(variant))
+                with self.assertRaises(ValueError):
+                    backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+        for malformed in ['{', '[]', '{"schemaVersion":1,"schemaVersion":1}']:
+            with self.subTest(malformed=malformed):
+                self.archive(manifest=malformed)
+                with self.assertRaises(ValueError):
+                    backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_consumer_rejects_wrong_or_missing_source_sha(self):
+        for source in ['b'*40,None]:
+            with self.subTest(source=source):
+                path=self.release/'SOURCE_SHA'
+                if source is None:path.unlink()
+                else:path.write_text(source)
+                self.archive()
+                with self.assertRaisesRegex(ValueError,'differs from SOURCE_SHA'):
+                    backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_consumer_rejects_node_hash_mismatch(self):
+        self.archive(manifest=json.dumps({**self.manifest,'nodeSha256':'0'*64}))
+        with self.assertRaisesRegex(ValueError,'Node hash mismatch'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_consumer_rejects_unexpected_tunnel(self):
+        self.archive(tunnel=True)
+        with self.assertRaisesRegex(ValueError,'unexpected tunnel'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_producer_rejects_source_mismatch_before_write(self):
+        (self.release/'SOURCE_SHA').write_text('b'*40)
+        with self.assertRaisesRegex(ValueError,'exact release SOURCE_SHA'):
+            backup.ensure_runtime_kit(self.kit,self.release,self.home,self.node,include_tunnel=False)
+        self.assertFalse(self.kit.exists())
+        self.assertFalse(self.kit.with_suffix('.partial').exists())
+
+    def test_existing_other_release_or_node_is_not_reused_or_overwritten(self):
+        self.archive()
+        original=self.kit.read_bytes()
+        other=self.root/('b'*40)
+        put(other/'SOURCE_SHA',other.name)
+        with self.assertRaisesRegex(ValueError,'differs from the requested'):
+            backup.ensure_runtime_kit(self.kit,other,self.home,self.node,include_tunnel=False)
+        self.node.write_text('different synthetic node binary')
+        with self.assertRaisesRegex(ValueError,'differs from the requested'):
+            backup.ensure_runtime_kit(self.kit,self.release,self.home,self.node,include_tunnel=False)
+        self.assertEqual(self.kit.read_bytes(),original)
+
+    def test_application_only_consumer_rejects_aliasing_member_names(self):
+        with tarfile.open(self.kit,'w:gz') as archive:
+            archive.add(self.release,arcname='release');archive.add(self.node,arcname='node')
+            payload=json.dumps(self.manifest).encode()
+            member=tarfile.TarInfo('runtime-kit.json');member.size=len(payload)
+            archive.addfile(member,io.BytesIO(payload))
+            alias=tarfile.TarInfo('release/./SOURCE_SHA');alias.size=40
+            archive.addfile(alias,io.BytesIO(b'b'*40))
+        with self.assertRaisesRegex(ValueError,'Unsafe or duplicate'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+    def test_application_only_identity_requires_ordinary_bounded_manifest(self):
+        self.archive(manifest=' '*4097)
+        with self.assertRaisesRegex(ValueError,'identity member is too large'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+        with tarfile.open(self.kit,'w:gz') as archive:
+            archive.add(self.release,arcname='release');archive.add(self.node,arcname='node')
+            member=tarfile.TarInfo('runtime-kit.json');member.type=tarfile.SYMTYPE
+            member.linkname='release/package.json';archive.addfile(member)
+        with self.assertRaisesRegex(ValueError,'Unsafe or duplicate'):
+            backup.validate_runtime_kit(self.kit,expected_tunnel=False)
+
+
 class RestoreWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='ck-restore-ops-test-')
