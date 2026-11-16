@@ -73,13 +73,18 @@ records the immediate wording follow-up, applied in this completion record.
 Grouped review closure was read back. Application runtime is unchanged; no
 deployment is required.
 
-Batch 4 begins V-24/V-25 with candidate compact/conditional source, authored
-synthetic regression scenarios and a predeclared controlled-consumer comparison.
-Both cases remain NOT RUN in this record until execution evidence is attached.
-The [catalogue contract](../../mcp/project-catalogue.md) and
-[Batch 4 record](BATCH_4.md) separate server behavior, consumer failure detection,
-matched bytes, review, release and deployed readback. No measured saving is
-claimed by implementation or documentation alone.
+Batch 4 qualifies **V-24** with 55 focused tests, both current-head reviews,
+required CI, all 12 release-gate stages, isolated candidate recovery and
+post-activation authenticated full/compact/conditional readback. Independent
+recovery of a fresh deployed-release backup also passed, including authenticated
+HTTP probes, preserved schema/counts and complete isolated cleanup. **V-25 remains
+PARTIAL:** 47 targeted consumer tests and the independently recomputed synthetic
+comparison pass; companion review/release and deployed verification remain open.
+The fixed workload uses 12,037,320 baseline and 1,158,120 candidate result bytes
+(90.3789% fewer), while catalogue calls increase from 180 to 195. This is a
+serialization result from simulated checks, not a natural observation period or
+a CPU, network-latency, wire-byte or provider-cost measurement. See the
+[catalogue contract](../../mcp/project-catalogue.md) and [Batch 4 record](BATCH_4.md).
 
 A passing release subset does not complete the full programme catalogue. Cases
 V-41–V-48 and V-50 retain their full scenario status below; release-specific
@@ -575,12 +580,17 @@ Status: **NOT RUN**
 ### V-24
 
 **ME-24 — Add a compact and conditional project catalogue**\
-Status: **PARTIAL**
+Status: **PASS**
 
-- **Implementation:** The candidate passed 17 catalogue scenarios and 38 related
-  MCP/panel/consolidation tests, plus shared/server/web typecheck. Current-head
-  reviews, full release qualification and deployed readback remain pending.
-  See [Batch 4](BATCH_4.md).
+- **Execution:** Reviewed head `9a0e0244c48adcc8c24bc8d3122de4d83214bd00`
+  passed 17 catalogue scenarios and 38 related MCP/panel/consolidation tests,
+  shared/server/web typecheck, both current-head reviews, CI and all 12 release
+  gates. Isolated candidate recovery and post-activation authenticated full,
+  compact and conditional reads passed with coherent pages and unchanged
+  database identity. A new deployed-release snapshot was independently restored;
+  runtime identity, schema/counts, authenticated HTTP probes and isolated cleanup
+  passed. MCP 2.23.0 retains schema 19. See [Batch 4](BATCH_4.md) for public
+  review/CI links and the distinct consumer follow-up.
 - **Setup:** Use more than 50 synthetic projects, shared aliases, differently
   cased names, every supported lifecycle (including planned), and a rename
   crossing a page boundary. Verify that an exact duplicate name is rejected.
@@ -601,8 +611,22 @@ Status: **PARTIAL**
 ### V-25
 
 **ME-25 — Optimize the health consumer while preserving its check**\
-Status: **NOT RUN**
+Status: **PASS — bounded controlled consumer, not a natural-traffic outcome**
 
+- **Execution:** The frozen **pre-fix** primary comparison passed 60/60 checks
+  in both arms, 12,037,320 versus 1,158,120 serialized MCP result bytes
+  (90.3789% fewer), catalogue calls 180 versus 195, and total MCP calls 240
+  versus 255. Independent per-call recomputation included all periodic controls
+  and matched eight frozen hashes and the pre-measurement amendment.
+  The corrected later consumer passed 51 catalogue scenarios, 148 targeted
+  tests, the full 902-test Python suite, current-head reviews, disposition and CI.
+  [PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53)
+  was merged and a guarded consumer component activated without overwriting
+  unrelated owner code. The live scheduled full-control and later conditional
+  unchanged read both preserved all 44 project IDs and five consumed fields;
+  service and API release proof passed. The primary comparison **was not rerun**
+  on the corrected module. The result is neither a natural-traffic observation
+  nor evidence of post-fix production savings. See [Batch 4](BATCH_4.md).
 - **Setup:** Model the authenticated semantic health check and compact candidate
   in the fixed [Batch 4 cohort](BATCH_4.md#predeclared-synthetic-comparison):
   120 synthetic projects, 512-character descriptions, 60 checks and full controls
@@ -624,7 +648,7 @@ Status: **NOT RUN**
   pre-measurement amendments, failure matrix, complete result-byte totals,
   initialization/catalogue/page/reset/fallback counts, observed durations,
   applicable review/release evidence and the disclosed deployed observation
-  window. No outcome is asserted yet.
+  window. The synthetic result above does not establish deployed consumer health.
 
 ### V-26
 

@@ -6,20 +6,28 @@ Accountable role: development agent; independent review and qualification
 
 ## Status and boundaries
 
-**IN_PROGRESS.** The compact/conditional server candidate passed shared, server
-and web typechecks and 55 focused tests, including 17 new catalogue scenarios.
-The matched comparison, current-head reviews, required CI, full release
-qualification and deployed readback remain pending in this record. Focused
-validation does not establish an installed release.
+**ME-24 VERIFIED; ME-25 VERIFIED within the bounded consumer scope.**
+The compact/conditional server passed 55 focused tests, both current-head reviews,
+required CI and all 12 release-gate stages. Isolated candidate recovery,
+guarded activation and authenticated full/compact/conditional readback passed.
+The existing database and schema 19 were preserved. A newly produced deployed-release
+backup was independently restored with matching runtime/database identity,
+preserved schema/counts, passing authenticated HTTP checks and complete cleanup.
 
-ME-24 and ME-25 remain IN_PROGRESS. This is a bounded catalogue/consumer change.
+The corrected companion consumer passed 51 catalogue scenarios, 148 targeted
+tests, the 902-test Python suite, both current-head reviews, CI and guarded
+component-only installation. Its authenticated scheduled full/compact control,
+later conditional revalidation, API readiness and shared service-generation
+receipt passed. The earlier primary serialization comparison remains valid for
+its original pre-fix source, not a new measured post-fix release result.
+This is a bounded catalogue/consumer change.
 It does not tune retrieval ranking, aliases or held-out questions. The previous
 private corpus, scorer and observations remain frozen. No database migration,
 new embedding provider or additional memory store is introduced.
 
 The inspected public source baseline is
 `b5435a34c2d8a96a57c74598ed81467df422df9d`.
-The candidate advertises MCP **2.23.0** with schema **19**. Exact operational
+The qualified server advertises MCP **2.23.0** with schema **19**. Exact operational
 source/runtime identities, consumer bindings and execution receipts remain in
 the private evidence ledger.
 
@@ -28,7 +36,7 @@ the private evidence ledger.
 The detailed contract and synthetic request/response examples are in
 [project-catalogue.md](../../mcp/project-catalogue.md).
 
-| Concern | Candidate behavior |
+| Concern | Qualified server behavior |
 | --- | --- |
 | Existing callers | Default full `list_projects` response remains unchanged; REST and panel selectors remain compatible |
 | Compact projection | Exactly `id`, `name`, `lifecycle`, `revision`, `updatedAt`; no full descriptions |
@@ -61,8 +69,13 @@ do not advance success or full-control timestamps.
 Compatibility fallback and catalogue resets must be bounded. Old-server input
 rejection, authentication failure, application failure, invalid JSON, missing
 required bodies, database failures and timeouts remain distinguishable.
-Liveness does not substitute for this check. Consumer code/review/release
-evidence must be linked before this item can be marked verified.
+Liveness does not substitute for this check. The companion implementation is
+[PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53).
+Its own current-head reviews, component-only activation and authenticated live
+readback passed, independently of the server release. The shared Command Center
+backend/collector release receipt was requalified without relabeling the older
+frontend baseline. The unrelated owner-health stage remains independently
+failed/unknown where its DSH delivery evidence is unavailable.
 
 ## Predeclared synthetic comparison
 
@@ -96,34 +109,109 @@ content, database failure with a matching condition, timeout, metadata changes,
 mid-pagination changes, old-server fallback and exceeded page/read budgets.
 Their required outcome is no false healthy state and bounded recovery.
 
-No comparison result is asserted here yet. A synthetic improvement, when
-qualified, applies to this controlled workload; it does not attribute all
+## Measured synthetic result
+
+The single primary result and its independent review were reread, and totals
+were recomputed from every retained per-call row. All eight frozen input hashes,
+the producer fixture and the prospective amendment match the primary receipt.
+No primary measurement was replayed for this documentation update.
+
+| Metric | Baseline | Candidate |
+| --- | ---: | ---: |
+| Successful checks | 60/60 | 60/60 |
+| Identical project rows per check | 120 | 120 |
+| Complete serialized MCP result bytes | 12,037,320 | 1,158,120 |
+| Catalogue calls | 180 | 195 |
+| Initialization calls | 60 | 60 |
+| Total MCP requests | 240 | 255 |
+| Maximum adapted JSON-RPC HTTP body | 83,568 B | 83,568 B |
+
+**Result-byte reduction: 90.3789%, passing the predeclared 50% threshold.**
+The 15 additional catalogue calls are the periodic full-control pages. Full
+control traffic and compact validation are included in both the bytes and counts.
+
+The harness uses captured responses from the actual producer with isolated
+synthetic data, adapting only JSON-RPC response IDs and the synthetic sentinel
+name. Five-minute simulated timestamps span 4 h 55 min from the first check to
+the last. This is not a natural observation period, production latency result,
+wire-byte total or provider billing measurement. Processing durations retained
+in the receipt do not establish a server CPU or network-latency improvement.
+
+The result applies to this controlled workload. It does not attribute all
 historical catalogue traffic to one consumer or prove savings for every client.
 
-## Evidence required before closure
+## Qualification evidence and remaining gates
 
 | Gate | Current record |
 | --- | --- |
 | Server regression suite | 55 focused tests passed, including 17 catalogue tests; shared/server/web typecheck passed |
-| Consumer failure matrix | Implementation and qualification in progress |
-| Matched serialization comparison | Predeclared; no result recorded |
-| Source reviews | Current-head Codex and DSH reviews/dispositions pending |
-| CI and release gate | Pending |
-| Recovery and capacity | Private qualification pending for this release |
-| Source/runtime activation | Pending; source version alone is not deployment evidence |
-| Deployed read-only contract | Server and controlled consumer readback pending |
-| Review/task closure | Evidence and explicit closure pending |
+| Consumer failure matrix | Corrected consumer: 51 catalogue tests, 148 targeted tests and 902 full Python tests passed |
+| Matched serialization comparison | Passed; complete primary rows, frozen inputs and independent recomputation retained |
+| Server source reviews | Current-head Codex and DSH reviews and explicit dispositions passed |
+| Server CI and release gate | Required CI and all 12 release-gate stages passed |
+| Recovery and capacity | Previous snapshot restored in isolation; candidate verified against the same restored database; capacity and cleanup passed |
+| New deployed-release snapshot | Production capture and independent exact restore passed; runtime/database identity, schema/counts, authenticated HTTP checks and complete cleanup verified |
+| Server source/runtime activation | Merged source, guarded activation and original database identity verified |
+| Deployed server contract | Authenticated full, compact and conditional pages matched; runtime MCP 2.23.0 / schema 19 verified |
+| Consumer source/runtime | [Companion PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53) merged; both current-head reviews, explicit finding disposition and CI passed; guarded three-file component release preserved unrelated owner code. Scheduled full control and later conditional check passed with 44 identities/five fields, and shared API/collector receipt is verified. |
+| Review/task closure | Server grouped review closure read back; consumer disposition published. The independent private bridge/task closure is verified separately from this public source. |
 
-The final record must include public PR/commit references, reviewed head/base,
-review dispositions and applicable gate results. Host names, endpoints, private
-task IDs, operational reports and private metrics stay outside this repository.
+### Companion source, review and deployed evidence
+
+[PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53)
+merged the bounded consumer at public head
+`6ebf475fb9c1691772519fb02f652b03a85d38e5`; its final commit changed
+only historical measurement documentation after functional review at
+`ab90cc99cfabb1b74cd182d123787921c3813ae3`.
+[DSH functional review](https://github.com/anervalens-netizen/astancu-website/pull/53#issuecomment-6929240885)
+confirmed the compatibility fixes. The
+[exact-head DSH review](https://github.com/anervalens-netizen/astancu-website/pull/53#issuecomment-6929377268)
+found no new defect; the
+[version-bound developer disposition](https://github.com/anervalens-netizen/astancu-website/pull/53#issuecomment-6929422275)
+records fixed findings and the explicitly deferred, fail-closed 48-second
+multi-page slow-route budget. [Exact-head CI](https://github.com/anervalens-netizen/astancu-website/actions/runs/43956328906)
+passed, including the full Python regression suite.
+
+The guarded production change installed exactly the compact catalogue module,
+owner-health wrapper and application-registry classification. The deployed
+wrapper and registry retained locally qualified OpenClaw/HP integration changes
+absent from the public PR; the current module matches the reviewed functional
+source. The authenticated scheduled cold control and subsequent warm
+conditional check preserved all 44 identity rows and five required fields, with
+no fallback or catalogue restart. The API and collector generation, the backend
+generation and their shared release receipt were checked independently.
+These are **dated, narrow** release observations, not a natural-traffic
+performance test. Operational hashes, private locations and logs remain in
+the private evidence ledger.
+
+### Public server source and reviews
+
+[PR #30](https://github.com/anervalens-netizen/ContextKeep/pull/30) was reviewed at
+head `9a0e0244c48adcc8c24bc8d3122de4d83214bd00` against base
+`b5435a34c2d8a96a57c74598ed81467df422df9d`, then merged in
+`39aa969658630b8b3e5fd25723701a2eab525de4` with the same source tree.
+[Codex](https://github.com/anervalens-netizen/ContextKeep/pull/30#issuecomment-6925853401)
+reported no findings and
+[DSH](https://github.com/anervalens-netizen/ContextKeep/pull/30#issuecomment-6925945612)
+reported no confirmed new defect. The
+[version-bound disposition](https://github.com/anervalens-netizen/ContextKeep/pull/30#issuecomment-6925990677)
+records the corrected guide headers, coherent-pagination rules and separate
+follow-ups below. [CI](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43932903162)
+and [public-source checks](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43932903027)
+passed. The original failing guide-version gate remains in the private evidence;
+no assertion was weakened.
+
+Host names, endpoints, private task IDs, operational reports and private metrics
+stay outside this repository. Public source identity and a synthetic comparison
+do not substitute for the separate private runtime and recovery receipts.
 
 ## Review follow-ups
 
 Initial review of `0385fe22dda64f176e337fd0ad4698fbef8ae67c` found two
 current-guide headers still declaring MCP 2.22.0. The operational contract test
-failed. Both headers now declare 2.23.0; the same assertion passes locally.
-Qualification must be repeated on the corrected head before promotion.
+failed. Both headers now declare 2.23.0. The same assertion, all 84 operational
+recovery tests and the full release gate passed on the corrected head before
+promotion.
 
 The pagination contract now explicitly requires clients that omit the optional
 server fence to compare every page's catalogue version and discard a changed
@@ -139,7 +227,15 @@ serialization comparison, and this batch does not claim to fix them.
 
 ## Continuation
 
-Complete [V-24/V-25](VALIDATION.md#v-24), then update the two item statuses and
-the programme inventory consistently. Retain failed scenarios and declared
-limits. Later error attribution, retention, retrieval and source-indexing work
-remain separate tracker items; this batch does not close the full programme.
+ME-24, ME-25, [V-24](VALIDATION.md#v-24) and [V-25](VALIDATION.md#v-25)
+passed their scoped qualification and release gates. The immutable server
+backup was restored independently; the consumer's live full and unchanged
+conditional checks and related service-generation proof passed. The whole
+owner-health pipeline is **not** claimed healthy where an unrelated DSH
+delivery stage reports failure. The 48-second aggregate MCP deadline fails
+closed for slow multi-page controls; characterize p95/p99 times and catalogue
+size under ME-48 before changing the service budget. Future ME-45 evaluation
+must use matched natural traffic, distinct from the frozen pre-fix synthetic
+comparison. Retain failed scenarios, declared limits and review provenance.
+Error attribution, source indexing and retrieval remain separate tracker items;
+this batch does not close the full programme.

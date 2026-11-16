@@ -7,31 +7,41 @@ Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDAT
 
 ## Current state
 
-**Batch 1 is delivered: effective task state in search, provenance-aware
-presentation and a reproducible evaluation protocol. The deployed task-state
-canary and candidate-produced snapshot recovery are verified.**
+**Batches 1–4 delivered their bounded scopes: effective task-state search,
+forward review ingestion, a frozen private baseline and the compact/conditional
+catalogue with its controlled consumer.** The server and consumer received
+separate reviews, release qualification, authenticated runtime readback and
+recoverability evidence. Broader real-traffic outcomes, source indexing, retrieval
+and historical review reconciliation remain open below.
 
 Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory at Batch 4 start: **50 items —
-26 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 2 VERIFIED, 1 DONE.**
-Batch 3 did not change the previous programme-wide status inventory.
-Batch 4 claims ME-24 / ME-25 for bounded implementation and qualification;
-neither item is yet marked verified or delivered.
+Current inventory after Batch 4 server and consumer qualification: **50 items —
+26 PLANNED, 6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-24 and ME-25 are verified within their bounded release scope. The separate
+ME-45 natural-traffic outcome comparison, the ME-48 slow-route budget study
+and other rolling programme duties remain open.
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
 contracts. It is not a production status report.
 
-### Start here
+### Programme delivery order
 
-1. Start ME-01 / ME-02 / ME-03 and maintain ME-46 / ME-50.
-2. Take effective task state (ME-05) and reviewer attribution (ME-18 / ME-19)
-   as the first bounded correctness changes once their prerequisites exist.
-3. Deliver search budgets/currentness and compact catalogue work in independently
-   qualified batches. Use the plan's waves, not item number alone, for sequencing.
+Continue from the latest qualified scope and its evidence. This sequence guides
+remaining work; it does not restart completed batches or discard the frozen
+baseline.
+
+1. Continue the open parts of ME-01 / ME-02 / ME-03 from the Batch 3 private
+   freeze and measured baseline; maintain ME-46 / ME-50.
+2. Reuse the verified effective task state (ME-05) and forward reviewer
+   attribution/identity (ME-18 / ME-19) as prerequisites for later correctness
+   work. Their broader follow-ups retain the item-specific limits below.
+3. Qualify remaining search budgets/currentness and the controlled catalogue
+   consumer in bounded batches. Use the plan's waves and dependencies, not
+   item number alone, for sequencing.
 4. Keep ME-35–ME-40 gated until their named problems, baselines and budgets justify
    an experiment. A justified defer/stop decision is a valid experiment outcome.
 
@@ -131,21 +141,37 @@ Scope, measurement contract and limits: [BATCH_3.md](docs/plans/2026-11-16-memor
 Scope, contract and predeclared comparison:
 [BATCH_4.md](docs/plans/2026-11-16-memory-evolution/BATCH_4.md).
 
-- ME-24: IN_PROGRESS. Candidate source adds the fixed compact catalogue,
-  conditional page responses and a catalogue fence for pagination. The default
-  full response, authentication boundary and database read remain in scope for
-  regression qualification. The public contract is
+- ME-24: **VERIFIED.** [PR #30](https://github.com/anervalens-netizen/ContextKeep/pull/30)
+  merged the compact/conditional catalogue. Both current-head reviews,
+  dispositions, required CI and all 12 release-gate stages passed. Isolated
+  candidate recovery, guarded activation and authenticated full/compact/
+  conditional parity passed without replacing the production database.
+  The installed contract is MCP 2.23.0 / schema 19; see
   [project-catalogue.md](docs/mcp/project-catalogue.md).
-- ME-25: IN_PROGRESS. A controlled companion consumer must preserve its actual
-  metadata needs, authenticated semantic check and periodic full controls.
-  Cache recovery, old-server fallback and failure detection require separate
-  verification. The fixed synthetic comparison includes full-control traffic.
-- ME-41 / ME-42 / ME-43 / ME-44 / ME-45 / ME-47: applicable compatibility,
-  review, release, recovery, runtime and outcome evidence remain pending for this
-  batch. Implemented source and authored tests are not passing release evidence.
-- ME-46 / ME-48 / ME-50: preserve the declaration, any pre-measurement amendment,
-  scenario failures, source/review identities and qualification limits privately.
-  No natural-corpus rerun or retrieval tuning is part of this batch.
+- ME-25: **VERIFIED within the controlled health-consumer scope.**
+  [Companion PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53)
+  was reviewed, dispositioned, CI-qualified and merged. The corrected consumer
+  passed 51 catalogue scenarios, 148 targeted tests and a 902-test full Python
+  suite. A guarded, component-only activation preserved unrelated owner code.
+  The live scheduled full/compact control and a subsequent authenticated
+  conditional 'unchanged' check both preserved 44 project identities and all
+  five consumed fields. The independent historical synthetic comparison found
+  90.3789% fewer complete serialized MCP result bytes and increased catalogue
+  calls from 180 to 195. **That primary comparison used the pre-fix consumer
+  source and was not rerun on the later compatibility fix; it does not establish
+  a deployed byte/CPU/latency, network or provider-cost saving.**
+- ME-41 / ME-42 / ME-43 / ME-44 / ME-47: the server and consumer passed the
+  applicable compatibility, current-head reviews/disposition, CI, guarded
+  activation and authenticated readback. A fresh deployed-release server backup
+  was independently restored with matching runtime and database identity and
+  complete isolated cleanup. The consumer's shared API/collector release receipt
+  and read-only production catalogue checks passed. **ME-45 remains open** for
+  a comparable natural-traffic period; an earlier synthetic percentage cannot
+  be promoted into a production outcome claim.
+- ME-46 / ME-48 / ME-50: the declaration, pre-measurement amendment, frozen input
+  hashes, primary call rows, independent recomputation and source/review/runtime
+  evidence are retained privately. The original failed guide-version gate is
+  preserved. No natural-corpus rerun or retrieval tuning is part of this batch.
 
 ## Status and ownership rules
 
@@ -196,8 +222,8 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
-| [ME-24](#me-24) | Add a compact and conditional project catalogue | IN_PROGRESS | P1 | W4 | Backend | ME-03 |
-| [ME-25](#me-25) | Optimize the health consumer while preserving its check | IN_PROGRESS | P1 | W4 | Integration | ME-03, ME-24 |
+| [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
+| [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
 | [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
 | [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | PLANNED | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
@@ -533,31 +559,40 @@ Dependencies: ME-04, ME-08, ME-22 · Validation: [V-23](docs/plans/2026-11-16-me
 ### ME-24
 
 **Add a compact and conditional project catalogue**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P1 · Wave: W4 · Owner role: Backend\
 Dependencies: ME-03 · Validation: [V-24](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-24)
 
-- [ ] Scope: Provide a small identity/metadata projection, scoped pagination and conditional version semantics for repeated name-to-ID resolution. Define cache invalidation, renames, exact-name uniqueness and ambiguous aliases.
-- [ ] Acceptance: Consumers receive only requested fields; conditional responses still authenticate; identity cache never claims runtime freshness; pagination and changes remain detectable.
-- [ ] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) implements
-  the candidate [compact/conditional contract](docs/mcp/project-catalogue.md).
-  The candidate passed 55 focused tests, including 17 catalogue scenarios, and
-  shared/server/web typecheck. Current-head reviews, CI, full release
-  qualification and deployed readback remain pending.
-  The prior usage evidence supports priority; it is not a measured reduction.
+- [x] Scope: Provide a small identity/metadata projection, scoped pagination and conditional version semantics for repeated name-to-ID resolution. Define cache invalidation, renames, exact-name uniqueness and ambiguous aliases.
+- [x] Acceptance: Consumers receive only requested fields; conditional responses still authenticate; identity cache never claims runtime freshness; pagination and changes remain detectable.
+- [x] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) records
+  [PR #30](https://github.com/anervalens-netizen/ContextKeep/pull/30), reviewed head
+  `9a0e0244c48adcc8c24bc8d3122de4d83214bd00` and merge `39aa969658630b8b3e5fd25723701a2eab525de4`.
+  The 55 focused tests, both current-head reviews, dispositions, CI and all 12
+  release-gate stages passed. Isolated candidate recovery and authenticated
+  deployed full/compact/conditional parity passed after guarded activation.
+  Schema 19 and the existing database were preserved. The disclosed O(N)
+  metadata cost and pre-existing import-lifecycle defect remain separate follow-ups.
 
 ### ME-25
 
 **Optimize the health consumer while preserving its check**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P1 · Wave: W4 · Owner role: Integration\
 Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-25)
 
-- [ ] Scope: Update the deployed companion consumer to use compact/conditional reads with periodic fuller semantic checks through the authenticated application perimeter. Use a controlled consumer cohort; ME-27 is required only if the chosen attribution method needs it.
-- [ ] Acceptance: Fewer serialized bytes per equivalent qualified check are measured; call rate is reported and reducing it is optional. Auth/application/database failure detection and its timing are preserved; a liveness-only endpoint does not replace the existing semantic check.
-- [ ] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) defines
-  the controlled consumer contract, cache/failure matrix and matched synthetic
-  comparison, including periodic full checks. Implementation qualification,
-  companion review/release and deployed behavior remain open. Sampled historical
-  tool labels still do not identify every consumer.
+- [x] Scope: Update the controlled deployed companion consumer to use compact/conditional reads with periodic fuller semantic checks through the authenticated application perimeter. ME-27 is not required for this one explicitly identified cohort.
+- [x] Acceptance: The frozen matched synthetic comparison measures fewer complete serialized MCP result bytes while reporting the extra calls. Authentication/application/database failures and freshness preservation pass negative tests; no liveness-only shortcut is used. The later compatibility changes preserve the tested successful request path but are not themselves a newly measured primary workload.
+- [x] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) records
+  [PR #53](https://github.com/anervalens-netizen/astancu-website/pull/53),
+  current-head review, CI and a component-only deployed check with live full
+  control and conditional revalidation of 44 projects. The corrected consumer
+  passed 51 catalogue cases and 148 targeted checks; the full Python suite
+  passed 902 checks. The frozen **pre-fix** comparison recorded 12,037,320 to
+  1,158,120 complete serialized result bytes over 60 matched checks, with
+  catalogue calls increasing from 180 to 195. Its 90.3789% reduction was not
+  remeasured after the compatibility fixes and is not a production outcome.
+  The unrelated health pipeline may still report an independent component
+  failure; do not relabel the overall monitor as green. Natural-traffic
+  evaluation, slow-route thresholds and wider attribution remain open.
 
 ### ME-26
 
@@ -968,3 +1003,29 @@ synthetic or sanitized technical evidence.
   bounded consumer qualification. A synthetic comparison is predeclared;
   passing tests, measured savings, review completion and deployment are not
   asserted by this entry. The programme inventory remains exactly 50 items.
+
+- **2026-11-16 — Batch 4 server qualified.** Development agent; ME-24
+  IN_PROGRESS → VERIFIED. PR #30 merged the reviewed head with matching source
+  tree. Both reviews, dispositions, CI, all 12 release-gate stages, isolated
+  candidate recovery and authenticated deployed full/compact/conditional parity
+  passed. The original database and schema 19 are preserved. ME-25 remains
+  IN_PROGRESS: its 47 targeted tests and frozen synthetic comparison passed,
+  with 90.3789% fewer result bytes and catalogue calls increasing 180 to 195.
+  Fresh deployed-release backup recovery also passed independently; companion
+  review/release and deployed consumer readback remain open. The inventory is
+  26 PLANNED, 6 GATED,
+  14 IN_PROGRESS, 0 IMPLEMENTED, 3 VERIFIED and 1 DONE, totaling 50 items.
+
+
+- **2026-11-16 — Batch 4 controlled consumer qualified.** Development agent;
+  ME-25 IN_PROGRESS → VERIFIED within the bounded monitored consumer. PR #53
+  passed both exact-head reviews, explicit dispositions, required CI and merge.
+  Corrected tests passed (51 catalogue, 148 targeted and 902 full Python).
+  A guarded component-only activation retained unrelated integration changes;
+  authenticated scheduled full control and later unchanged conditional read
+  preserved all 44 projects/five fields. The shared service release proof passed.
+  The 90.3789% historical synthetic result was measured on the pre-fix
+  consumer source, **not** on the later fixed release; matching natural traffic,
+  slow-route budgets, other pipeline stages and broad programme outcomes remain
+  separate. The inventory is now 26 PLANNED, 6 GATED, 13 IN_PROGRESS,
+  0 IMPLEMENTED, 4 VERIFIED and 1 DONE, totaling 50 items.
