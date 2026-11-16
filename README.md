@@ -14,6 +14,7 @@ pnpm test:functional
 pnpm test:focused
 pnpm test:performance
 pnpm test:ops
+pnpm test:private-corpus
 ```
 
 The manual Gaming workflow is a narrow, dispatch-only fast lane for
@@ -49,6 +50,11 @@ Read the [detailed plan](docs/plans/2026-11-16-memory-evolution/PLAN.md) and
 [validation catalogue](docs/plans/2026-11-16-memory-evolution/VALIDATION.md) before
 starting an item. Planned work and conditional experiments are not implemented
 features; private operational evidence remains outside this public repository.
+
+The [private corpus preflight](scripts/evaluation/README.md) checks the structure,
+evidence identity and split boundaries before an operator freezes a real corpus.
+Its tests contain synthetic data only. It does not certify retrieval quality or
+replace independent ground-truth review.
 
 ## Current-state dossier and task continuity
 

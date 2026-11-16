@@ -15,8 +15,8 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 1 qualification: **50 items — 30 PLANNED,
-6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 0 VERIFIED, 1 DONE.**
+Current inventory after Batch 2 starts: **50 items — 28 PLANNED,
+6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 0 VERIFIED, 1 DONE.**
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -63,6 +63,27 @@ in ContextKeep. No programme-wide completion is claimed.
 - ME-46 / ME-48 / ME-50: the private ledger, capacity observations and tracker
   are being maintained. Rolling duties remain open for later batches.
 
+## Batch 2 — 2026-11-16
+
+Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolution/BATCH_2.md).
+
+- ME-18 / ME-19: the development agent owns a bounded companion-producer change
+  for reviewer/status attribution and versioned review delivery. Synthetic
+  regressions cover meaningful edits, metadata changes, exact retry, resource
+  identity and event ordering. Scope and local verification are recorded in the
+  batch note. Official review added durable source isolation and legacy
+  disposition compatibility corrections. Changed-head review/CI, source
+  integration and deployed producer readback remain pending.
+- ME-01 / ME-02 / ME-03: a strict offline corpus-validation helper is implemented
+  against the existing baseline protocol, with 45 synthetic guard tests. This
+  does not create or validate the real private question set. Evidence access and independent
+  ground-truth review are required before freezing that corpus. The follow-up
+  covers pagination, capture-window semantics, intent split boundaries and
+  conflicting or incomplete response representations. A canonical freeze must
+  still be registered privately before candidate tuning.
+- ME-46 / ME-50: release status stays open. Runtime verification and private
+  memory synchronization remain explicit gates; no production change is claimed.
+
 The opening creation inventory is historical. Current item rows own status.
 
 ## Status and ownership rules
@@ -108,8 +129,8 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
 | [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
-| [ME-18](#me-18) | Fix reviewer and review-status attribution | PLANNED | P0 | W1 | Integration | ME-01 |
-| [ME-19](#me-19) | Preserve review event identity and replay safety | PLANNED | P0 | W1 | Integration | ME-18 |
+| [ME-18](#me-18) | Fix reviewer and review-status attribution | IN_PROGRESS | P0 | W1 | Integration | ME-01 |
+| [ME-19](#me-19) | Preserve review event identity and replay safety | IN_PROGRESS | P0 | W1 | Integration | ME-18 |
 | [ME-20](#me-20) | Project current reviews by PR, reviewer and head | PLANNED | P1 | W1 | Integration | ME-18, ME-19 |
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
@@ -154,7 +175,9 @@ Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/
 - [ ] Acceptance: Reproducible private manifest exists; sampled counters and exact stored counts are labeled correctly; partial periods and runtime/description disagreement are recorded.
 - [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
   and exact candidate/review identities are recorded. The complete frozen private
-  baseline manifest and matched observation windows remain open.
+  baseline manifest and matched observation windows remain open. The
+  [corpus preflight](scripts/evaluation/README.md) validates evidence and freeze
+  structure; it cannot establish semantic truth by itself.
 
 ### ME-02
 
@@ -167,6 +190,8 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 - [ ] Evidence: Partial: 8 new backend task-state cases and 5 PWA cases passed with synthetic
   fixtures; the existing held-out corpus remains unchanged. The private
   30–50-question corpus, independent split and expected identities remain open.
+  Batch 2 adds 32 synthetic corpus-guard tests, without changing retrieval
+  fixtures, held-out questions or quality floors.
 
 ### ME-03
 
@@ -179,7 +204,9 @@ Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-ev
 - [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
   defines measurement semantics and first-release gates. Six existing synthetic
   performance gates passed unchanged. Real-question quality and matched outcome
-  measurements remain open.
+  measurements remain open. Batch 2's offline size diagnostics distinguish
+  Unicode code points, UTF-16 units, logical UTF-8 bytes and the complete
+  serialized MCP result; unavailable provider tokens/cost remain unknown.
 
 ### ME-04
 
@@ -344,24 +371,28 @@ Dependencies: ME-02, ME-03, ME-07 · Validation: [V-17](docs/plans/2026-11-16-me
 ### ME-18
 
 **Fix reviewer and review-status attribution**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-01 · Validation: [V-18](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-18)
 
 - [ ] Scope: Update the companion review producer to use actual source reviewer, repository, resourceKind, PR, head, attested base, status and meaningful change. Missing base remains unknown. Distinguish running/completed/failure and awaiting disposition.
 - [ ] Acceptance: Attribution matches source evidence for each reviewer; developer dispositions are not owner approval; external source/deployed producer versions are linked privately.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Local candidate and synthetic regression evidence are recorded in
+  [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md). Official
+  exact-head reviews, CI, integration and deployed readback remain pending;
+  no production completion is claimed.
 
 ### ME-19
 
 **Preserve review event identity and replay safety**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-18 · Validation: [V-19](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-19)
 
 - [ ] Scope: Keep repository/resourceKind/source identity plus content version and saved retry payload. Test changed head, same-head base change, edited body with unchanged status, exact retry, out-of-order delivery, numeric-ID collisions across resource kinds and equal text across separate scopes.
 - [ ] Acceptance: Exact retries do not create new events; legitimate revisions survive; no URL/title/global-text deduplication; uncertain delivery is reconciled before replay; identity-format migration preserves historical keys and payloads.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Local candidate and synthetic regression evidence are recorded in
+  [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md). Official
+  exact-head reviews, CI, integration and deployed readback remain pending;
+  no production completion is claimed.
 
 ### ME-20
 
@@ -627,6 +658,7 @@ Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: For any affected index/schema release, verify recovery point, compatible runtime/database rollback, bounded backfill, storage reserve and scratch cleanup using established policy.
 - [ ] Acceptance: Failure/restart/rollback drill succeeds on isolated data; redaction/delete stay correct; singular writer preserved; code-only work does not create unnecessary production copies.
+- [ ] Follow-up: Qualify scheduled-capture readiness across service startup while retaining the exact runtime and SQLite-inode guards; preserve pending ingestion identities during recovery.
 - [ ] Evidence: Batch 1 subset: 84 operational tests passed, including 11 new runtime-kit
   identity/layout cases. Isolated snapshot recovery and same-clone candidate
   compatibility passed with cleanup confirmed privately. A subsequent independent
