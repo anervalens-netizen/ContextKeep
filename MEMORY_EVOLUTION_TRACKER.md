@@ -109,8 +109,10 @@ Scope, measurement contract and limits: [BATCH_3.md](docs/plans/2026-11-16-memor
   cases. All 40 fixed live observations were collected once. The limited baseline
   passed independent contract, capture, metric and size verification, with
   no substantive discrepancies and a display-rounding note; failures are retained.
-  The public helper passes 49 tests. Required reviews, CI, archive closure,
-  broader synthetic counterparts and agent outcomes remain open.
+  The public helper passes 49 tests; both required reviews, CI and independent
+  readback of the complete private archive passed. The version-bound disposition
+  and grouped review closure were read back. Broader synthetic counterparts and
+  agent outcomes remain open.
 - ME-03: a separately reviewed private scorer passes 32 synthetic guard tests.
   Its exact field/identity metrics, denominators, serialization measures and
   client wall-clock observation method are predeclared. Source recall is
@@ -235,16 +237,18 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
   collected once; the limited baseline passed independent contract, capture,
   metric and size verification, retaining negative outcomes. Synthetic
   counterparts and agent outcomes remain open.
-- [ ] Bounded correction awaiting required reviews and CI: Guard eight explicit source-backed
+- [ ] Bounded correction technically qualified: Guard eight explicit source-backed
   flags in the preflight: the freshness reference-summary fields
   `supportReferencesTruncated` and `possiblyRelatedReferencesTruncated`, plus six
   packing flags on allowed read-tool responses. Independent review excluded two
   partial freshness-reference captures from gold and substituted complete sources
   before freeze. Reject true/malformed flags and preserve boolean false. All
   49 helper tests pass; four new parameterized tests cover all eight flags for
-  true, false, invalid types and fail-closed freeze behavior. The pre-fix
-  reproduction produced eight subtest failures. The frozen private evaluator
-  and observation results remain unchanged.
+  true, false, invalid types and fail-closed freeze behavior. The single test
+  `test_known_nested_truncation_flags_block_gold` reproduced eight failing
+  subtests against the base helper. Both required reviews and CI passed; the
+  version-bound disposition and grouped review closure are evidenced under ME-44. The frozen
+  private evaluator and observation results remain unchanged.
 
 ### ME-03
 
@@ -751,6 +755,28 @@ Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution
   Grouped review closure and deployed MCP/task-state behavior were read back
   privately. Independent recovery of the candidate-produced snapshot also passed;
   the wider programme's release duties remain open.
+- [ ] Batch 3 helper qualification: [PR #29](https://github.com/anervalens-netizen/ContextKeep/pull/29),
+  head `16c24a907d46d58da98374c182c86c61b62011e2`, base
+  `0356372130661674062996e7cc8ae4ab515a1a13`, passes 49 helper tests.
+  [Codex](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6919711553)
+  reported no findings;
+  [DSH](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920023151)
+  reported no confirmed code findings and passed 232 additional assertions.
+  Its single low, nonblocking documentation note is addressed by attributing
+  the eight base-helper failures to the one named test under ME-02.
+  [CI](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329947)
+  and [public-source checks](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329984)
+  passed. The complete 196-file private archive was saved and independently
+  read back successfully. The [version-bound disposition](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920242721)
+  records the immediate wording follow-up, applied in this completion record.
+  Grouped review closure was read back. This offline helper change requires
+  no application deployment.
+- [ ] Pre-existing dependency follow-up: Triage the low `deepmerge`
+  [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)
+  advisory. Runtime exposure remains unverified; no patched version is listed
+  in the checked evidence. CI uses an audit threshold of `moderate`, which does
+  not resolve a low advisory. Preserve the explicit disposition under ME-46 /
+  ME-50; any remedy is separate from PR #29 and adds no programme item.
 
 ### ME-45
 
@@ -902,8 +928,10 @@ synthetic or sanitized technical evidence.
   sampled-counter limits. Final independent verification passes with a
   display-rounding note and no substantive discrepancies; negative outcomes are
   retained. The public helper passes 49 tests, including four new parameterized
-  tests for eight explicit truncation flags; the pre-fix reproduction produced
-  eight subtest failures. Archive closure and qualification of the ME-02 offline
-  completeness correction, including required reviews and CI, remain pending.
+  tests for eight explicit truncation flags. The named pre-fix reproduction is
+  recorded under ME-02. Both required reviews and CI passed; independent readback
+  of the complete 196-file private archive passed. The version-bound disposition
+  and grouped review closure are evidenced under ME-44; the wording follow-up is
+  applied in this completion record.
   Semantic abstention and agent outcomes are NOT_RUN. Prioritize ME-24 / ME-25
   for a separately qualified implementation.

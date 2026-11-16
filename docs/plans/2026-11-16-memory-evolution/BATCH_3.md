@@ -1,18 +1,19 @@
 # Batch 3: private corpus and descriptive baseline
 
 Date: 2026-11-16\
-Programme items: ME-01 / ME-02 / ME-03; evidence for ME-24 / ME-25 / ME-46 / ME-48 / ME-50\
+Programme items: ME-01 / ME-02 / ME-03; evidence for ME-24 / ME-25 / ME-44 / ME-46 / ME-48 / ME-50\
 Accountable role: development agent; independent gold and split review
 
 ## Status and scope
 
 **The private corpus freeze and limited measured baseline are independently
 verified. All 40 predeclared live observations were collected once, with failures
-retained. The public helper passes 49 tests. Required reviews, CI and complete
-archive readback remain pending in this record.**
+retained. The public helper passes 49 tests; both required reviews and CI passed.
+The complete private archive passed independent readback. The version-bound
+disposition is recorded and grouped review closure was read back.**
 The broader ME-01 / ME-02 / ME-03 items remain IN_PROGRESS. This batch prepares
-and measures a descriptive baseline. A bounded offline preflight correction is
-being qualified separately. Application runtime, ranking, aliases, production
+and measures a descriptive baseline. The bounded offline preflight correction
+passed its technical qualification. Application runtime, ranking, aliases, production
 configuration and existing synthetic retrieval quality floors remain unchanged;
 no application deployment is required.
 
@@ -31,8 +32,8 @@ scorer and corpus used for the measurement remain frozen.
 | Independent review | Gold claims, authority, temporal scope and split separation reviewed independently of retrieval results | Hashes and structural validation do not replace semantic review |
 | Population and usage collection | Retained populations and stored activity separated from sampled counter increases; gaps and resets recorded | No complete historical call ledger or continuous resource history claimed |
 | Private offline scorer | 32 synthetic guard tests and independent code review; exact input/hash and observed-field contracts | These tests do not establish retrieval quality or useful agent outcomes |
-| Live tool observations | All 40 fixed contracts collected once; independent verification passes with a display-rounding note and no substantive discrepancies; retrieval misses retained | A limited descriptive baseline; archive readback remains pending |
-| Public preflight correction | Eight explicit source-backed truncation flags: two freshness-reference flags and six packing flags on allowed read-tool responses; 49 tests pass | Required reviews and CI remain pending |
+| Live tool observations | All 40 fixed contracts collected once; independent verification passes with a display-rounding note and no substantive discrepancies; retrieval misses retained; complete archive independently read back | A limited descriptive baseline; agent outcomes remain unmeasured |
+| Public preflight correction | Eight explicit source-backed truncation flags: two freshness-reference flags and six packing flags on allowed read-tool responses; 49 tests, both required reviews and CI pass | Offline guard qualification does not establish runtime or agent outcomes |
 | Agent evaluation | NOT_RUN | Answer/action correctness, semantic abstention and useful-resumption time need a separate run |
 
 ## Corpus identity and independence
@@ -80,8 +81,10 @@ fields and six explicit packing flags on allowed read-tool responses. The eight
 source-backed guards reject true or malformed values while retaining valid
 boolean false values. The helper passes 49 tests. Four new parameterized tests
 cover all eight flags for true, false, invalid types and fail-closed freeze
-behavior. The pre-fix reproduction produced eight subtest failures. Required
-reviews and CI remain pending.
+behavior. The single test `test_known_nested_truncation_flags_block_gold`
+reproduced eight failing subtests against the base helper. This is the result
+of that test, not the aggregate for all four added tests. The required reviews
+and CI passed; the documentation precision note is addressed by this wording.
 The private baseline helper, scorer, corpus and measured outputs are not changed
 to apply this later correction. A structural READY result remains insufficient
 without independent examination of all relevant completeness metadata. A terminal
@@ -140,7 +143,7 @@ agreement measures representation fidelity, not an independent proof of that
 underlying algorithm. The existing synthetic task-state controls remain relevant.
 The private scorer's 32 tests are separate from the public helper's 49 guard
 tests, comprising the existing 45 and four new parameterized tests. Required
-reviews and CI qualify the helper correction separately; existing retrieval
+reviews and CI passed for the helper correction separately; existing retrieval
 fixtures and quality floors remain unchanged.
 
 ## Population, usage and next work
@@ -162,11 +165,39 @@ exact error-code/consumer attribution and retention decisions under ME-26–ME-2
 this batch does not implement those changes.
 
 Remaining evaluation work includes synthetic counterparts for additional natural
-episodes, qualification of the completeness-field guard correction, matched
-candidate comparisons, and a separately frozen agent-evaluation contract. Source
-discovery requires its own supported retrieval surface. Mark held-out results
+episodes, matched candidate comparisons, and a separately frozen agent-evaluation
+contract. Source discovery requires its own supported retrieval surface. Mark held-out results
 consumed when they are used for tuning; do not describe the same set as independent
 after that point.
+
+## Review, CI and evidence qualification
+
+The reviewed candidate is [PR #29](https://github.com/anervalens-netizen/ContextKeep/pull/29),
+head `16c24a907d46d58da98374c182c86c61b62011e2` against base
+`0356372130661674062996e7cc8ae4ab515a1a13`.
+
+- [Codex review](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6919711553)
+  reported no findings.
+- [DSH review](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920023151)
+  reported no confirmed code findings and passed 232 additional assertions.
+  Its single low, nonblocking documentation precision note concerned the scope
+  of the eight failing pre-fix subtests; the named-test wording above addresses it.
+- [CI](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329947)
+  and [public-source checks](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329984)
+  passed for the candidate.
+- The complete 196-file private archive was saved to private backup storage and
+  independently read back successfully. Its contents, hashes and paths remain
+  private.
+- The [version-bound disposition](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920242721)
+  records the immediate wording follow-up, applied in this completion record.
+  Grouped review closure was read back separately from PR merge state.
+
+ME-44 also retains a pre-existing low dependency follow-up for `deepmerge`:
+[GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4).
+Runtime exposure is unverified and no patched version is listed in the checked
+advisory evidence. The CI audit threshold is `moderate`; a passing run does not
+resolve a low advisory. Triage and any remedy remain separate from this helper
+change and are tracked under existing programme items.
 
 ## Evidence boundary
 
@@ -174,7 +205,7 @@ Private questions, operational identities, raw responses, per-case scores,
 measurements and manifests remain outside public Git. The public repository
 records only scope, methods, synthetic checks and sanitized dispositions.
 The 40 observations and independently verified metrics are retained with their
-negative outcomes. Archive readback and qualification of the offline guard
-correction, including required reviews and CI, must be recorded before the batch
-is closed. Programme-wide completion and production improvement remain separate
-claims.
+negative outcomes. Complete archive readback, required reviews and CI are
+confirmed above. The version-bound disposition and grouped review closure are
+evidenced separately; the wording follow-up is applied in this completion record.
+Programme-wide completion and production improvement remain separate claims.

@@ -39,9 +39,10 @@ first canonical private freeze: 40 RO/EN formulations from
 scorer passes 32 separate synthetic guard tests. All 40 fixed live observations
 were collected once. Final independent verification of the contracts, captures,
 per-case metrics and serialized sizes passes with a display-rounding note and
-no substantive discrepancies; failures remain in this limited baseline. Archive
-closure, broader synthetic counterparts, matched candidate comparisons and agent
-outcomes remain open. See
+no substantive discrepancies; failures remain in this limited baseline. The
+complete 196-file private archive was saved and independently read back
+successfully. Broader synthetic counterparts, matched candidate comparisons and
+agent outcomes remain open. See
 [BATCH_3.md](BATCH_3.md) for scope and limits.
 
 Source recall is not applicable to current MCP search because it exposes no
@@ -51,9 +52,26 @@ and cost remain unknown. ME-02 includes a bounded offline guard correction for
 eight explicit source-backed truncation flags: two freshness-reference flags and
 six packing flags on allowed read-tool responses. The four new parameterized
 tests cover all eight flags for true, false, invalid types and fail-closed freeze
-behavior; the pre-fix reproduction produced eight subtest failures. Required
-reviews and CI remain pending.
+behavior. The single test `test_known_nested_truncation_flags_block_gold`
+reproduced eight failing subtests against the base helper. This count describes
+that one test, not all four new tests. Required reviews and CI passed.
 The frozen private evaluator and observed results are unchanged by that correction.
+
+The qualified helper candidate is [PR #29](https://github.com/anervalens-netizen/ContextKeep/pull/29),
+head `16c24a907d46d58da98374c182c86c61b62011e2`, base
+`0356372130661674062996e7cc8ae4ab515a1a13`.
+[Codex](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6919711553)
+reported no findings;
+[DSH](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920023151)
+reported no confirmed code findings and passed 232 additional assertions. Its
+single low, nonblocking documentation precision note is addressed by the
+named-test wording above.
+[CI](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329947)
+and [public-source checks](https://github.com/anervalens-netizen/ContextKeep/actions/runs/43889329984)
+passed. The [version-bound disposition](https://github.com/anervalens-netizen/ContextKeep/pull/29#issuecomment-6920242721)
+records the immediate wording follow-up, applied in this completion record.
+Grouped review closure was read back. Application runtime is unchanged; no
+deployment is required.
 
 A passing release subset does not complete the full programme catalogue. Cases
 V-41–V-48 and V-50 retain their full scenario status below; release-specific
