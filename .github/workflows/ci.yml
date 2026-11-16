@@ -65,6 +65,9 @@ jobs:
       - name: Operational backup and restore regressions
         run: pnpm test:ops
 
+      - name: Private corpus structural guard regressions (synthetic)
+        run: pnpm test:private-corpus
+
       # 3. FUNCTIONAL TESTS — `pnpm test:functional` runs shared + server
       # (functional, excludes perf.test.ts) + web sequentially. Perf is
       # intentionally excluded from GitHub CI: §10 perf is a trusted-local-host

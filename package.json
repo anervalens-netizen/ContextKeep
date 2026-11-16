@@ -31,7 +31,8 @@
     "test:release-gate-plan": "node scripts/test-release-gate-plan.mjs",
     "release:gate": "node scripts/release-gate.mjs",
     "prepare": "node .github/install-hooks.mjs",
-    "test:private-maps": "node scripts/test-private-source-maps.mjs"
+    "test:private-maps": "node scripts/test-private-source-maps.mjs",
+    "test:private-corpus": "python3 -m unittest discover -s scripts/evaluation -p \"test_private_eval.py\" -q"
   },
   "devDependencies": {
     "eslint": "10.11.0",
