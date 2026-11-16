@@ -27,6 +27,10 @@ READ_TOOLS = frozenset({
 })
 TRUNCATION_FLAGS = ("partial", "truncated", "textTruncated", "contentTruncated",
                     "structuredContentTruncated", "resultOmitted")
+# Continuations returned by the allowed record/source, task and project reads.
+CONTINUATION_FIELDS = ("nextOffset", "excerptNextOffset", "evidenceNextOffset",
+                       "runsBlockersNextOffset", "activeNextOffset",
+                       "resolvedNextOffset", "historyNextOffset")
 TASK_FIELDS = frozenset({
     "taskId", "originalStatus", "effectiveState", "stateSource",
     "progressRecordId", "stateProvenanceRecordId", "recordReviewStatus",
@@ -141,12 +145,18 @@ def scalars(value):
 def explicitly_incomplete(value, within_completeness=False):
     """Recognize response completeness flags; nested domain errors remain data."""
     if isinstance(value, dict):
-        if any(value.get(flag) is True for flag in TRUNCATION_FLAGS):
+        flags = TRUNCATION_FLAGS + (("mayHaveMore", "candidateLimitReached") if within_completeness else ())
+        if any(flag in value and (type(value[flag]) is not bool or value[flag]) for flag in flags):
             return True
-        if within_completeness and any(value.get(flag) is True for flag in (
-            "mayHaveMore", "candidateLimitReached",
-        )):
+        if any(key in value and value[key] is not None for key in CONTINUATION_FIELDS):
             return True
+        for parent, key, marker in (
+            ("diagnostics", "reasons", "budget_omission"),
+            ("indicators", "unknown", "context_budget_omitted_optional_content"),
+        ):
+            details = value.get(parent)
+            if isinstance(details, dict) and isinstance(details.get(key), list) and marker in details[key]:
+                return True
         return any(explicitly_incomplete(child, within_completeness or key == "completeness")
                    for key, child in value.items())
     if isinstance(value, list):
@@ -197,12 +207,29 @@ def _validate(corpus, evidence_root):
     if identity.get("sourceCommit") != identity.get("runtimeBuildSha"):
         check(nonempty(identity.get("discrepancyNotes")), "runtime_discrepancy_note", "identity")
     window = manifest.get("window", {})
+    window_bounds = None
     try:
-        check(utc(window["startInclusive"]) < utc(window["endExclusive"]), "window_order", "window")
+        start, end = utc(window["startInclusive"]), utc(window["endExclusive"])
+        check(start < end, "window_order", "window")
+        if start < end:
+            window_bounds = start, end
+        check(window.get("timeBasis") == "evidence_capture", "capture_window_basis", "window")
         check(nonempty(window.get("timezone")) and isinstance(window.get("missingPeriods"), list),
               "window_coverage", "window")
     except (Invalid, KeyError, TypeError):
         check(False, "window_boundary", "window")
+
+    def capture_time(value, location):
+        stamp = utc(value)
+        if window_bounds is not None:
+            check(window_bounds[0] <= stamp < window_bounds[1], "capture_outside_window", location)
+        return stamp
+
+    manifest_capture = None
+    try:
+        manifest_capture = capture_time(manifest.get("capturedAt"), "manifest.capturedAt")
+    except Invalid:
+        pass  # The timestamp error was already recorded above.
     method = manifest.get("method", {})
     check(isinstance(method, dict) and method.get("surface") == "mcp_captured_offline"
           and type(method.get("repetitions")) is int and 1 <= method["repetitions"] <= 30
@@ -240,12 +267,16 @@ def _validate(corpus, evidence_root):
                 raise Invalid("capture origin does not match dataset")
             if value.get("tool") not in READ_TOOLS or not isinstance(value.get("arguments"), dict):
                 raise Invalid("read-only capture required")
-            utc(value.get("capturedAt"))
+            observed_at = capture_time(value.get("capturedAt"), "evidence." + str(eid) + ".capturedAt")
+            if manifest_capture is not None:
+                check(manifest_capture >= observed_at, "manifest_capture_before_evidence", "evidence." + str(eid))
             if "result" not in value or value.get("complete") is not True:
                 raise Invalid("incomplete ground-truth capture")
             result = value["result"]
             body = payload(result)
             for envelope in (result, body):
+                if any(flag in envelope and type(envelope[flag]) is not bool for flag in ("isError", "complete")):
+                    raise Invalid("malformed MCP error/completion flag")
                 if envelope.get("isError") is True or "error" in envelope:
                     raise Invalid("tool error is not verified ground truth")
                 if envelope.get("complete") is False or envelope.get("omitted") or explicitly_incomplete(envelope):
@@ -283,6 +314,8 @@ def _validate(corpus, evidence_root):
         check(nonempty(case.get("question")) and nonempty(case.get("intendedTask")), "natural_question", loc)
         check(string_list(case.get("tags")), "secondary_tags", loc)
         check(nonempty(case.get("episodeId")) and nonempty(case.get("intentId")), "episode_identity", loc)
+        if nonempty(case.get("intentId")):
+            seen_boundaries["intent:" + case["intentId"]].add(str(split))
         if isinstance(case.get("episodeId"), str):
             episodes[case["episodeId"]].append(case)
         check(string_list(case.get("episodeKeys")) and bool(case.get("episodeKeys")), "semantic_keys", loc)
@@ -298,9 +331,12 @@ def _validate(corpus, evidence_root):
         if isinstance(case.get("question"), str):
             seen_queries[normalized(case["question"])].add(str(split))
         temporal = case.get("temporal", {})
+        case_capture = None
         try:
             utc(temporal["validAt"])
-            utc(temporal["capturedAt"])
+            case_capture = capture_time(temporal["capturedAt"], loc + ".temporal.capturedAt")
+            if manifest_capture is not None:
+                check(manifest_capture >= case_capture, "manifest_capture_before_case", loc)
             for key in ("eventAt", "effectiveFrom", "effectiveTo"):
                 if key not in temporal:
                     raise Invalid("explicit temporal unknown required")
@@ -363,6 +399,8 @@ def _validate(corpus, evidence_root):
                 if nonempty(identity_value):
                     seen_boundaries["capture-target:" + identity_value].add(str(split))
             try:
+                if case_capture is not None:
+                    check(case_capture >= utc(loaded[eid]["capturedAt"]), "case_capture_before_evidence", loc)
                 check(utc(ground.get("verifiedAt")) >= utc(loaded[eid]["capturedAt"]),
                       "verification_before_capture", loc)
             except Invalid:
@@ -477,14 +515,31 @@ def freeze(corpus, evidence_root, frozen_at):
 def payload(full_result):
     if not isinstance(full_result, dict):
         raise Invalid("MCP object required")
-    if isinstance(full_result.get("structuredContent"), dict):
-        return full_result["structuredContent"]
-    texts = [x.get("text") for x in full_result.get("content", [])
-             if isinstance(x, dict) and x.get("type") == "text" and isinstance(x.get("text"), str)]
-    if len(texts) == 1:
+    structured = full_result.get("structuredContent")
+    if "structuredContent" in full_result and not isinstance(structured, dict):
+        raise Invalid("Structured MCP payload must be an object")
+    content = full_result.get("content", [])
+    if not isinstance(content, list):
+        raise Invalid("MCP content must be an array")
+    texts = []
+    for item in content:
+        if not isinstance(item, dict):
+            raise Invalid("MCP content block must be an object")
+        if item.get("type") == "text":
+            if not isinstance(item.get("text"), str):
+                raise Invalid("MCP text block must contain a string")
+            texts.append(item["text"])
+    if texts:
+        if len(texts) != 1:
+            raise Invalid("No unique textual MCP payload")
         decoded = loads(texts[0])
-        if isinstance(decoded, dict):
-            return decoded
+        if not isinstance(decoded, dict):
+            raise Invalid("Textual MCP payload must be a JSON object")
+        if structured is not None and canonical(structured) != canonical(decoded):
+            raise Invalid("Structured and textual MCP payloads disagree")
+        return decoded
+    if structured is not None:
+        return structured
     raise Invalid("No unique structured MCP payload; no fabricated empty result")
 
 

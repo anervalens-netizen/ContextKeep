@@ -49,7 +49,8 @@ def complete_synthetic_fixture(root):
                          "sharedArtifactSha256": "c" * 64, "schemaVersion": 19,
                          "mcpVersion": "2.22.0", "clientVersion": "synthetic-client-v1",
                          "dirtyPaths": [], "discrepancyNotes": "Synthetic docs-only source difference."},
-            "window": {"startInclusive": "2026-01-01T08:00:00Z", "endExclusive": AT,
+            "window": {"timeBasis": "evidence_capture", "startInclusive": "2026-01-01T08:00:00Z",
+                       "endExclusive": "2026-01-01T09:05:00Z",
                        "timezone": "UTC", "missingPeriods": []},
             "method": {"surface": "mcp_captured_offline", "repetitions": 1, "warmupCount": 0,
                        "workloadNotes": "Synthetic fixtures; no service workload measured.",
@@ -134,6 +135,33 @@ class CorpusGuardTests(unittest.TestCase):
         result = subject.validate(corpus or self.corpus, self.root)
         return {e["code"] for e in result["errors"]}
 
+    def capture_tool_response(self, tool, body):
+        """Use a real response shape with synthetic identities for one episode."""
+        episode = self.corpus["cases"][0]["episodeId"]
+        record_id, source_id = identity(episode + "/record"), identity(episode + "/source")
+        eid = self.corpus["cases"][0]["groundTruth"]["evidenceIds"][0]
+        ref = self.corpus["evidence"][eid]
+        target = {"sourceId": source_id} if tool == "get_source" else {"recordId": record_id}
+        if tool in {"get_task", "resume_task"}:
+            target = {"projectId": identity("project"), "taskId": record_id}
+        elif tool in {"get_project_brief", "get_project_dossier", "get_work_context"}:
+            target = {"projectId": identity("project")}
+        capture = {"kind": "synthetic_capture", "tool": tool, "arguments": target,
+                   "capturedAt": AT, "complete": True,
+                   "result": {"structuredContent": body,
+                              "content": [{"type": "text", "text": json.dumps(body)}]}}
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], capture)
+        for case in self.corpus["cases"]:
+            if case["episodeId"] != episode:
+                continue
+            source_only = tool == "get_source"
+            case["expected"]["recordIds"] = [] if source_only else [record_id]
+            case["expected"]["currentRecordIds"] = [] if source_only else [record_id]
+            case["expected"]["sourceIds"] = [source_id] if source_only else []
+            case["eligibility"].update(recordRecallAt5=not source_only, recordRecallAt10=not source_only,
+                                       sourceRecallAt5=source_only, sourceRecallAt10=source_only,
+                                       identityCurrentness=not source_only)
+
     def test_complete_synthetic_structure_is_ready_but_not_a_natural_freeze(self):
         result = subject.validate(self.corpus, self.root)
         self.assertEqual(result["status"], "READY", result)
@@ -180,6 +208,14 @@ class CorpusGuardTests(unittest.TestCase):
         codes = self.codes()
         self.assertIn("heldout_exposure", codes)
         self.assertIn("independence_review_required", codes)
+
+    def test_shared_intent_cannot_cross_splits_with_different_episode_identities(self):
+        intent = self.corpus["cases"][0]["intentId"]
+        heldout_episode = next(c["episodeId"] for c in self.corpus["cases"] if c["split"] == "heldout")
+        for case in self.corpus["cases"]:
+            if case["episodeId"] == heldout_episode:
+                case["intentId"] = intent
+        self.assertIn("cross_split_episode_or_identity_overlap", self.codes())
 
     def test_abstention_needs_six_cases_and_explicit_reason(self):
         for case in self.corpus["cases"]:
@@ -263,6 +299,101 @@ class CorpusGuardTests(unittest.TestCase):
                 with self.subTest(group=name, flag=flag):
                     self.assertIn("evidence_artifact_invalid", self.codes())
 
+    def test_get_source_text_and_excerpt_continuations_are_not_complete_gold(self):
+        source_id = identity(self.corpus["cases"][0]["episodeId"] + "/source")
+        # apps/server/src/mcp/reads.ts: readSource has two independent cursors.
+        terminal = {
+            "id": source_id, "projectId": identity("project"), "projectIds": [identity("project")],
+            "title": "Synthetic source", "kind": "text", "provenanceBasis": "synthetic",
+            "representation": "normalized", "offsetUnit": "unicode_code_points",
+            "excerptOffsetUnit": "normalized_utf16",
+            "excerptRepresentation": "normalized_length_preserving_redaction",
+            "text": "test", "totalChars": 4, "offset": 0, "nextOffset": None,
+            "excerpts": [{"id": identity("source-excerpt"), "startOffset": 0, "endOffset": 4,
+                          "text": "test", "textTruncated": False}],
+            "excerptTotal": 1, "excerptNextOffset": None, "canonicalTruth": False,
+        }
+        self.capture_tool_response("get_source", terminal)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        for key, next_value, total_key, total in (
+            ("nextOffset", 4, "totalChars", 5),
+            ("excerptNextOffset", 1, "excerptTotal", 2),
+        ):
+            body = deepcopy(terminal)
+            body[key], body[total_key] = next_value, total
+            self.capture_tool_response("get_source", body)
+            with self.subTest(cursor=key):
+                self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_get_record_evidence_continuation_is_not_complete_gold(self):
+        episode = self.corpus["cases"][0]["episodeId"]
+        terminal = {
+            "recordId": identity(episode + "/record"), "reviewStatus": "accepted",
+            "text": "Synthetic record", "textTruncated": False,
+            "evidence": [{"excerptId": identity("record-excerpt"), "sourceId": identity(episode + "/source"),
+                          "text": "Synthetic evidence", "textTruncated": False}],
+            "evidenceTotal": 1, "evidenceNextOffset": None,
+            "excerptLimits": {"evidenceChars": 4000, "evidenceCount": 1},
+        }
+        self.capture_tool_response("get_record", terminal)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        body = deepcopy(terminal)
+        body.update(evidenceNextOffset=1, evidenceTotal=2)
+        self.capture_tool_response("get_record", body)
+        self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_allowed_task_and_project_read_continuations_remain_incomplete(self):
+        record_id = identity(self.corpus["cases"][0]["episodeId"] + "/record")
+        page = {"items": [{"recordId": record_id}], "total": 1, "offset": 0, "limit": 1, "nextOffset": None}
+        dossier = {"projectId": identity("project"), "taskId": record_id,
+                   "blockers": {"activeCount": 0, "items": [], "nextOffset": None},
+                   "unresolvedExecutions": {"total": 0, "returned": 0, "items": [], "nextOffset": None}}
+        task = {"task": {"id": record_id}, "dossier": deepcopy(dossier), "records": [{"id": record_id}],
+                "pagination": {"offset": 0, "limit": 1, "nextOffset": None, "runsBlockersNextOffset": None},
+                "blockers": {"pagination": {"offset": 0, "limit": 1, "activeNextOffset": None,
+                                            "resolvedNextOffset": None, "historyNextOffset": None}}}
+        # Paths come from readBrief, getTaskView, taskDossier and projectDossier.
+        examples = (
+            ("get_project_brief", {"project": {"id": identity("project")}, "sections": {"facts": page}},
+             [("sections", "facts", "nextOffset")]),
+            ("get_task", task,
+             [("pagination", "nextOffset"), ("pagination", "runsBlockersNextOffset"),
+              ("blockers", "pagination", "activeNextOffset"),
+              ("blockers", "pagination", "resolvedNextOffset"),
+              ("blockers", "pagination", "historyNextOffset"),
+              ("dossier", "blockers", "nextOffset"), ("dossier", "unresolvedExecutions", "nextOffset")]),
+            ("resume_task", {"dossier": dossier, "startsExecution": False, "depth": "balanced", "omitted": []},
+             [("dossier", "blockers", "nextOffset"), ("dossier", "unresolvedExecutions", "nextOffset")]),
+            ("get_project_dossier", {"tasks": [{"taskId": record_id}], "pagination": {"nextOffset": None},
+                                     "links": deepcopy(page)},
+             [("pagination", "nextOffset"), ("links", "nextOffset")]),
+        )
+        for tool, terminal, paths in examples:
+            self.capture_tool_response(tool, terminal)
+            with self.subTest(tool=tool, terminal=True):
+                self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+            for path in paths:
+                for offset in (0, 1):
+                    body = deepcopy(terminal)
+                    target = body
+                    for key in path[:-1]:
+                        target = target[key]
+                    target[path[-1]] = offset
+                    self.capture_tool_response(tool, body)
+                    with self.subTest(tool=tool, path=path, offset=offset):
+                        self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_work_context_budget_truncation_stays_incomplete(self):
+        record_id = identity(self.corpus["cases"][0]["episodeId"] + "/record")
+        body = {"project": {"id": identity("project")}, "indicators": {"truncated": False},
+                "actions": {"total": 1, "returned": 1, "omitted": 0, "truncated": False,
+                            "items": [{"recordId": record_id}]}}
+        self.capture_tool_response("get_work_context", body)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        body["actions"].update(total=2, omitted=1, truncated=True)
+        self.capture_tool_response("get_work_context", body)
+        self.assertIn("evidence_artifact_invalid", self.codes())
+
     def test_nested_domain_error_field_is_not_an_mcp_error(self):
         eid, ref = next(iter(self.corpus["evidence"].items()))
         value = subject.read_json(self.root / ref["path"])
@@ -272,6 +403,124 @@ class CorpusGuardTests(unittest.TestCase):
         ]
         self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
         self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+
+    def test_malformed_truncation_and_completeness_flags_are_not_complete(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        paths = [("evidence", flag) for flag in subject.TRUNCATION_FLAGS]
+        paths += [("completeness", "mayHaveMore"), ("completeness", "candidateLimitReached")]
+        for parent, flag in paths:
+            for invalid in ("true", 1, "false", 0, None):
+                value = deepcopy(original)
+                body = value["result"]["structuredContent"]
+                if parent == "evidence":
+                    body["evidence"] = [{flag: invalid}]
+                else:
+                    body["completeness"] = {"records": {flag: invalid}}
+                self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+                with self.subTest(parent=parent, flag=flag, invalid=invalid):
+                    self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_malformed_envelope_error_and_completion_flags_are_blocked(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        for flag in ("isError", "complete"):
+            for invalid in ("true", 1, "false", 0, None):
+                value = deepcopy(original)
+                value["result"][flag] = invalid
+                self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+                with self.subTest(flag=flag, invalid=invalid):
+                    self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_budget_omission_diagnostics_block_without_a_truncated_flag(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        for key, detail in (
+            ("diagnostics", {"reasons": ["budget_omission"]}),
+            ("indicators", {"unknown": ["context_budget_omitted_optional_content"]}),
+        ):
+            value = deepcopy(original)
+            value["result"]["structuredContent"][key] = detail
+            self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+            with self.subTest(marker=key):
+                self.assertIn("evidence_artifact_invalid", self.codes())
+        original["result"]["structuredContent"]["text"] = "The phrase budget_omission is synthetic domain data."
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], original)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+
+    def test_parallel_mcp_text_must_agree_with_structured_content(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        body = original["result"]["structuredContent"]
+        # Formatting and key order differ; the JSON object is the same.
+        original["result"]["content"] = [{"type": "text", "text": json.dumps(body, indent=2, sort_keys=True)}]
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], original)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        for extra in ({"error": {"code": "synthetic_error"}}, {"truncated": True},
+                      {"evidence": [{"textTruncated": True}]}, {"nextOffset": 1}):
+            value = deepcopy(original)
+            value["result"]["content"][0]["text"] = json.dumps({**body, **extra})
+            self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+            with self.subTest(extra=extra):
+                self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_malformed_or_ambiguous_parallel_text_is_not_ignored(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        matching = {"type": "text", "text": json.dumps(original["result"]["structuredContent"])}
+        for content in ([{"type": "text", "text": "synthetic malformed JSON"}],
+                        [matching, matching], [{"type": "text", "text": 1}],
+                        [{"type": "text", "text": "[]"}]):
+            value = deepcopy(original)
+            value["result"]["content"] = content
+            self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+            with self.subTest(content=content):
+                self.assertIn("evidence_artifact_invalid", self.codes())
+        original["result"] = {"content": [matching]}
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], original)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+
+    def test_capture_window_is_explicit_half_open_and_not_an_event_window(self):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        original = subject.read_json(self.root / ref["path"])
+        for stamp, allowed in (("2026-01-01T08:00:00Z", True),
+                               ("2026-01-01T07:59:59Z", False),
+                               ("2026-01-01T09:05:00Z", False),
+                               ("2026-01-01T09:05:01Z", False)):
+            value = deepcopy(original)
+            value["capturedAt"] = stamp
+            self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
+            with self.subTest(stamp=stamp):
+                self.assertEqual("capture_outside_window" in self.codes(), not allowed)
+                if allowed:
+                    self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], original)
+        # Historical event/answer/effective times are not MCP collection times.
+        for case in self.corpus["cases"][:2]:
+            case["temporal"].update(validAt="2020-01-01T00:00:00Z", eventAt="2020-01-01T00:00:00Z",
+                                    effectiveFrom="2019-01-01T00:00:00Z", includeHistorical=True)
+        self.assertEqual(subject.validate(self.corpus, self.root)["status"], "READY")
+        self.corpus["manifest"]["window"]["timeBasis"] = "event_time"
+        self.assertIn("capture_window_basis", self.codes())
+
+    def test_case_and_manifest_capture_times_must_be_in_capture_window(self):
+        for container in (self.corpus["manifest"], self.corpus["cases"][0]["temporal"]):
+            original = container["capturedAt"]
+            for stamp in ("2026-01-01T07:59:59Z", "2026-01-01T09:05:00Z"):
+                container["capturedAt"] = stamp
+                with self.subTest(container="manifest" if container is self.corpus["manifest"] else "case", stamp=stamp):
+                    self.assertIn("capture_outside_window", self.codes())
+            container["capturedAt"] = original
+
+    def test_case_and_manifest_collection_cannot_precede_referenced_evidence(self):
+        for case in self.corpus["cases"][:2]:
+            case["temporal"]["capturedAt"] = "2026-01-01T08:59:59Z"
+        self.assertIn("case_capture_before_evidence", self.codes())
+        for case in self.corpus["cases"][:2]:
+            case["temporal"]["capturedAt"] = AT
+        self.corpus["manifest"]["capturedAt"] = "2026-01-01T08:59:59Z"
+        self.assertIn("manifest_capture_before_case", self.codes())
+        self.assertIn("manifest_capture_before_evidence", self.codes())
 
     def test_verifier_cannot_precede_the_capture_they_claim_to_inspect(self):
         self.corpus["cases"][0]["groundTruth"]["verifiedAt"] = "2026-01-01T08:59:00Z"
@@ -285,6 +534,8 @@ class CorpusGuardTests(unittest.TestCase):
         for case in self.corpus["cases"]:
             if eid in case["groundTruth"]["evidenceIds"]:
                 case["groundTruth"]["verifiedAt"] = "2026-01-01T09:02:00Z"
+                case["temporal"]["capturedAt"] = "2026-01-01T09:01:00Z"
+        self.corpus["manifest"]["capturedAt"] = "2026-01-01T09:01:00Z"
         with self.assertRaisesRegex(subject.Invalid, "capture.*after freeze"):
             subject.freeze(self.corpus, self.root, AT)
 

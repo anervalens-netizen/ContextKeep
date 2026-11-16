@@ -6,9 +6,10 @@ Accountable role: development agent; independent replay-safety review
 
 ## Status and source boundary
 
-**The local implementation and targeted qualification are complete. This batch
-is not deployed or complete.** Official exact-head reviews, CI, integration, producer
-runtime identification and deployed readback remain open.
+**Official review found additional defects, now covered by follow-up corrections.
+This batch is not deployed or complete.** Requalification of the changed heads,
+integration and deployed readback remain open. Private read-only preflight has
+identified the installed producer and the legacy reconciliation classes.
 
 The review producer belongs to the companion integration. Its exact private
 source baseline, candidate and deployed component identities are maintained in
@@ -45,6 +46,8 @@ or impact of these events in production.
 | Content version | Retain meaningful body, head, base and status edits while ignoring only a narrowly identified cosmetic timestamp. |
 | Exact retry | Reuse the saved delivery identity, idempotency key and original serialized payload. |
 | Legacy state | Preserve existing rows. Resolve a pending legacy delivery before a replacement version is sent; ambiguous identity remains blocked. |
+| Reconciliation | Persist each fenced source observation before advancing its cursor; continue unaffected sources and keep backlog coverage explicit. |
+| Disposition compatibility | Version new semantic fingerprints. Keep legacy lossy receipts pending for a fresh evidence-bound disposition; never accept the old hash as proof of inspected findings. |
 | Ordering | Retain older, equal-time conflicting and unknown-order evidence without replacing a current checkpoint or reopening completed work. |
 | Scope | Equal numeric IDs in different resource kinds and equal text in different repositories remain separate events. |
 | Authority | Every imported report remains proposed evidence. No execution or acceptance is inferred from publication or transport success. |
@@ -57,10 +60,13 @@ metadata-only changes, retry after restart, preserved legacy payloads, ambiguous
 acknowledgments, out-of-order versions and resource/repository separation.
 
 The pinned baseline passes 43 targeted delivery and review lifecycle tests. The
-candidate passes 70 targeted tests, including 27 additional regression cases.
-An independent reviewer also passes 12 direct invariant probes covering the
-previously reproduced failures. Exact private candidate identities and review
-receipts are retained in the operational ledger.
+initial candidate passed 70 targeted tests and 12 independent invariant probes.
+Official review then reproduced a repository-wide reconciliation stall and
+legacy disposition invalidation. Follow-up tests cover durable source isolation,
+checkpoint fences, bounded backlog retry and explicit fingerprint compatibility.
+The combined follow-up suite passes 88 targeted tests. Exact candidate
+identities and review receipts are retained
+in the private operational ledger.
 
 The cases include the meaningful `completed -> failed -> completed` transition,
 same-source historical-first versions, clock-only observations and lost delivery
@@ -73,12 +79,25 @@ Those require separate readback after a qualified rollout.
 ## Private evaluation preparation
 
 A compact [offline helper](../../../scripts/evaluation/README.md) validates the
-corpus described in [BASELINE_PROTOCOL.md](BASELINE_PROTOCOL.md). Its 32 synthetic
+corpus described in [BASELINE_PROTOCOL.md](BASELINE_PROTOCOL.md). Its 45 synthetic
 guard tests cover missing quotas, mixed development/held-out episodes, missing
 response identities, unverified ground truth, MCP errors, nested incompleteness,
 capture/review/freeze time ordering and bounded input reads. A freeze binds
 content hashes, requires a private output file and cannot overwrite an existing
 freeze. Standard output contains only a compact receipt.
+
+Official review reproduced incomplete paginated reads, unenforced capture-window
+bounds and cross-split intent reuse. The follow-up rejects non-null continuation
+cursors, enforces an explicitly declared capture-time window and collection
+ordering, and uses intent identity as a split boundary. Historical event time
+remains distinct from capture time. Malformed omission flags, explicit budget
+omission diagnostics and conflicting JSON response representations also block
+ground-truth validation.
+
+Exclusive creation applies to one output path. The private evidence ledger must
+register the canonical corpus hash and freeze before candidate tuning; writing a
+second file does not create a new independent baseline. This helper does not
+enforce global freeze uniqueness or establish semantic ground truth.
 
 Unicode code points, JavaScript UTF-16 units, logical UTF-8 bytes and complete
 serialized MCP-result bytes remain separate measurements. Run
@@ -105,11 +124,15 @@ outcomes remain pending. No retrieval or token-saving improvement is claimed.
    missing.
    Classify existing legacy receipts as provably adoptable, pending or ambiguous.
    Some older review submissions lack stored status metadata. The new guard
-   deliberately blocks these cases instead of duplicating or inventing evidence;
-   this preflight is a required activation gate.
+   deliberately fences these cases instead of duplicating or inventing evidence.
+   Persisted source isolation permits unaffected work to continue; the backlog
+   remains visible and cannot be reported as complete migration coverage.
+   Inventory legacy disposition receipts as well as source delivery rows.
    Recovery must preserve the upgraded delivery identities. After new-format
    imports, reverting only the producer binary to the old version is not
-   replay-safe and is not an approved rollback procedure.
+   replay-safe. Stop ingestion and preserve the current ledger and application
+   database during recovery; resume only with a build that understands the new
+   identities and fences.
 4. Activate only the qualified producer change. Verify live attribution and
    version/retry behavior through the existing authenticated interfaces, and
    record the actual deployed component identity privately.

@@ -71,12 +71,16 @@ Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolutio
   for reviewer/status attribution and versioned review delivery. Synthetic
   regressions cover meaningful edits, metadata changes, exact retry, resource
   identity and event ordering. Scope and local verification are recorded in the
-  batch note. Official exact-head reviews, CI, source
+  batch note. Official review added durable source isolation and legacy
+  disposition compatibility corrections. Changed-head review/CI, source
   integration and deployed producer readback remain pending.
 - ME-01 / ME-02 / ME-03: a strict offline corpus-validation helper is implemented
-  against the existing baseline protocol, with 32 synthetic guard tests. This
+  against the existing baseline protocol, with 45 synthetic guard tests. This
   does not create or validate the real private question set. Evidence access and independent
-  ground-truth review are required before freezing that corpus.
+  ground-truth review are required before freezing that corpus. The follow-up
+  covers pagination, capture-window semantics, intent split boundaries and
+  conflicting or incomplete response representations. A canonical freeze must
+  still be registered privately before candidate tuning.
 - ME-46 / ME-50: release status stays open. Runtime verification and private
   memory synchronization remain explicit gates; no production change is claimed.
 
@@ -654,6 +658,7 @@ Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: For any affected index/schema release, verify recovery point, compatible runtime/database rollback, bounded backfill, storage reserve and scratch cleanup using established policy.
 - [ ] Acceptance: Failure/restart/rollback drill succeeds on isolated data; redaction/delete stay correct; singular writer preserved; code-only work does not create unnecessary production copies.
+- [ ] Follow-up: Qualify scheduled-capture readiness across service startup while retaining the exact runtime and SQLite-inode guards; preserve pending ingestion identities during recovery.
 - [ ] Evidence: Batch 1 subset: 84 operational tests passed, including 11 new runtime-kit
   identity/layout cases. Isolated snapshot recovery and same-clone candidate
   compatibility passed with cleanup confirmed privately. A subsequent independent
