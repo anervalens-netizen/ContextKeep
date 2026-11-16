@@ -1,8 +1,18 @@
 # Client workflow
 
-MCP interface version: 2.21.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.22.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
+
+## Selecting a task from search
+
+Use `taskState.effectiveState` for a current task hit when present, and keep the
+original `taskStatus` as record history. Inspect `stateSource`,
+`stateProvenance` and `progress` separately; a proposed completion report is
+not accepted knowledge. Follow the returned `resume` pointer before continuing
+work. The pointer only identifies a read: it does not reopen a closed task,
+resolve blockers, verify a run or authorize replay. Missing `taskState` does
+not establish whether an action is an active task.
 
 ## Correlating a Remote Control job
 

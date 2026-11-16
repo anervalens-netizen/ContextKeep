@@ -7,7 +7,8 @@ Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDAT
 
 ## Current state
 
-**Planning documents are complete. Implementation is not started by this change.**
+**Batch 1 implementation is in progress: effective task state in search,
+provenance-aware presentation and a reproducible evaluation protocol.**
 
 Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
@@ -26,6 +27,33 @@ contracts. It is not a production status report.
    qualified batches. Use the plan's waves, not item number alone, for sequencing.
 4. Keep ME-35–ME-40 gated until their named problems, baselines and budgets justify
    an experiment. A justified defer/stop decision is a valid experiment outcome.
+
+## Batch 1 — 2026-11-16
+
+Implementation notes and qualification scope: [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
+
+Implementation owner: development agent; evaluation and operational verification
+are reviewed independently. Private task, baseline and execution receipts remain
+in ContextKeep. No programme-wide completion is claimed.
+
+- ME-01 / ME-02 / ME-03: [BASELINE_PROTOCOL.md](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
+  records existing metric semantics, immutable held-out identity, private corpus
+  design and first-release gates. The full private 30–50-question corpus and
+  matched outcome evaluation remain pending.
+- ME-05: a reproduced blocked-record / completed-progress mismatch is implemented through a shared task projection, additive HTTP/MCP fields and UI
+  provenance. Synthetic regression cases cover the bounded release prerequisite;
+  the broader ME-02 outcome remains open.
+- ME-09: this batch covers task-state parity only. Ranking, freshness and the
+  remaining cross-surface scenarios retain their original dependencies.
+- ME-04: operator-confirmed topology metadata was corrected privately. The wider
+  lifecycle audit remains open.
+- ME-41 / ME-42 / ME-43 / ME-44 / ME-47: compatibility, recovery, exact-revision
+  review and release qualification apply to this candidate. Implementation is not
+  deployment evidence. Current-release recovery is an explicit rollout prerequisite.
+- ME-46 / ME-48 / ME-50: the private ledger, capacity observations and tracker
+  are being maintained. Rolling duties remain open for later batches.
+
+The opening creation inventory is historical. Current item rows own status.
 
 ## Status and ownership rules
 
@@ -53,15 +81,15 @@ only by an unanswered use case. These are priorities, not incident severities.
 
 | ID | Item | Status | Priority | Wave | Owner role | Prerequisites |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ME-01](#me-01) | Freeze the baseline and private evidence manifest | PLANNED | P0 | W0 | Evaluation | — |
-| [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | PLANNED | P0 | W0 | Evaluation | ME-01 |
-| [ME-03](#me-03) | Define metric semantics and predeclare quality gates | PLANNED | P0 | W0 | Evaluation | ME-01, ME-02 |
-| [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | PLANNED | P1 | W0 | Operations | ME-01 |
-| [ME-05](#me-05) | Expose effective task state in search | PLANNED | P0 | W1 | Backend | ME-02 |
+| [ME-01](#me-01) | Freeze the baseline and private evidence manifest | IN_PROGRESS | P0 | W0 | Evaluation | — |
+| [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | IN_PROGRESS | P0 | W0 | Evaluation | ME-01 |
+| [ME-03](#me-03) | Define metric semantics and predeclare quality gates | IN_PROGRESS | P0 | W0 | Evaluation | ME-01, ME-02 |
+| [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
+| [ME-05](#me-05) | Expose effective task state in search | IMPLEMENTED | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | PLANNED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | PLANNED | P0 | W1 | Backend | ME-01, ME-02 |
-| [ME-09](#me-09) | Qualify current-state parity across surfaces | PLANNED | P0 | W1 | Backend | ME-05, ME-06 |
+| [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | PLANNED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | PLANNED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | PLANNED | P1 | W2 | Retrieval | ME-10, ME-11 |
@@ -93,23 +121,23 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-38](#me-38) | Test portable derived context for coding agents | GATED | P2 | W5 | Knowledge | ME-03, ME-23, ME-33, ME-49 |
 | [ME-39](#me-39) | Compare API embeddings, fusion and optional reranking | GATED | P2 | W6 | Retrieval | ME-03, ME-06, ME-14, ME-15, ME-17, ME-49 |
 | [ME-40](#me-40) | Decide whether a temporal graph is justified | GATED | P3 | W6 | Knowledge | ME-03, ME-32, ME-49 |
-| [ME-41](#me-41) | Maintain client and host compatibility | PLANNED | P1 | W7 | Integration | ME-03 |
-| [ME-42](#me-42) | Plan and qualify each staged rollout | PLANNED | P0 | W7 | Maintainer | ME-03 |
-| [ME-43](#me-43) | Verify migration, index rebuild and recovery | PLANNED | P0 | W7 | Operations | ME-01, ME-48 |
-| [ME-44](#me-44) | Complete exact-head reviews and release qualification | PLANNED | P0 | W7 | Maintainer | ME-42 |
+| [ME-41](#me-41) | Maintain client and host compatibility | IN_PROGRESS | P1 | W7 | Integration | ME-03 |
+| [ME-42](#me-42) | Plan and qualify each staged rollout | IN_PROGRESS | P0 | W7 | Maintainer | ME-03 |
+| [ME-43](#me-43) | Verify migration, index rebuild and recovery | IN_PROGRESS | P0 | W7 | Operations | ME-01, ME-48 |
+| [ME-44](#me-44) | Complete exact-head reviews and release qualification | IN_PROGRESS | P0 | W7 | Maintainer | ME-42 |
 | [ME-45](#me-45) | Measure post-release outcomes against matched baseline | PLANNED | P1 | W7 | Evaluation | ME-03, ME-44 |
-| [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | PLANNED | P0 | W7 | Maintainer | ME-01 |
-| [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | PLANNED | P0 | W7 | Backend | ME-03 |
-| [ME-48](#me-48) | Measure capacity before infrastructure changes | PLANNED | P1 | W4 | Operations | ME-01 |
+| [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | IN_PROGRESS | P0 | W7 | Maintainer | ME-01 |
+| [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | IN_PROGRESS | P0 | W7 | Backend | ME-03 |
+| [ME-48](#me-48) | Measure capacity before infrastructure changes | IN_PROGRESS | P1 | W4 | Operations | ME-01 |
 | [ME-49](#me-49) | Maintain research and pilot decision records | PLANNED | P2 | W0 | Evaluation | ME-02, ME-03 |
-| [ME-50](#me-50) | Maintain tracker coverage and programme closure | PLANNED | P0 | W7 | Maintainer | — |
+| [ME-50](#me-50) | Maintain tracker coverage and programme closure | IN_PROGRESS | P0 | W7 | Maintainer | — |
 
 ## Detailed work and acceptance
 
 ### ME-01
 
 **Freeze the baseline and private evidence manifest**\
-Status: **PLANNED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-01)
 
 - [ ] Scope: Capture source/runtime/schema versions, exact observation windows and timezones, corpus identity, read-only query definitions and coverage gaps. Keep record/source/progress/run/handoff/relation/delta/volatility populations separate.
@@ -120,7 +148,7 @@ Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/
 ### ME-02
 
 **Extend the real-question and synthetic evaluation sets**\
-Status: **PLANNED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-02)
 
 - [ ] Scope: Freeze 30–50 private real questions with expected record/source/task identities and time semantics. Extend existing RO/EN fixtures with synthetic equivalents; maintain a tuning/held-out split.
@@ -131,7 +159,7 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 ### ME-03
 
 **Define metric semantics and predeclare quality gates**\
-Status: **PLANNED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-03)
 
 - [ ] Scope: Define Recall@5/10, currentness, answer/action correctness, provenance, abstention, reads, latency and resource/cost measures. Separate structured characters/bytes, full MCP bytes and actual inference tokens.
@@ -142,7 +170,7 @@ Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-ev
 ### ME-04
 
 **Reconcile metadata and lifecycle evidence**\
-Status: **PLANNED** · Priority: P1 · Wave: W0 · Owner role: Operations\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W0 · Owner role: Operations\
 Dependencies: ME-01 · Validation: [V-04](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-04)
 
 - [ ] Scope: Audit stale project descriptions, runtime pointers and unknown lifecycle values using current dated evidence. Define a safe metadata correction queue and volatility policy inputs.
@@ -153,13 +181,13 @@ Dependencies: ME-01 · Validation: [V-04](docs/plans/2026-11-16-memory-evolution
 ### ME-05
 
 **Expose effective task state in search**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **IMPLEMENTED** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-02 · Validation: [V-05](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-05)
 
-- [ ] Scope: Reuse the operational task projection for task search hits: effective state, state source, progress identity, provenance and resume pointer. Retain the original record status separately.
+- [x] Scope: Reuse the operational task projection for task search hits: effective state, state source, progress identity, provenance and resume pointer. Retain the original record status separately.
 - [ ] Acceptance: Blocked-to-done, explicit terminal precedence and post-closure follow-up cases agree with dossier/resume without mutating accepted records.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [batch 1 implementation and targeted results](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
+  Full candidate review, release qualification and deployed readback remain pending.
 
 ### ME-06
 
@@ -197,7 +225,7 @@ Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-ev
 ### ME-09
 
 **Qualify current-state parity across surfaces**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-09)
 
 - [ ] Scope: Use the shared projection in search, HTTP, MCP, PWA and host views. Preserve explicit nulls, terminal status, classified attention and follow-up semantics.
@@ -549,7 +577,7 @@ Dependencies: ME-03, ME-32, ME-49 · Validation: [V-40](docs/plans/2026-11-16-me
 ### ME-41
 
 **Maintain client and host compatibility**\
-Status: **PLANNED** · Priority: P1 · Wave: W7 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W7 · Owner role: Integration\
 Dependencies: ME-03 · Validation: [V-41](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-41)
 
 - [ ] Scope: For each release's affected contracts, update public MCP/HTTP documentation, ContextKeep Workflows and relevant UI/host metadata. Prefer additive defaults and versioned resource advertisement when bundled UI changes. Do not wait for unrelated future features.
@@ -560,7 +588,7 @@ Dependencies: ME-03 · Validation: [V-41](docs/plans/2026-11-16-memory-evolution
 ### ME-42
 
 **Plan and qualify each staged rollout**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: ME-03 · Validation: [V-42](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-42)
 
 - [ ] Scope: For every release, record selected item IDs, server/index/consumer order, mixed-version behavior, canary, feature controls and external repository dependencies.
@@ -571,7 +599,7 @@ Dependencies: ME-03 · Validation: [V-42](docs/plans/2026-11-16-memory-evolution
 ### ME-43
 
 **Verify migration, index rebuild and recovery**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Operations\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Operations\
 Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-43)
 
 - [ ] Scope: For any affected index/schema release, verify recovery point, compatible runtime/database rollback, bounded backfill, storage reserve and scratch cleanup using established policy.
@@ -582,7 +610,7 @@ Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-ev
 ### ME-44
 
 **Complete exact-head reviews and release qualification**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-44)
 
 - [ ] Scope: For application changes, obtain required Codex Connector/DSH current-head reviews, explicit dispositions and CI; qualify deployed behavior and matching runtime/source identities.
@@ -604,7 +632,7 @@ Dependencies: ME-03, ME-44 · Validation: [V-45](docs/plans/2026-11-16-memory-ev
 ### ME-46
 
 **Keep the private evidence ledger and handoffs complete**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-46)
 
 - [ ] Scope: Map every audit section/finding to tracker IDs, private source/version evidence and eventual commit/test/deployment references. Preserve concise task-scoped checkpoints and unresolved limits.
@@ -615,7 +643,7 @@ Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution
 ### ME-47
 
 **Regress authority, scope, uncertainty and no-replay invariants**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Backend\
 Dependencies: ME-03 · Validation: [V-47](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-47)
 
 - [ ] Scope: Apply integrated negative controls to new search/index/summary/client paths: untrusted source instructions, scope crossing, stale fences, truncated evidence, unresolved runs and closed tasks.
@@ -626,7 +654,7 @@ Dependencies: ME-03 · Validation: [V-47](docs/plans/2026-11-16-memory-evolution
 ### ME-48
 
 **Measure capacity before infrastructure changes**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Operations\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Operations\
 Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
 
 - [ ] Scope: Measure DB main/WAL/index growth, query/backfill latency, lock contention, service resource trends and retention impact. Use realistic bounded workloads and existing storage policy.
@@ -648,7 +676,7 @@ Dependencies: ME-02, ME-03 · Validation: [V-49](docs/plans/2026-11-16-memory-ev
 ### ME-50
 
 **Maintain tracker coverage and programme closure**\
-Status: **PLANNED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: none · Validation: [V-50](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-50)
 
 - [ ] Scope: Use this tracker as the only active checklist. Assign actual owners at start; update dependencies, evidence, decisions and status with work. Keep archived trackers historical.

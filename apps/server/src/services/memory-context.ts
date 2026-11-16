@@ -1232,6 +1232,7 @@ export class ContextKeepMemoryService {
         text: clip(record.text, MAX_TEXT_CHARS),
         reviewStatus: record.reviewStatus,
         taskStatus: record.taskStatus,
+        ...(record.taskState ? { taskState: record.taskState } : {}),
         recordedAt: record.recordedAt,
         observedAt: record.sourceEventAt ?? record.recordedAt,
         reviewedAt: record.reviewedAt,

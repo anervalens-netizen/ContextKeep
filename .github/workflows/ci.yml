@@ -4,7 +4,7 @@ name: ci
 # schedules, no tag pushes — CI exists to prove that future commits
 # keep typecheck / functional tests / build green on independent
 # GitHub-hosted hardware. It is NOT a §10 perf gate (shared-runner
-# noise makes p95 nondeterministic; the local Dell is authoritative for
+# noise makes p95 nondeterministic; the trusted local release host is authoritative for
 # absolute §10 perf — see apps/server/test/perf.test.ts).
 
 on:
@@ -67,9 +67,9 @@ jobs:
 
       # 3. FUNCTIONAL TESTS — `pnpm test:functional` runs shared + server
       # (functional, excludes perf.test.ts) + web sequentially. Perf is
-      # intentionally excluded from GitHub CI: §10 perf is a local-Dell
+      # intentionally excluded from GitHub CI: §10 perf is a trusted-local-host
       # contract; running it on GitHub-hosted shared runners would be
-      # nondeterministic. Dell/local `pnpm test` chains `test:functional`
+      # nondeterministic. Local `pnpm test` chains `test:functional`
       # + the dedicated perf gate.
       - name: pnpm test (functional)
         run: pnpm test:functional

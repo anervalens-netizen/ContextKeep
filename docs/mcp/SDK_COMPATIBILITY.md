@@ -1,9 +1,19 @@
 # SDK compatibility
 
-MCP interface version: 2.21.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.22.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 Runtime dependency: @modelcontextprotocol/server@2.4.0. Verify the dependency version in apps/server/package.json when upgrading.
+
+## Additive search state in 2.22
+
+`taskState` is optional on current actual-task search records in HTTP and MCP,
+including compact results and the legacy canonical alias. Clients that ignore
+unknown fields remain compatible. `taskStatus` retains the original record
+value. Clients displaying effective state must also preserve the winning source's
+review status and evidence basis; accepted task authority does not accept a
+proposed progress report. This change does not alter schema version 19, the
+protocol version, tool count or the installed panel resource.
 
 ## Panel v7.4 contract
 

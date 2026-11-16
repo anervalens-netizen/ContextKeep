@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import type { EvidenceDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
+import type { EvidenceDto, RecordDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
 import { projects, recordEvidence, records, sourceExcerpts, sources } from "../db/schema.js";
 import { escapeLike } from "../lib/like.js";
@@ -8,6 +8,7 @@ import type { ServiceDeps } from "./import.js";
 import { sourceProjectScope } from "./source-membership.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import { foldMemoryText } from "./memory-freshness.js";
+import { taskSearchStates } from "./task-search-state.js";
 
 const MIN_TOKEN_LENGTH = 2;
 const MAX_CANDIDATES = 200;
@@ -454,6 +455,11 @@ export function search(
     : loadEvidenceFor(db, workingRows.map((r) => r.id));
   const recordDtos = attachProjectNames(db, recordRows, evidenceMap);
   const workingRecordDtos = attachProjectNames(db, workingRows, workingEvidenceMap);
+  const taskStates = taskSearchStates(deps, [...recordDtos, ...workingRecordDtos]);
+  const withTaskState = (record: RecordDto) => {
+    const taskState = taskStates.get(record.id);
+    return taskState ? { ...record, taskState } : record;
+  };
 
   return {
     query: q,
@@ -461,8 +467,8 @@ export function search(
     match,
     scope,
     includeHistorical,
-    records: recordDtos,
-    workingRecords: workingRecordDtos,
+    records: recordDtos.map(withTaskState),
+    workingRecords: workingRecordDtos.map(withTaskState),
     projects: projectRows,
     sources: sourcesOut,
     completeness: {

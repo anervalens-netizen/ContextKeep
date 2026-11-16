@@ -82,6 +82,32 @@ export const RecordFreshnessDto = z.object({
 });
 export type RecordFreshnessDto = z.infer<typeof RecordFreshnessDto>;
 
+const TaskStateProvenanceDto = z.object({
+  recordId: z.string(),
+  recordedAt: z.string(),
+  reviewStatus: ReviewStatus,
+  evidenceBasis: EvidenceBasis,
+});
+
+/** Current operational projection on task search hits. Record status remains
+ * historical input; a proposed progress report does not become accepted truth. */
+export const SearchTaskStateDto = z.object({
+  effectiveState: z.union([TaskStatus, z.literal("unknown")]),
+  stateSource: z.enum(["task_record", "reported_progress", "unknown"]),
+  progress: TaskStateProvenanceDto.extend({
+    taskRevision: z.number().int().positive(),
+    status: TaskStatus,
+  }).nullable(),
+  stateProvenance: TaskStateProvenanceDto.nullable(),
+  /** A read-only recovery pointer, including for closed tasks with follow-up. */
+  resume: z.object({
+    tool: z.literal("resume_task"),
+    projectId: z.string(),
+    taskId: z.string(),
+  }),
+});
+export type SearchTaskStateDto = z.infer<typeof SearchTaskStateDto>;
+
 export const RecordDto = z.object({
   id: z.string(),
   projectId: z.string().nullable(),
@@ -114,6 +140,12 @@ export const RecordDto = z.object({
   evidence: z.array(EvidenceDto),
 });
 export type RecordDto = z.infer<typeof RecordDto>;
+
+/** Search-only fields stay out of unrelated record tool schemas and legacy DTOs. */
+export const SearchRecordDto = RecordDto.extend({
+  taskState: SearchTaskStateDto.optional(),
+});
+export type SearchRecordDto = z.infer<typeof SearchRecordDto>;
 
 export const SourceDto = z.object({
   id: z.string(),
@@ -620,6 +652,7 @@ export const SearchCompletenessSectionsDto = z.object({
 });
 
 export const SearchRecordSummaryDto = WorkContextRecordSummaryDto.extend({
+  taskState: SearchTaskStateDto.optional(),
   projectId: z.string().uuid().nullable(),
   subject: z.string(),
   text: z.string(),
@@ -663,9 +696,9 @@ export const SearchResultDto = z.object({
   match: SearchMatch,
   scope: SearchScope,
   includeHistorical: z.boolean(),
-  records: z.array(RecordDto),
+  records: z.array(SearchRecordDto),
   /** Unreviewed agent_report records; never part of canonical `records`. */
-  workingRecords: z.array(RecordDto),
+  workingRecords: z.array(SearchRecordDto),
   projects: z.array(ProjectDto),
   sources: z.array(
     z.object({

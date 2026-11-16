@@ -25,18 +25,29 @@ def write(p,v):
     finally:
         tmp.unlink(missing_ok=True)
 
-def validate_runtime_kit(kit):
-    """Validate every existing kit before trusting its hash or distributing it."""
+def validate_runtime_kit(kit, *, expected_tunnel=True):
+    """Validate legacy kits or an explicitly declared application-only kit.
+
+    The default preserves the legacy tunnel requirement. An application-only
+    consumer must opt in and receives the validated identity manifest, which it
+    must also compare with the trusted snapshot/runtime receipt.
+    """
+    if type(expected_tunnel) is not bool:
+        raise ValueError('Expected tunnel presence must be a boolean')
     required={'release/package.json','release/apps/server/dist/cli/restore.js','node'}
-    files=set();seen=set();has_tunnel=False
+    files=set();seen=set();has_tunnel=False;tunnel_members=False
+    manifest_bytes=None;source_sha=None;node_sha=None
     with tarfile.open(kit,'r:gz') as archive:
         for member in archive:
             name=member.name.rstrip('/')
             parts=pathlib.PurePosixPath(name).parts
             if (not parts or name.startswith('/') or '..' in parts or '\\' in name
-                    or name in seen or parts[0] not in {'release','node','tunnel'}):
+                    or name!=str(pathlib.PurePosixPath(name))
+                    or name in seen or parts[0] not in {'release','node','tunnel','runtime-kit.json'}
+                    or (parts[0]=='runtime-kit.json' and (name!='runtime-kit.json' or not member.isfile()))):
                 raise ValueError('Unsafe or duplicate runtime member: '+member.name)
             seen.add(name)
+            tunnel_members=tunnel_members or parts[0]=='tunnel'
             if member.issym() or member.islnk():
                 link=member.linkname
                 target=posixpath.normpath(posixpath.join(posixpath.dirname(name),link) if member.issym() else link)
@@ -44,32 +55,107 @@ def validate_runtime_kit(kit):
                         or target.split('/')[0] not in {'release','node','tunnel'}):
                     raise ValueError('Runtime link escapes the kit: '+name)
             elif member.isfile():
+                identity_member=name in {'runtime-kit.json','release/SOURCE_SHA'}
+                if identity_member and member.size>4096:
+                    raise ValueError('Runtime identity member is too large: '+name)
                 source=archive.extractfile(member)
                 if source is None:raise ValueError('Unreadable runtime member: '+name)
+                captured=bytearray();node_digest=hashlib.sha256() if name=='node' else None
+                size=0
                 with source:
-                    size=sum(len(chunk) for chunk in iter(lambda:source.read(1048576),b''))
+                    for chunk in iter(lambda:source.read(1048576),b''):
+                        size+=len(chunk)
+                        if identity_member:captured.extend(chunk)
+                        if node_digest is not None:node_digest.update(chunk)
                 if size!=member.size:raise ValueError('Truncated runtime member: '+name)
                 if size>0:files.add(name)
+                if name=='runtime-kit.json':manifest_bytes=bytes(captured)
+                if name=='release/SOURCE_SHA':source_sha=bytes(captured)
+                if node_digest is not None:node_sha=node_digest.hexdigest()
             elif not member.isdir():
                 raise ValueError('Unsupported runtime member: '+name)
             if name=='tunnel' and member.isdir():has_tunnel=True
     # Read through the gzip trailer too; tar EOF alone need not validate its CRC.
     with gzip.open(kit,'rb') as stream:
         for _ in iter(lambda:stream.read(1048576),b''):pass
-    if not required.issubset(files) or not has_tunnel:
+    if not required.issubset(files) or (expected_tunnel and not has_tunnel):
         raise ValueError('Runtime kit is missing required runtime files')
+    if not expected_tunnel and tunnel_members:
+        raise ValueError('Application-only runtime kit contains unexpected tunnel members')
+    if manifest_bytes is None:
+        if not expected_tunnel:
+            raise ValueError('Application-only runtime kit requires an explicit manifest')
+        return None
 
-def ensure_runtime_kit(kit,release,home,node):
+    def unique_object(pairs):
+        value={}
+        for key,item in pairs:
+            if key in value:raise ValueError('Duplicate runtime manifest key: '+key)
+            value[key]=item
+        return value
+
+    import re
+    try:
+        manifest=json.loads(manifest_bytes,object_pairs_hook=unique_object)
+    except (UnicodeDecodeError,json.JSONDecodeError) as error:
+        raise ValueError('Invalid runtime kit manifest') from error
+    if (not isinstance(manifest,dict)
+            or set(manifest)!={'schemaVersion','release','nodeSha256','components'}
+            or type(manifest['schemaVersion']) is not int or manifest['schemaVersion']!=1
+            or not isinstance(manifest['release'],str)
+            or re.fullmatch(r'[a-f0-9]{40}',manifest['release']) is None
+            or not isinstance(manifest['nodeSha256'],str)
+            or re.fullmatch(r'[a-f0-9]{64}',manifest['nodeSha256']) is None):
+        raise ValueError('Invalid runtime kit manifest contract')
+    components=manifest['components']
+    if (not isinstance(components,dict) or set(components)!={'release','node','tunnel'}
+            or components['release'] is not True or components['node'] is not True
+            or type(components['tunnel']) is not bool
+            or components['tunnel'] is not expected_tunnel):
+        raise ValueError('Runtime kit manifest component expectation differs')
+    if source_sha is None or source_sha.strip()!=manifest['release'].encode('ascii'):
+        raise ValueError('Runtime kit manifest release differs from SOURCE_SHA')
+    if manifest['nodeSha256']!=node_sha:
+        raise ValueError('Runtime kit manifest Node hash mismatch')
+    return manifest
+
+
+def ensure_runtime_kit(kit,release,home,node, *, include_tunnel=True):
+    """Create one immutable kit; application-only kits declare their identity."""
+    if type(include_tunnel) is not bool:
+        raise ValueError('Included tunnel presence must be a boolean')
+    manifest=None
+    if not include_tunnel:
+        import re
+        release=P(release).resolve(strict=True)
+        source=release/'SOURCE_SHA'
+        if (re.fullmatch(r'[a-f0-9]{40}',release.name) is None
+                or source.is_symlink() or not source.is_file() or source.stat().st_size>4096
+                or source.read_bytes().strip()!=release.name.encode('ascii')):
+            raise ValueError('Application-only runtime requires its exact release SOURCE_SHA')
+        manifest={'schemaVersion':1,'release':release.name,
+                  'nodeSha256':digest(P(node).resolve(strict=True)),
+                  'components':{'release':True,'node':True,'tunnel':False}}
     if kit.exists():
-        validate_runtime_kit(kit)
+        existing=validate_runtime_kit(kit,expected_tunnel=include_tunnel)
+        if manifest is not None and existing!=manifest:
+            raise ValueError('Existing runtime kit differs from the requested release or Node')
         return
     part=kit.with_suffix('.partial')
     try:
         with tarfile.open(part,'w:gz',compresslevel=1,dereference=False) as archive:
             archive.add(release,arcname='release')
             archive.add(P(node).resolve(strict=True),arcname='node')
-            archive.add(home/'.local/lib/contextkeep-tunnel',arcname='tunnel')
-        validate_runtime_kit(part)
+            if include_tunnel:
+                archive.add(home/'.local/lib/contextkeep-tunnel',arcname='tunnel')
+            else:
+                import io
+                payload=json.dumps(manifest,sort_keys=True).encode()
+                member=tarfile.TarInfo('runtime-kit.json');member.size=len(payload);member.mode=0o600
+                archive.addfile(member,io.BytesIO(payload))
+        captured=validate_runtime_kit(part,expected_tunnel=include_tunnel)
+        if manifest is not None and captured!=manifest:
+            raise ValueError('Captured runtime kit identity changed')
         os.replace(part,kit)
     finally:
         part.unlink(missing_ok=True)

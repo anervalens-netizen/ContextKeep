@@ -1,3 +1,4 @@
+import type { EvidenceBasis, ReviewStatus } from "@contextkeep/shared";
 import { safeText } from "./redaction.js";
 import { taskSelectionPredicate, type TaskSelection } from "./task-selection.js";
 import { classifyTaskAttention, type AttentionInput } from "./task-attention.js";
@@ -40,8 +41,8 @@ export interface WorkingValueRow {
   recordId: string;
   valueJson: string;
   recordedAt: string;
-  reviewStatus: string;
-  evidenceBasis: string;
+  reviewStatus: ReviewStatus;
+  evidenceBasis: EvidenceBasis;
 }
 const clip = (text: string, max = 900) =>
   text.length <= max ? text : `${text.slice(0, max)}…`;
@@ -66,9 +67,7 @@ export function latestTaskValue(
       .get(taskId, kind) as WorkingValueRow | undefined) ?? null
   );
 }
-export function getTaskProgress(deps: ServiceDeps, taskId: string) {
-  const row = latestTaskValue(deps, taskId, "task_progress");
-  if (!row) return null;
+function taskProgressFromRow(row: WorkingValueRow) {
   const value = JSON.parse(row.valueJson) as ProgressValue;
   return {
     ...value,
@@ -79,6 +78,39 @@ export function getTaskProgress(deps: ServiceDeps, taskId: string) {
     authority: "reported_progress" as const,
   };
 }
+export function getTaskProgress(deps: ServiceDeps, taskId: string) {
+  const row = latestTaskValue(deps, taskId, "task_progress");
+  return row ? taskProgressFromRow(row) : null;
+}
+
+/** Batch only the requested task identities, with the same current-record and
+ * revision/timestamp/id ordering as getTaskProgress. Never scans a whole project. */
+export function getTaskProgressMany(
+  deps: Pick<ServiceDeps, "sqlite">,
+  taskIds: readonly string[],
+) {
+  const result = new Map<string, ReturnType<typeof taskProgressFromRow>>();
+  const ids = [...new Set(taskIds)];
+  if (ids.length === 0) return result;
+  const rows = deps.sqlite.prepare(`
+    WITH ranked AS (
+      SELECT tr.task_id AS taskId,r.id AS recordId,r.value_json AS valueJson,
+        r.recorded_at AS recordedAt,r.review_status AS reviewStatus,r.evidence_basis AS evidenceBasis,
+        row_number() OVER (
+          PARTITION BY tr.task_id
+          ORDER BY CAST(json_extract(r.value_json,'$.revision') AS INTEGER) DESC,r.recorded_at DESC,r.id DESC
+        ) AS progressRank
+      FROM workflow_task_records tr JOIN records r ON r.id=tr.record_id
+      WHERE tr.task_id IN (${ids.map(() => "?").join(",")})
+        AND ${currentRecords} AND json_valid(r.value_json)
+        AND json_extract(r.value_json,'$.kind')='task_progress'
+    )
+    SELECT taskId,recordId,valueJson,recordedAt,reviewStatus,evidenceBasis
+    FROM ranked WHERE progressRank=1
+  `).all(...ids) as (WorkingValueRow & { taskId: string })[];
+  for (const row of rows) result.set(row.taskId, taskProgressFromRow(row));
+  return result;
+}
 /** Explicit record closure cannot be reopened by an agent report. A later record
  * revision with a stated status also supersedes reports about older revisions;
  * the original report remains visible with its own provenance. */
@@ -86,12 +118,14 @@ export function effectiveTaskState(
   deps: Pick<ServiceDeps, "sqlite">,
   task: { id: string; taskStatus: string | null; revision: number },
   progress: ReturnType<typeof getTaskProgress>,
+  /** Batch readers may preload this exact audit predicate to avoid per-hit queries. */
+  knownStatusChangeAfterReport?: boolean,
 ) {
   // A text edit or review also increments revision. Only an audited status
   // change may supersede reported progress with a nonterminal state. Acceptance
   // snapshots also cover retained edits whose intermediate snapshot used the
   // pre-acceptance revision; immutable audit rows need not be rewritten.
-  const statusChangedAfterReport =
+  const statusChangedAfterReport = knownStatusChangeAfterReport ?? (
     task.taskStatus !== null &&
     progress !== null &&
     progress.taskRevision < task.revision &&
@@ -107,7 +141,8 @@ export function effectiveTaskState(
         AND json_extract(after_ref,'$.taskStatus')=?
       LIMIT 1`,
       )
-      .get(task.id, progress.taskRevision, task.revision, task.taskStatus);
+      .get(task.id, progress.taskRevision, task.revision, task.taskStatus)
+  );
   const useRecord =
     task.taskStatus !== null &&
     (task.taskStatus === "done" ||
@@ -1029,26 +1064,11 @@ function taskProgressForProjects(deps: ServiceDeps, projectIds: string[]) {
          CAST(json_extract(r.value_json,'$.revision') AS INTEGER) DESC,
          r.recorded_at DESC,r.id DESC`,
     )
-    .all(...projectIds) as Array<{
-    taskId: string;
-    recordId: string;
-    valueJson: string;
-    recordedAt: string;
-    reviewStatus: string;
-    evidenceBasis: string;
-  }>;
+    .all(...projectIds) as Array<WorkingValueRow & { taskId: string }>;
   const progressByTask = new Map<string, ReturnType<typeof getTaskProgress>>();
   for (const row of progressRows) {
     if (progressByTask.has(row.taskId)) continue;
-    const value = JSON.parse(row.valueJson) as ProgressValue;
-    progressByTask.set(row.taskId, {
-      ...value,
-      recordId: row.recordId,
-      recordedAt: row.recordedAt,
-      reviewStatus: row.reviewStatus,
-      evidenceBasis: row.evidenceBasis,
-      authority: "reported_progress" as const,
-    });
+    progressByTask.set(row.taskId, taskProgressFromRow(row));
   }
 
   return progressByTask;
