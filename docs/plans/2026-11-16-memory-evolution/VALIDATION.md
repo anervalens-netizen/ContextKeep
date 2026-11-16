@@ -18,8 +18,9 @@ Its exact-head reviews, CI and all 12 release-gate stages passed; see
 [BATCH_1.md](BATCH_1.md). Production activation and the original task-state canary
 passed. A subsequent independent restore also qualified the newly produced
 candidate snapshot; private operational receipts remain outside this catalogue.
-The [baseline protocol](BASELINE_PROTOCOL.md) is documented; the full private
-real-question corpus and matched outcome evaluation remain open.
+The [baseline protocol](BASELINE_PROTOCOL.md) is documented. Later corpus
+preparation is recorded separately below; matched candidate and agent outcome
+evaluation remain open.
 
 Batch 2 qualifies the forward-ingestion behavior in V-18/V-19 with 99 targeted
 synthetic producer tests and separate controlled deployed readback. Required
@@ -31,9 +32,28 @@ step. One automatic repeat completed without additional captures or dispositions
 and retained the known fence; indefinite stability is not established. See
 [BATCH_2.md](BATCH_2.md) for the exact scope and limitations.
 
-The corpus helper passes 45 synthetic guard tests. Execution of the 40 natural
-private questions remains **NOT_RUN**; independent ground-truth review, matched
-outcomes and the canonical private freeze registry remain open under ME-02.
+The public corpus helper passes 49 synthetic guard tests: the existing 45 and
+four new parameterized tests. Batch 3 independently reviews and registers the
+first canonical private freeze: 40 RO/EN formulations from
+20 real episodes, with six abstention cases and ten task-state cases. Its private
+scorer passes 32 separate synthetic guard tests. All 40 fixed live observations
+were collected once. Final independent verification of the contracts, captures,
+per-case metrics and serialized sizes passes with a display-rounding note and
+no substantive discrepancies; failures remain in this limited baseline. Archive
+closure, broader synthetic counterparts, matched candidate comparisons and agent
+outcomes remain open. See
+[BATCH_3.md](BATCH_3.md) for scope and limits.
+
+Source recall is not applicable to current MCP search because it exposes no
+ranked source array. Exact field fidelity is separate from semantic entailment,
+semantic abstention and agent success. The latter remain NOT_RUN; provider tokens
+and cost remain unknown. ME-02 includes a bounded offline guard correction for
+eight explicit source-backed truncation flags: two freshness-reference flags and
+six packing flags on allowed read-tool responses. The four new parameterized
+tests cover all eight flags for true, false, invalid types and fail-closed freeze
+behavior; the pre-fix reproduction produced eight subtest failures. Required
+reviews and CI remain pending.
+The frozen private evaluator and observed results are unchanged by that correction.
 
 A passing release subset does not complete the full programme catalogue. Cases
 V-41–V-48 and V-50 retain their full scenario status below; release-specific
@@ -112,7 +132,11 @@ exists here.
 ### V-01
 
 **ME-01 — Freeze the baseline and private evidence manifest**\
-Status: **NOT RUN**
+Status: **PARTIAL — bounded private manifest and population/usage collection; broader scenario remains open**
+
+Batch 3 retains exact stored populations, sampled-counter estimates, observation
+boundaries and coverage limits separately. This does not establish an exact
+complete historical call ledger or execute every synthetic setup below.
 
 - **Setup:** Build synthetic projects with distinct record, source, progress, run
   and handoff populations. Include a stale description, a runtime revision mismatch
@@ -127,7 +151,15 @@ Status: **NOT RUN**
 ### V-02
 
 **ME-02 — Extend the real-question and synthetic evaluation sets**\
-Status: **NOT RUN**
+Status: **PARTIAL — private gold/split review, canonical freeze and limited live baseline independently verified; broader outcomes remain open**
+
+Batch 3 freezes the intended 40-case private corpus before tuning. The selected
+gold evidence and semantic episode separation passed independent review. All
+40 fixed observations were collected once, and independent checks match their
+contracts, captures, metrics and serialized sizes. Negative outcomes remain in
+the baseline; final independent verification has only a display-rounding note
+and no substantive discrepancies. New synthetic counterparts and agent outcome
+evaluation are separate follow-ups.
 
 - **Setup:** Prepare synthetic RO/EN questions for current/history answers,
   source-only details, closed tasks, identifiers, paraphrases, conflicts and
@@ -142,7 +174,16 @@ Status: **NOT RUN**
 ### V-03
 
 **ME-03 — Define metric semantics and predeclare quality gates**\
-Status: **NOT RUN**
+Status: **PARTIAL — scoped metric contract and scorer controls verified; matched candidate and agent gates remain open**
+
+Batch 3 predeclares exact tool contracts, eligibility, planned/scorable
+denominators, one sequential observation per case and client wall-clock timing.
+Its private scorer passes 32 synthetic guard tests. Final independent verification
+checks all frozen observations, metrics and sizes with a display-rounding note
+and no substantive discrepancies. No live SLO or new
+acceptance threshold is inferred from a descriptive baseline; mocked
+provider-receipt and broader agent-outcome scenarios below are not claimed
+complete.
 
 - **Setup:** Use Unicode payloads with both text and structured MCP content,
   successful responses with omissions, failed tasks with successful transport and

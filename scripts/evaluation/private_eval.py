@@ -26,7 +26,10 @@ READ_TOOLS = frozenset({
     "get_project_brief", "get_project_dossier", "get_work_context", "get_source",
 })
 TRUNCATION_FLAGS = ("partial", "truncated", "textTruncated", "contentTruncated",
-                    "structuredContentTruncated", "resultOmitted")
+                    "structuredContentTruncated", "resultOmitted",
+                    "supportReferencesTruncated", "possiblyRelatedReferencesTruncated",
+                    "summaryTruncated", "outcomeTruncated", "nextActionTruncated",
+                    "blockersTruncated", "nameTruncated", "budgetOmittedRecordIdsTruncated")
 # Continuations returned by the allowed record/source, task and project reads.
 CONTINUATION_FIELDS = ("nextOffset", "excerptNextOffset", "evidenceNextOffset",
                        "runsBlockersNextOffset", "activeNextOffset",
