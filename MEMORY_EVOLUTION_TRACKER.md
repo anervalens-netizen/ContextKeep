@@ -15,8 +15,8 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 2 starts: **50 items — 28 PLANNED,
-6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 0 VERIFIED, 1 DONE.**
+Current inventory after Batch 2 forward-ingestion verification: **50 items —
+28 PLANNED, 6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 2 VERIFIED, 1 DONE.**
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -67,13 +67,18 @@ in ContextKeep. No programme-wide completion is claimed.
 
 Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolution/BATCH_2.md).
 
-- ME-18 / ME-19: the development agent owns a bounded companion-producer change
-  for reviewer/status attribution and versioned review delivery. Synthetic
-  regressions cover meaningful edits, metadata changes, exact retry, resource
-  identity and event ordering. Scope and local verification are recorded in the
-  batch note. Official review added durable source isolation and legacy
-  disposition compatibility corrections. Changed-head review/CI, source
-  integration and deployed producer readback remain pending.
+- ME-18 / ME-19: **VERIFIED within the new forward-ingestion scope**. Both
+  required reviews, dispositions, source integration and CI passed. The qualified
+  producer and complete owner workflow bundles are installed. The controlled
+  live poll preserved existing delivery payloads and history, captured correctly
+  attributed evidence and confirmed explicit grouped-review closure without
+  replacing current checkpoints with older evidence. The targeted producer suite
+  passes 99 synthetic tests. Legacy recovery remains partial: ambiguous or
+  uncertain historical evidence stays fenced, and the poll reports an explicit
+  reconciliation backlog rather than full health. Scheduled polling resumed
+  after guarded acceptance. One automatic repeat completed without additional
+  captures or dispositions and retained the known reconciliation fence. This
+  observation does not establish indefinite stability or programme completion.
 - ME-01 / ME-02 / ME-03: a strict offline corpus-validation helper is implemented
   against the existing baseline protocol, with 45 synthetic guard tests. This
   does not create or validate the real private question set. Evidence access and independent
@@ -81,8 +86,10 @@ Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolutio
   covers pagination, capture-window semantics, intent split boundaries and
   conflicting or incomplete response representations. A canonical freeze must
   still be registered privately before candidate tuning.
-- ME-46 / ME-50: release status stays open. Runtime verification and private
-  memory synchronization remain explicit gates; no production change is claimed.
+- ME-46 / ME-50: private runtime evidence and tracker synchronization remain
+  active duties. Controlled producer readback, guarded schedule restart and one
+  automatic repeat passed their scoped checks; continued operation, historical
+  recovery and later programme releases retain their own gates.
 
 The opening creation inventory is historical. Current item rows own status.
 
@@ -129,8 +136,8 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
 | [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
-| [ME-18](#me-18) | Fix reviewer and review-status attribution | IN_PROGRESS | P0 | W1 | Integration | ME-01 |
-| [ME-19](#me-19) | Preserve review event identity and replay safety | IN_PROGRESS | P0 | W1 | Integration | ME-18 |
+| [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
+| [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
 | [ME-20](#me-20) | Project current reviews by PR, reviewer and head | PLANNED | P1 | W1 | Integration | ME-18, ME-19 |
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
@@ -190,8 +197,10 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 - [ ] Evidence: Partial: 8 new backend task-state cases and 5 PWA cases passed with synthetic
   fixtures; the existing held-out corpus remains unchanged. The private
   30–50-question corpus, independent split and expected identities remain open.
-  Batch 2 adds 32 synthetic corpus-guard tests, without changing retrieval
-  fixtures, held-out questions or quality floors.
+  Batch 2 adds 45 synthetic corpus-guard tests, without changing retrieval
+  fixtures, held-out questions or quality floors. Execution of the intended
+  40 natural private questions remains **NOT_RUN**. Independent ground-truth
+  review and the canonical private freeze registry remain open.
 
 ### ME-03
 
@@ -371,28 +380,35 @@ Dependencies: ME-02, ME-03, ME-07 · Validation: [V-17](docs/plans/2026-11-16-me
 ### ME-18
 
 **Fix reviewer and review-status attribution**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P0 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-01 · Validation: [V-18](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-18)
 
-- [ ] Scope: Update the companion review producer to use actual source reviewer, repository, resourceKind, PR, head, attested base, status and meaningful change. Missing base remains unknown. Distinguish running/completed/failure and awaiting disposition.
-- [ ] Acceptance: Attribution matches source evidence for each reviewer; developer dispositions are not owner approval; external source/deployed producer versions are linked privately.
-- [ ] Evidence: Local candidate and synthetic regression evidence are recorded in
-  [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md). Official
-  exact-head reviews, CI, integration and deployed readback remain pending;
-  no production completion is claimed.
+- [x] Scope: Update the companion review producer to use actual source reviewer, repository, resourceKind, PR, head, attested base, status and meaningful change. Missing base remains unknown. Distinguish running/completed/failure and awaiting disposition.
+- [x] Acceptance: Attribution matches source evidence for each reviewer; developer dispositions are not owner approval; external source/deployed producer versions are linked privately.
+- [x] Evidence: [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md)
+  records qualified synthetic coverage and controlled deployed readback. Actual
+  reviewer, source author, reviewed head and base provenance matched the sampled
+  evidence; an unattested base remained unknown. Explicit developer dispositions
+  closed the grouped review work without owner acceptance. Verification covers
+  forward ingestion; historical reconciliation and the ME-20 projection remain
+  separate. Scheduled polling resumed; one automatic repeat completed without
+  additional captures or dispositions while retaining the known fence.
 
 ### ME-19
 
 **Preserve review event identity and replay safety**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P0 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-18 · Validation: [V-19](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-19)
 
-- [ ] Scope: Keep repository/resourceKind/source identity plus content version and saved retry payload. Test changed head, same-head base change, edited body with unchanged status, exact retry, out-of-order delivery, numeric-ID collisions across resource kinds and equal text across separate scopes.
-- [ ] Acceptance: Exact retries do not create new events; legitimate revisions survive; no URL/title/global-text deduplication; uncertain delivery is reconciled before replay; identity-format migration preserves historical keys and payloads.
-- [ ] Evidence: Local candidate and synthetic regression evidence are recorded in
-  [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md). Official
-  exact-head reviews, CI, integration and deployed readback remain pending;
-  no production completion is claimed.
+- [x] Scope: Keep repository/resourceKind/source identity plus content version and saved retry payload. Test changed head, same-head base change, edited body with unchanged status, exact retry, out-of-order delivery, numeric-ID collisions across resource kinds and equal text across separate scopes.
+- [x] Acceptance: Exact retries do not create new events; legitimate revisions survive; no URL/title/global-text deduplication; uncertain delivery is reconciled before replay; identity-format migration preserves historical keys and payloads.
+- [x] Evidence: [Batch 2](docs/plans/2026-11-16-memory-evolution/BATCH_2.md)
+  records qualified retry, ordering and scope regressions. The controlled live
+  poll retained original delivery rows and review history, added eligible
+  evidence and explicit dispositions, and preserved current checkpoints. Legacy
+  ambiguity remains durably fenced; no replacement-key replay or historical
+  rewrite was used. Verification covers forward ingestion, not complete legacy
+  recovery. The reported backlog is incomplete coverage, not full health.
 
 ### ME-20
 
@@ -802,3 +818,17 @@ synthetic or sanitized technical evidence.
   Next bounded correctness work: ME-18/19, alongside the private evaluation corpus.
   The existing LOW `deepmerge` advisory and follow-up remain documented in
   [Batch 1 limits](docs/plans/2026-11-16-memory-evolution/BATCH_1.md#known-limits-and-next-work).
+
+- **2026-11-16 — Batch 2 forward ingestion verified.** Development agent;
+  ME-18 / ME-19 IN_PROGRESS → IMPLEMENTED → VERIFIED. Public preparation is
+  linked in [PR #28](https://github.com/anervalens-netizen/ContextKeep/pull/28);
+  exact companion source, reviews, deployment and readback receipts remain
+  private. The producer passes 99 targeted synthetic tests and the corpus helper
+  passes 45 synthetic guard tests. Controlled live readback confirmed attribution,
+  preserved legacy payloads/history, current checkpoints and explicit grouped
+  disposition. Historical recovery remains partial and the producer reports its
+  retained reconciliation backlog explicitly. Scheduled polling resumed through
+  the guarded step. One automatic repeat added no captures or dispositions and
+  retained the known fence; this does not establish indefinite stability.
+  ME-01/02/03 stay open; the 40-question natural corpus remains NOT_RUN and
+  canonical freeze registration remains an ME-02 follow-up.

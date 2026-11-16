@@ -21,10 +21,25 @@ candidate snapshot; private operational receipts remain outside this catalogue.
 The [baseline protocol](BASELINE_PROTOCOL.md) is documented; the full private
 real-question corpus and matched outcome evaluation remain open.
 
+Batch 2 qualifies the forward-ingestion behavior in V-18/V-19 with 99 targeted
+synthetic producer tests and separate controlled deployed readback. Required
+reviews, dispositions, source integration and CI passed. Original delivery
+payloads/history, new attribution and explicit grouped-review closure were
+verified; historical recovery remains partial and the producer retains an
+explicit reconciliation backlog. Scheduled polling resumed through the guarded
+step. One automatic repeat completed without additional captures or dispositions
+and retained the known fence; indefinite stability is not established. See
+[BATCH_2.md](BATCH_2.md) for the exact scope and limitations.
+
+The corpus helper passes 45 synthetic guard tests. Execution of the 40 natural
+private questions remains **NOT_RUN**; independent ground-truth review, matched
+outcomes and the canonical private freeze registry remain open under ME-02.
+
 A passing release subset does not complete the full programme catalogue. Cases
 V-41–V-48 and V-50 retain their full scenario status below; release-specific
-execution evidence belongs in the tracker and Batch 1 record. Do not infer that
-all their synthetic setup variants or future release duties were executed.
+execution evidence belongs in the tracker and the corresponding batch record.
+Do not infer that all their synthetic setup variants or future release duties
+were executed.
 
 ## Method and evidence rules
 
@@ -364,7 +379,21 @@ Status: **NOT RUN**
 ### V-18
 
 **ME-18 — Fix reviewer and review-status attribution**\
-Status: **NOT RUN**
+Status: **PASS — qualified synthetic suite and controlled deployed forward-ingestion readback**
+
+Executed synthetic coverage includes distinct reviewers/resource kinds, running,
+completed, failed and awaiting-disposition states, attested/unknown bases and
+developer responses. Separate live reads confirmed actual reviewer, source
+author, reviewed head and base provenance in new captures and current summaries.
+Unattested base remained unknown; historical inline evidence with unknown status
+did not publish a current checkpoint. Explicit developer disposition closed the
+grouped review work without implying owner approval. Exact producer and source
+comparisons remain private; see [BATCH_2.md](BATCH_2.md).
+
+Scope limit: this verifies the new ingestion path. Historical reconciliation is
+partial and the ME-20 projection remains outside this batch. Scheduled polling
+resumed; one automatic repeat added no captures or dispositions and retained the
+known fence. This is a bounded observation, not proof of indefinite stability.
 
 - **Setup:** Create synthetic events from distinct reviewers and resource kinds,
   with running, completed, failed and awaiting-disposition states. Include an
@@ -380,7 +409,27 @@ Status: **NOT RUN**
 ### V-19
 
 **ME-19 — Preserve review event identity and replay safety**\
-Status: **NOT RUN**
+Status: **PASS — qualified synthetic identity/replay suite and controlled deployed preservation readback**
+
+Executed synthetic coverage includes exact saved-payload retry, meaningful
+edits, head/base changes, repeated-version transitions, out-of-order delivery,
+numeric-ID collisions across resource kinds, separate repositories and uncertain
+acknowledgements. Source quarantine is durable before cursor advance and bounds
+current checkpoints while unaffected sources continue. Legacy fingerprint debt
+can be superseded at a new comment URL only with the same comparison pair,
+strictly newer saved source time, current semantic evidence and a confirmed
+closure that remains the task's current progress; old payload/reason/proof are
+retained. See [BATCH_2.md](BATCH_2.md).
+
+Separate live comparison retained original delivery rows and review events,
+confirmed eligible new captures and explicit dispositions, and preserved current
+checkpoints. One automatic repeat completed without additional captures or
+dispositions and retained the known fence. No new uncertain delivery or API
+failure was observed. Known legacy
+uncertainty and an identity ambiguity remain fenced without replay or replacement
+keys. The explicit reconciliation backlog means incomplete recovery coverage;
+`ok: false` and exit status `1` must not be reported as full health. A failed ACK
+was not deliberately injected into production; that case is covered synthetically.
 
 - **Setup:** Prepare exact retries, edited findings with unchanged head/status,
   changed heads/bases, out-of-order delivery and equal numeric IDs across resource

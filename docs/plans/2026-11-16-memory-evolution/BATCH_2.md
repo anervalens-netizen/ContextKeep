@@ -6,15 +6,23 @@ Accountable role: development agent; independent replay-safety review
 
 ## Status and source boundary
 
-**Official review found additional defects, now covered by follow-up corrections.
-This batch is not deployed or complete.** Requalification of the changed heads,
-integration and deployed readback remain open. Private read-only preflight has
-identified the installed producer and the legacy reconciliation classes.
+**VERIFIED for the new forward-ingestion path; historical recovery remains
+partial.** Both required reviews, explicit dispositions, source integration and
+CI passed. The qualified producer and complete owner workflow bundles are
+installed. Controlled live readback verified attribution, preserved delivery
+history and explicit grouped-review closure. Scheduled polling resumed after
+guarded acceptance. One automatic repeat completed without additional captures
+or dispositions and retained the known reconciliation fence. The retained
+backlog prevents a claim of full health or complete historical migration; one
+repeat does not establish indefinite stability.
 
 The review producer belongs to the companion integration. Its exact private
 source baseline, candidate and deployed component identities are maintained in
 the operational evidence ledger. The public ContextKeep plan and protocol
 baseline is `6cc120a06233ffa08a1c0139b5fe5a6015109ded`.
+The public preparation is linked in
+[PR #28](https://github.com/anervalens-netizen/ContextKeep/pull/28). Private
+companion revisions and operational receipts remain outside this repository.
 
 This is an ingestion correctness change. It does not introduce the ME-20 current
 review UI, remove history, accept agent reports, change task execution authority,
@@ -33,6 +41,11 @@ Synthetic tests against the exact producer baseline reproduce these defects:
   review state with the same body can be dropped.
 - An older arrival can reopen a grouped review task or publish its checkpoint
   after newer evidence. Import order is not source event order.
+- A source requiring reconciliation can stop a whole repository sweep unless
+  its observation is durably isolated before the incremental cursor advances.
+- A fingerprint upgrade can discard a legacy disposition without proving that
+  it covered the current findings. A successful fresh disposition at a new
+  comment URL can also leave the earlier legacy row pending indefinitely.
 
 These are reproduced contract failures. They are not a claim about the frequency
 or impact of these events in production.
@@ -48,7 +61,8 @@ or impact of these events in production.
 | Legacy state | Preserve existing rows. Resolve a pending legacy delivery before a replacement version is sent; ambiguous identity remains blocked. |
 | Reconciliation | Persist each fenced source observation before advancing its cursor; continue unaffected sources and keep backlog coverage explicit. |
 | Disposition compatibility | Version new semantic fingerprints. Keep legacy lossy receipts pending for a fresh evidence-bound disposition; never accept the old hash as proof of inspected findings. |
-| Ordering | Retain older, equal-time conflicting and unknown-order evidence without replacing a current checkpoint or reopening completed work. |
+| New-URL supersession | Retire only proved legacy fingerprint debt for the same repository/PR/head/base, after a strictly newer semantic disposition has a confirmed closure that is still current. Retain the old payload, reason and replacement proof. |
+| Ordering | Retain older, equal-time conflicting and unknown-order evidence without replacing a current checkpoint. Historical versions of the same source do not reopen settled work; a distinct source can retain a separate disposition obligation. |
 | Scope | Equal numeric IDs in different resource kinds and equal text in different repositories remain separate events. |
 | Authority | Every imported report remains proposed evidence. No execution or acceptance is inferred from publication or transport success. |
 
@@ -64,17 +78,61 @@ initial candidate passed 70 targeted tests and 12 independent invariant probes.
 Official review then reproduced a repository-wide reconciliation stall and
 legacy disposition invalidation. Follow-up tests cover durable source isolation,
 checkpoint fences, bounded backlog retry and explicit fingerprint compatibility.
-The combined follow-up suite passes 88 targeted tests. Exact candidate
-identities and review receipts are retained
-in the private operational ledger.
+Fresh-source container checks and a reproduced new-URL disposition defect added
+further controls. The combined follow-up suite passes **99 targeted synthetic
+tests**. Exact candidate identities, test commands and review receipts are
+retained in the private operational ledger; this count is not the entire
+companion repository test suite.
 
 The cases include the meaningful `completed -> failed -> completed` transition,
 same-source historical-first versions, clock-only observations and lost delivery
 acknowledgments. The corresponding regression tests fail against the baseline.
 
-Local synthetic success does not establish the deployed producer version,
-integration health, production event ordering or grouped review-task closure.
-Those require separate readback after a qualified rollout.
+### Proved supersession of a legacy disposition
+
+A later comment URL alone cannot retire pending work. Only legacy
+fingerprint-upgrade debt qualifies. The earlier and replacement dispositions must
+identify the same repository, PR, head and base. The replacement's source event
+time, retained in its original capture payload, must be strictly later than the
+earlier source timestamp; poll or capture time is not a substitute. The current
+replacement comment must retain its author, source identity and semantic receipt,
+and that receipt must match the current full review evidence.
+
+Both the saved capture and closure must have confirmed receipts for the correct
+project/task and original operation keys. Readback must show the task done, with
+the saved closure still its current progress record and no unresolved execution
+or active blocker. Failed closure, later task progress, missing order or a
+different comparison pair leaves the pending work visible. Successful
+reconciliation atomically retains the original payload, reason and replacement
+proof in history; it does not replay the old operation or rewrite delivery rows.
+
+### Controlled deployed readback
+
+The operational checks were separate from the synthetic suite. They verified:
+
+- Existing delivery identities, serialized payloads and record associations
+  were unchanged, and historical review events were retained.
+- New Codex and DSH captures preserved the actual reviewer, source author and
+  reviewed head. Base provenance matched the source; an unattested Codex base
+  remained unknown.
+- Historical inline evidence retained unknown status where the source did not
+  attest one, without publishing a current checkpoint.
+- Explicit developer dispositions closed the grouped review work with no active
+  blockers or unresolved executions. Current checkpoints remained current
+  review evidence rather than older arrivals.
+- Eligible new evidence progressed without API failures or new uncertain
+  deliveries. Existing uncertainty was not replayed to manufacture a receipt.
+
+A historical formal review still lacks enough legacy metadata to distinguish an
+exact retry from a new version. It remains durably fenced. The poll therefore
+reports a reconciliation backlog with `ok: false` and exit status `1`; this is a
+classified incomplete result, not a claim of full health. Other historical
+uncertainty and ambiguity remain subject to private recovery work. One subsequent
+automatic repeat completed without additional captures, dispositions, pending
+dispositions or API failures, while retaining the same known fence. The timer
+remains active and scheduled for its next poll. This observation does not imply
+complete migration coverage, indefinite stability or implementation of the ME-20
+current-review projection.
 
 ## Private evaluation preparation
 
@@ -96,8 +154,9 @@ ground-truth validation.
 
 Exclusive creation applies to one output path. The private evidence ledger must
 register the canonical corpus hash and freeze before candidate tuning; writing a
-second file does not create a new independent baseline. This helper does not
-enforce global freeze uniqueness or establish semantic ground truth.
+second file does not create a new independent baseline. The canonical private
+freeze registry remains an open ME-02 follow-up. This helper does not enforce
+global freeze uniqueness or establish semantic ground truth.
 
 Unicode code points, JavaScript UTF-16 units, logical UTF-8 bytes and complete
 serialized MCP-result bytes remain separate measurements. Run
@@ -108,20 +167,22 @@ frozen synthetic held-out corpus remain unchanged. No synthetic fixture can
 stand in for the 40 real private questions, and no missing provider token receipt
 can become a zero-token observation.
 
-The real corpus, independent ground-truth adjudication and matched before/after
-outcomes remain pending. No retrieval or token-saving improvement is claimed.
+Execution of the 40 natural private questions remains **NOT_RUN**. The real
+corpus, independent ground-truth adjudication and matched before/after outcomes
+remain pending. No retrieval or token-saving improvement is claimed.
 
-## Continuation gates
+## Qualification and remaining continuation
 
-1. Finish local regressions and independent review; bind evidence to the exact
-   candidate and preserve the inspected baseline.
-2. Integrate source using normal public-history/privacy checks. Request or reuse
-   both official review providers for the exact PR head, resolve confirmed
-   findings and check CI.
-3. Inspect the current producer source, service,
-   configuration and delivery ledger before activation. Reconcile any uncertain
-   delivery; never restart it with a new key merely because an acknowledgment is
-   missing.
+1. **Verified:** synthetic regressions and independent review are bound to the
+   qualified source; both official review providers, explicit finding
+   dispositions, required CI and normal source integration passed.
+2. **Verified:** private preflight identified the actual producer, configuration,
+   ledger and recovery copy. Installation preserved the application checkout and
+   deployed the matching complete owner workflow bundles. Controlled live
+   readback confirmed the new ingestion path and explicit grouped disposition.
+3. **Open:** retain source-specific reconciliation and classify legacy recovery
+   coverage. Reconcile any uncertain delivery; never restart it with a new key
+   merely because an acknowledgment is missing.
    Classify existing legacy receipts as provably adoptable, pending or ambiguous.
    Some older review submissions lack stored status metadata. The new guard
    deliberately fences these cases instead of duplicating or inventing evidence.
@@ -133,11 +194,16 @@ outcomes remain pending. No retrieval or token-saving improvement is claimed.
    replay-safe. Stop ingestion and preserve the current ledger and application
    database during recovery; resume only with a build that understands the new
    identities and fences.
-4. Activate only the qualified producer change. Verify live attribution and
-   version/retry behavior through the existing authenticated interfaces, and
-   record the actual deployed component identity privately.
-5. Read back the grouped review-task disposition, synchronize the programme
-   tracker and private ContextKeep checkpoint, then close only the proven scope.
+4. **Restart and one automatic repeat verified:** the existing polling timer
+   resumed through the guarded step bound to the assessed canary and its known
+   reconciliation backlog. One natural repeat completed without additional
+   captures or dispositions and retained the known fence. The timer remains
+   active and scheduled. Preserve the incomplete-health signal and recovery
+   follow-up; continued operation requires its own observations.
+5. **Ongoing:** synchronize the programme tracker and private ContextKeep
+   checkpoint. ME-18/19 are VERIFIED for forward ingestion; historical recovery,
+   the natural corpus, canonical freeze registration and later programme work
+   remain open. Close only a separately evidenced scope.
 
 Operational receipts, private runtime paths, source records and question fixtures
 remain outside the public repositories. The active topology is primary plus
