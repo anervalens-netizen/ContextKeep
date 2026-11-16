@@ -69,9 +69,20 @@ both states and keeps proposed progress provenance visible. See the
 [search contract](docs/contextkeep-mcp.md#effective-task-state-in-search) and the
 [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md).
 
+## Compact project catalogue
+
+MCP 2.23.0 adds an optional compact and conditional `list_projects` read.
+Existing callers retain the full response. Compact pages contain only project
+identity and metadata; opaque versions support conditional reads and coherent
+pagination. Each call still authenticates and reads SQLite. An unchanged
+catalogue does not establish unchanged project memory or runtime health.
+Read the [catalogue contract](docs/mcp/project-catalogue.md) and
+[Batch 4 qualification record](docs/plans/2026-11-16-memory-evolution/BATCH_4.md)
+for cache rules, periodic full controls and implementation versus release status.
+
 ## Reliable task continuity
 
-MCP 2.22.0 / schema 19 retains explicit execution-evidence correlation and immutable
+MCP 2.23.0 / schema 19 retains explicit execution-evidence correlation and immutable
 verification receipts and adds task-scope guardrails, current-state-first resume,
 operational task handoffs and no-replay uncertain-run reconciliation. A historical pass and a currently valid proof are different
 states. Read [Execution evidence](docs/VERIFICATION_EVIDENCE.md) for the optional

@@ -15,10 +15,11 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 2 forward-ingestion verification: **50 items —
-28 PLANNED, 6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 2 VERIFIED, 1 DONE.**
-Batch 3 verifies a private corpus freeze and collects descriptive observations;
-it does not change this programme-wide status inventory.
+Current inventory at Batch 4 start: **50 items —
+26 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 2 VERIFIED, 1 DONE.**
+Batch 3 did not change the previous programme-wide status inventory.
+Batch 4 claims ME-24 / ME-25 for bounded implementation and qualification;
+neither item is yet marked verified or delivered.
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -125,6 +126,27 @@ Scope, measurement contract and limits: [BATCH_3.md](docs/plans/2026-11-16-memor
   remaining limits are preserved privately and mapped here. No application
   deployment or ranking/alias tuning is part of this batch.
 
+## Batch 4 — 2026-11-16
+
+Scope, contract and predeclared comparison:
+[BATCH_4.md](docs/plans/2026-11-16-memory-evolution/BATCH_4.md).
+
+- ME-24: IN_PROGRESS. Candidate source adds the fixed compact catalogue,
+  conditional page responses and a catalogue fence for pagination. The default
+  full response, authentication boundary and database read remain in scope for
+  regression qualification. The public contract is
+  [project-catalogue.md](docs/mcp/project-catalogue.md).
+- ME-25: IN_PROGRESS. A controlled companion consumer must preserve its actual
+  metadata needs, authenticated semantic check and periodic full controls.
+  Cache recovery, old-server fallback and failure detection require separate
+  verification. The fixed synthetic comparison includes full-control traffic.
+- ME-41 / ME-42 / ME-43 / ME-44 / ME-45 / ME-47: applicable compatibility,
+  review, release, recovery, runtime and outcome evidence remain pending for this
+  batch. Implemented source and authored tests are not passing release evidence.
+- ME-46 / ME-48 / ME-50: preserve the declaration, any pre-measurement amendment,
+  scenario failures, source/review identities and qualification limits privately.
+  No natural-corpus rerun or retrieval tuning is part of this batch.
+
 ## Status and ownership rules
 
 - **PLANNED:** defined, not claimed or implemented.
@@ -174,8 +196,8 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
-| [ME-24](#me-24) | Add a compact and conditional project catalogue | PLANNED | P1 | W4 | Backend | ME-03 |
-| [ME-25](#me-25) | Optimize the health consumer while preserving its check | PLANNED | P1 | W4 | Integration | ME-03, ME-24 |
+| [ME-24](#me-24) | Add a compact and conditional project catalogue | IN_PROGRESS | P1 | W4 | Backend | ME-03 |
+| [ME-25](#me-25) | Optimize the health consumer while preserving its check | IN_PROGRESS | P1 | W4 | Integration | ME-03, ME-24 |
 | [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
 | [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | PLANNED | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
@@ -511,28 +533,31 @@ Dependencies: ME-04, ME-08, ME-22 · Validation: [V-23](docs/plans/2026-11-16-me
 ### ME-24
 
 **Add a compact and conditional project catalogue**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Backend\
 Dependencies: ME-03 · Validation: [V-24](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-24)
 
-- [ ] Scope: Provide a small identity/metadata projection, scoped pagination and version/ETag semantics for repeated name-to-ID resolution. Define cache invalidation, renames and same-name projects.
+- [ ] Scope: Provide a small identity/metadata projection, scoped pagination and conditional version semantics for repeated name-to-ID resolution. Define cache invalidation, renames, exact-name uniqueness and ambiguous aliases.
 - [ ] Acceptance: Consumers receive only requested fields; conditional responses still authenticate; identity cache never claims runtime freshness; pagination and changes remain detectable.
-- [ ] Evidence: [Batch 3](docs/plans/2026-11-16-memory-evolution/BATCH_3.md) identifies
-  catalogue payload as a strong target in the covered private usage samples.
-  The compact/conditional contract and matched reduction remain unimplemented
-  and unverified; preserve the declared compatibility and authentication gates.
+- [ ] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) implements
+  the candidate [compact/conditional contract](docs/mcp/project-catalogue.md).
+  The candidate passed 55 focused tests, including 17 catalogue scenarios, and
+  shared/server/web typecheck. Current-head reviews, CI, full release
+  qualification and deployed readback remain pending.
+  The prior usage evidence supports priority; it is not a measured reduction.
 
 ### ME-25
 
 **Optimize the health consumer while preserving its check**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Integration\
 Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-25)
 
 - [ ] Scope: Update the deployed companion consumer to use compact/conditional reads with periodic fuller semantic checks through the authenticated application perimeter. Use a controlled consumer cohort; ME-27 is required only if the chosen attribution method needs it.
 - [ ] Acceptance: Fewer serialized bytes per equivalent qualified check are measured; call rate is reported and reducing it is optional. Auth/application/database failure detection and its timing are preserved; a liveness-only endpoint does not replace the existing semantic check.
-- [ ] Evidence: Batch 3 supports examining the consumer after the ME-24 contract
-  is qualified. Sampled tool labels do not identify every historical consumer.
-  Implementation, a controlled comparison and preserved semantic health-check
-  behavior remain open.
+- [ ] Evidence: [Batch 4](docs/plans/2026-11-16-memory-evolution/BATCH_4.md) defines
+  the controlled consumer contract, cache/failure matrix and matched synthetic
+  comparison, including periodic full checks. Implementation qualification,
+  companion review/release and deployed behavior remain open. Sampled historical
+  tool labels still do not identify every consumer.
 
 ### ME-26
 
@@ -935,3 +960,11 @@ synthetic or sanitized technical evidence.
   applied in this completion record.
   Semantic abstention and agent outcomes are NOT_RUN. Prioritize ME-24 / ME-25
   for a separately qualified implementation.
+
+- **2026-11-16 — Batch 4 started.** Development agent; ME-24 / ME-25
+  PLANNED → IN_PROGRESS. The candidate introduces MCP 2.23.0 compact/conditional
+  catalogue reads with no schema migration. Authenticated pagination, cache
+  recovery, real DB failure detection and periodic full controls define the
+  bounded consumer qualification. A synthetic comparison is predeclared;
+  passing tests, measured savings, review completion and deployment are not
+  asserted by this entry. The programme inventory remains exactly 50 items.

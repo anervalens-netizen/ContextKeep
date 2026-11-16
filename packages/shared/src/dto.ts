@@ -358,6 +358,7 @@ export const McpToolErrorResult = z.object({
     message: z.string(),
     retryable: z.boolean(),
     nextAction: z.string(),
+    resetRequired: z.boolean().optional(),
     currentRevision: z.number().int().optional(),
     issues: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
   }).passthrough(),

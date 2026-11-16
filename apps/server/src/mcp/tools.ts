@@ -14,10 +14,11 @@ import { registerDossierTools } from "./dossier-tools.js";
 import { McpSearchResultDto, TimelineEntrySummaryDto } from "@contextkeep/shared";
 import { z } from "zod";
 import { Server, type Tool } from "@modelcontextprotocol/server";
-import { CorrectionInput, CorrectionPreviewDto, HandoffExportDto, HandoffExportInput, ImportPreviewDto, ImportTextInput, McpWorkContextResult, ProjectDto, RecordType, SearchScope, TaskStatus } from "@contextkeep/shared";
+import { CorrectionInput, CorrectionPreviewDto, HandoffExportDto, HandoffExportInput, ImportPreviewDto, ImportTextInput, LifecycleState, McpWorkContextResult, ProjectDto, RecordType, SearchScope, TaskStatus } from "@contextkeep/shared";
 import type { ActorCtx, ServiceDeps } from "../services/import.js";
 import { ContextKeepMemoryService, type MemoryToolRunContext } from "../services/memory-context.js";
 import { listProjects, readBrief, readTimeline, readRecord } from "./reads.js";
+import { createProjectCatalogueReader } from "./project-catalogue.js";
 import { registerManagementTools } from "./management.js";
 import { confirmCorrection, proposeCorrection } from "../services/corrections.js";
 import { renderHandoff } from "../services/export.js";
@@ -273,6 +274,27 @@ const ProjectListResult = z.object({
   nextOffset: z.number().int().min(0).nullable(),
 }).passthrough();
 
+const ProjectCatalogueVersion = z.string().trim().min(1).max(128);
+const CompactProjectCatalogueMetadata = {
+  scope: z.literal("all"),
+  projection: z.literal("compact"),
+  catalogVersion: ProjectCatalogueVersion,
+  pageVersion: ProjectCatalogueVersion,
+  total: z.number().int().min(0),
+  offset: z.number().int().min(0),
+  limit: z.number().int().min(1).max(50),
+  nextOffset: z.number().int().min(0).nullable(),
+};
+const ProjectCatalogueResult = z.union([
+  ProjectListResult.strict(),
+  z.strictObject({
+    ...CompactProjectCatalogueMetadata,
+    notModified: z.literal(false),
+    projects: z.array(ProjectDto.pick({ id: true, name: true, lifecycle: true, revision: true, updatedAt: true }).strict()),
+  }),
+  z.strictObject({ ...CompactProjectCatalogueMetadata, notModified: z.literal(true) }),
+]);
+
 const BriefResult = z.object({
   project: ProjectDto,
   description: z.string().nullable(),
@@ -316,6 +338,7 @@ const McpToolErrorMetadata = z.object({
     message: z.string(),
     retryable: z.boolean(),
     nextAction: z.string(),
+    resetRequired: z.boolean().optional(),
   }).passthrough(),
 }).passthrough();
 
@@ -338,6 +361,7 @@ function compactUuidSchema(value: unknown): void {
 
 export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[], options: ContextKeepMcpOptions = {}) {
   const service = new ContextKeepMemoryService(deps);
+  const readProjectCatalogue = createProjectCatalogueReader(deps, secrets);
   const runtime = runtimeMetadata(options.buildSha ?? null);
   const context: MemoryToolRunContext = { scope: "all", projectId: null };
   const tools = new Map<string, { metadata: Tool; execute: (input: unknown) => Promise<unknown> }>();
@@ -434,9 +458,21 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     return service.getProjectOverview(context, { projectId, limit: 1 });
   }
 
-  define("list_projects", "Resolve project names/aliases to UUIDs. Paginated; limit 1–50. Optional q filters names/aliases.",
-    z.strictObject({ ...Page, limit: z.number().int().min(1).max(50).default(50), q: z.string().trim().min(1).max(200).optional() }), true,
-    (input) => listProjects(deps, input, input.q), ProjectListResult);
+  define("list_projects", "Resolve project names/aliases to IDs. Paginated; limit 1–50. Full output is the default. Compact metadata supports conditional pages and lifecycle filtering; unchanged metadata never proves memory or runtime freshness.",
+    z.strictObject({
+      ...Page,
+      limit: z.number().int().min(1).max(50).default(50),
+      q: z.string().trim().min(1).max(200).optional(),
+      projection: z.enum(["full", "compact"]).default("full"),
+      lifecycle: z.union([z.literal("all"), LifecycleState]).default("all").describe("Compact only; all includes every lifecycle state."),
+      ifVersion: ProjectCatalogueVersion.optional().describe("Compact only. Send the cached pageVersion for this exact page; notModified omits projects."),
+      expectedCatalogVersion: ProjectCatalogueVersion.optional().describe("Compact only. Pin subsequent pages to the first page's catalogVersion; a mismatch requires restarting from offset 0."),
+    }).superRefine((input, ctx) => {
+      if (input.projection !== "compact" && (input.lifecycle !== "all" || input.ifVersion !== undefined || input.expectedCatalogVersion !== undefined)) {
+        ctx.addIssue({ code: "custom", path: ["projection"], message: "Conditional versions and lifecycle filtering require projection compact." });
+      }
+    }), true,
+    (input) => input.projection === "compact" ? readProjectCatalogue(input) : listProjects(deps, input, input.q), ProjectCatalogueResult);
   define("get_project", "Read a project, freshness metadata and bounded accepted context. Use get_work_context for task-scoped working memory.",
     z.strictObject({ projectId: ProjectId, limit: z.number().int().min(1).max(24).default(12) }), true,
     (input) => service.getProjectOverview(context, input), z.object({ project: z.unknown(), recentCanonicalRecords: z.array(z.unknown()), acceptedCounts: z.record(z.string(), z.number()) }).passthrough());
