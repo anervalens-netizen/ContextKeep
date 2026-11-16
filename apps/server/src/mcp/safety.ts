@@ -114,6 +114,7 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         ["idempotency_outcome_unknown", "idempotency_result_expired", "idempotency_result_unavailable"].includes(error.code) ? "reconcile_state_before_retry"
         : error.code === "idempotency_in_progress" ? "retry_same_event_later"
         : error.code === "stale_revision" ? "read_current_revision"
+        : error.code === "project_catalogue_changed" ? "restart_catalogue_from_first_page"
         : error.code === "context_delta_page_expired" ? "restart_from_committed_cursors"
         : error.code === "context_delta_page_offset_invalid" || error.code === "context_delta_page_token_invalid" ? "discard_page_token"
         : error.code === "context_budget_unrepresentable" || error.code === "result_too_large" ? "increase_budget_or_reduce_request"
@@ -125,6 +126,7 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         message: error.message,
         retryable,
         nextAction,
+        ...(error.code === "project_catalogue_changed" ? { resetRequired: true } : {}),
         ...(currentRevision !== null ? { currentRevision } : {}),
       };
     }

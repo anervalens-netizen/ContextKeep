@@ -1,13 +1,16 @@
 # MCP interface
 
-> Current operational contract: MCP 2.22 / schema 19. Explicit task creation,
+> Current source contract: MCP 2.23 / schema 19. Compact and conditional project
+> catalogue reads extend the existing full response. Explicit task creation,
 > compatible task selection and classified attention build on the existing
 > task-scope, execution-evidence and no-replay contracts. Reports remain proposed.
 > See [Operational dossier](OPERATIONAL_DOSSIER.md) and
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.22.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.23.0. Supported protocol contract: 2026-07-28.
+Read `get_capabilities` for the installed version; a source contract is not
+deployment evidence.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical
@@ -17,6 +20,31 @@ and is excluded from task resume. Use categorized blocker objects for new
 mentions. Prefer search_context compact=true for agent reads when the legacy
 canonicalRecords alias is not needed. Never put private project records into
 the public repository or CI logs.
+
+## Compact and conditional project catalogue
+
+`list_projects` defaults to its existing full response. Optional
+`projection: "compact"` returns exactly `id`, `name`, `lifecycle`, `revision`
+and `updatedAt`, with pagination and optional lifecycle selection. The supported
+lifecycle states include `planned`; default `all` retains every state.
+
+`catalogVersion` binds the matching catalogue and `pageVersion` binds the exact
+page. Matching `ifVersion` returns `notModified: true` with `projects` absent.
+The caller must possess that cached page. `expectedCatalogVersion` fences later
+pages; a mismatch returns `project_catalogue_changed` with `resetRequired: true`
+and `nextAction: "restart_catalogue_from_first_page"`.
+
+Every call still authenticates and performs a real SQLite metadata read.
+Tokens are opaque, scoped to the authenticated context and request, and
+invalidated by relevant metadata changes or credential rotation. They do not
+describe canonical/working memory or runtime freshness. Keep caches scoped by
+origin, authentication and exact page/filter arguments; retain periodic full
+semantic control reads for a health consumer.
+
+The [complete catalogue contract](mcp/project-catalogue.md) documents arguments,
+synthetic examples, pagination recovery, invalidation, query cost and cache
+discipline. [Batch 4](plans/2026-11-16-memory-evolution/BATCH_4.md) records the
+separate server/consumer qualification and release gates.
 
 ## Effective task state in search
 

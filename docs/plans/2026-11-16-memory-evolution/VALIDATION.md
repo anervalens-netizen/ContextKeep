@@ -73,6 +73,14 @@ records the immediate wording follow-up, applied in this completion record.
 Grouped review closure was read back. Application runtime is unchanged; no
 deployment is required.
 
+Batch 4 begins V-24/V-25 with candidate compact/conditional source, authored
+synthetic regression scenarios and a predeclared controlled-consumer comparison.
+Both cases remain NOT RUN in this record until execution evidence is attached.
+The [catalogue contract](../../mcp/project-catalogue.md) and
+[Batch 4 record](BATCH_4.md) separate server behavior, consumer failure detection,
+matched bytes, review, release and deployed readback. No measured saving is
+claimed by implementation or documentation alone.
+
 A passing release subset does not complete the full programme catalogue. Cases
 V-41–V-48 and V-50 retain their full scenario status below; release-specific
 execution evidence belongs in the tracker and the corresponding batch record.
@@ -567,18 +575,28 @@ Status: **NOT RUN**
 ### V-24
 
 **ME-24 — Add a compact and conditional project catalogue**\
-Status: **NOT RUN**
+Status: **PARTIAL**
 
-- **Setup:** Create same-name projects, aliases, lifecycle differences and a
-  rename occurring between paginated or conditional reads.
-- **Action:** Request selected catalogue fields, exercise version/ETag conditions
-  and repeat with invalid authentication and a stale identity cache.
-- **Expected:** Only requested fields are returned, pagination remains truthful
-  and changes invalidate the appropriate cache. Conditional responses still
-  authenticate. Identity resolution never claims runtime freshness or conflates
-  projects with matching names.
-- **Retain:** Field/byte comparisons, cache transitions, authentication results and
-  complete page identities.
+- **Implementation:** The candidate passed 17 catalogue scenarios and 38 related
+  MCP/panel/consolidation tests, plus shared/server/web typecheck. Current-head
+  reviews, full release qualification and deployed readback remain pending.
+  See [Batch 4](BATCH_4.md).
+- **Setup:** Use more than 50 synthetic projects, shared aliases, differently
+  cased names, every supported lifecycle (including planned), and a rename
+  crossing a page boundary. Verify that an exact duplicate name is rejected.
+- **Action:** Compare legacy full, compact, REST and panel responses. Exercise
+  `ifVersion`, `expectedCatalogVersion`, page/filter changes, import/restore,
+  equal-timestamp edits, credential rotation and actual SQLite read failure.
+- **Expected:** Full compatibility is retained. Compact records have exactly
+  five fields; unchanged responses omit `projects`. Pagination stays coherent
+  or returns an explicit reset instruction. Every conditional network call
+  authenticates and reads the database. Token scope and client cache identity
+  remain separate from runtime and memory freshness. Redaction and the complete
+  MCP result budget still apply.
+- **Retain:** Exact source/test identity, field and serialized-byte comparisons,
+  complete page IDs, cache/invalidation transitions, auth and DB failure results,
+  reset behavior and applicable review/release evidence. Authored suite:
+  [project-catalogue.test.ts](../../../apps/server/test/project-catalogue.test.ts).
 
 ### V-25
 
@@ -586,16 +604,27 @@ Status: **NOT RUN**
 Status: **NOT RUN**
 
 - **Setup:** Model the authenticated semantic health check and compact candidate
-  in a controlled equivalent-check cohort. Inject broken authentication,
-  application failure and unavailable database reads while liveness responds.
+  in the fixed [Batch 4 cohort](BATCH_4.md#predeclared-synthetic-comparison):
+  120 synthetic projects, 512-character descriptions, 60 checks and full controls
+  at 0/12/24/36/48. Record any declaration amendment before measurement. Inject
+  broken authentication, application failure and unavailable database reads while
+  liveness responds.
 - **Action:** Compare matched polling workloads, including periodic fuller
-  semantic checks and recovery from failures.
-- **Expected:** Bytes per equivalent qualified check decrease without losing
-  failure detection; call rate may stay unchanged. Liveness cannot replace the
-  application/perimeter contract. Full attribution is unnecessary for this
-  controlled comparison; failures remain distinct from unchanged results.
-- **Retain:** Consumer versions, cohort definition, failure matrix and normalized
-  traffic measurements.
+  semantic checks and recovery from failures. Exercise missing/corrupt cache,
+  bodyless responses, old-server input rejection, bounded fallback/reset,
+  malformed payloads, timeouts and exceeded page/read budgets.
+- **Expected:** At least 50% fewer complete serialized MCP-result bytes over
+  the equivalent successful workload, with all identities and five consumed
+  fields preserved. Include full-control and fallback traffic. Auth/application/DB
+  failure detection and its timing remain intact; errors do not advance success
+  or full-control timestamps. Call rate may stay unchanged. Liveness cannot
+  replace the application/perimeter contract. Failures stay distinct from
+  unchanged results; the result does not attribute all historical traffic.
+- **Retain:** Server and consumer versions, fixed fixture/declaration,
+  pre-measurement amendments, failure matrix, complete result-byte totals,
+  initialization/catalogue/page/reset/fallback counts, observed durations,
+  applicable review/release evidence and the disclosed deployed observation
+  window. No outcome is asserted yet.
 
 ### V-26
 
