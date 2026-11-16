@@ -7,12 +7,16 @@ Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDAT
 
 ## Current state
 
-**Batch 1 implementation is in progress: effective task state in search,
-provenance-aware presentation and a reproducible evaluation protocol.**
+**Batch 1 is delivered: effective task state in search, provenance-aware
+presentation and a reproducible evaluation protocol. The deployed task-state
+canary and candidate-produced snapshot recovery are verified.**
 
 Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
+
+Current inventory after Batch 1 qualification: **50 items — 30 PLANNED,
+6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 0 VERIFIED, 1 DONE.**
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -40,16 +44,22 @@ in ContextKeep. No programme-wide completion is claimed.
   records existing metric semantics, immutable held-out identity, private corpus
   design and first-release gates. The full private 30–50-question corpus and
   matched outcome evaluation remain pending.
-- ME-05: a reproduced blocked-record / completed-progress mismatch is implemented through a shared task projection, additive HTTP/MCP fields and UI
-  provenance. Synthetic regression cases cover the bounded release prerequisite;
-  the broader ME-02 outcome remains open.
+- ME-05: the blocked-record / completed-progress regression passes with a shared
+  task projection, additive HTTP/MCP fields and UI provenance. Required reviews,
+  CI and the full release gate passed for the merged source. Deployed MCP
+  capability and task-state canary readbacks passed. The broader ME-02 outcome
+  remains open.
 - ME-09: this batch covers task-state parity only. Ranking, freshness and the
   remaining cross-surface scenarios retain their original dependencies.
 - ME-04: operator-confirmed topology metadata was corrected privately. The wider
   lifecycle audit remains open.
-- ME-41 / ME-42 / ME-43 / ME-44 / ME-47: compatibility, recovery, exact-revision
-  review and release qualification apply to this candidate. Implementation is not
-  deployment evidence. Current-release recovery is an explicit rollout prerequisite.
+- ME-41 / ME-42 / ME-43 / ME-44 / ME-47: the release-specific compatibility,
+  negative controls, exact-head reviews and full release gate passed. Isolated
+  recovery qualified the previous snapshot and candidate on one restored clone.
+  Primary activation, deployed readback and independent recovery of a newly
+  produced candidate snapshot also passed. The two recovery observations are
+  recorded separately.
+  Private operational receipts remain outside this repository.
 - ME-46 / ME-48 / ME-50: the private ledger, capacity observations and tracker
   are being maintained. Rolling duties remain open for later batches.
 
@@ -85,7 +95,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | IN_PROGRESS | P0 | W0 | Evaluation | ME-01 |
 | [ME-03](#me-03) | Define metric semantics and predeclare quality gates | IN_PROGRESS | P0 | W0 | Evaluation | ME-01, ME-02 |
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
-| [ME-05](#me-05) | Expose effective task state in search | IMPLEMENTED | P0 | W1 | Backend | ME-02 |
+| [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | PLANNED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | PLANNED | P0 | W1 | Backend | ME-01, ME-02 |
@@ -142,8 +152,9 @@ Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/
 
 - [ ] Scope: Capture source/runtime/schema versions, exact observation windows and timezones, corpus identity, read-only query definitions and coverage gaps. Keep record/source/progress/run/handoff/relation/delta/volatility populations separate.
 - [ ] Acceptance: Reproducible private manifest exists; sampled counters and exact stored counts are labeled correctly; partial periods and runtime/description disagreement are recorded.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
+  and exact candidate/review identities are recorded. The complete frozen private
+  baseline manifest and matched observation windows remain open.
 
 ### ME-02
 
@@ -153,8 +164,9 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Freeze 30–50 private real questions with expected record/source/task identities and time semantics. Extend existing RO/EN fixtures with synthetic equivalents; maintain a tuning/held-out split.
 - [ ] Acceptance: Retrieval, presentation and agent outcomes have distinct scores; cases cover current/history, source-only facts, closed tasks, identifiers, paraphrases, conflicts and abstention; no private fixtures enter Git.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Partial: 8 new backend task-state cases and 5 PWA cases passed with synthetic
+  fixtures; the existing held-out corpus remains unchanged. The private
+  30–50-question corpus, independent split and expected identities remain open.
 
 ### ME-03
 
@@ -164,8 +176,10 @@ Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Define Recall@5/10, currentness, answer/action correctness, provenance, abstention, reads, latency and resource/cost measures. Separate structured characters/bytes, full MCP bytes and actual inference tokens.
 - [ ] Acceptance: Targets and sample protocol are fixed before comparisons; existing held-out gate is preserved; omissions and HTTP success are not misreported as failures or task success.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
+  defines measurement semantics and first-release gates. Six existing synthetic
+  performance gates passed unchanged. Real-question quality and matched outcome
+  measurements remain open.
 
 ### ME-04
 
@@ -175,19 +189,23 @@ Dependencies: ME-01 · Validation: [V-04](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Audit stale project descriptions, runtime pointers and unknown lifecycle values using current dated evidence. Define a safe metadata correction queue and volatility policy inputs.
 - [ ] Acceptance: Descriptions distinguish evidence from assumptions; unknown lifecycle is reported without automatic activation/retirement; no closed task is reopened or unrelated state changed.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Partial: operator-confirmed topology metadata was reconciled privately.
+  The broader lifecycle/metadata audit and volatility policy remain open.
 
 ### ME-05
 
 **Expose effective task state in search**\
-Status: **IMPLEMENTED** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **DONE** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-02 · Validation: [V-05](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-05)
 
 - [x] Scope: Reuse the operational task projection for task search hits: effective state, state source, progress identity, provenance and resume pointer. Retain the original record status separately.
-- [ ] Acceptance: Blocked-to-done, explicit terminal precedence and post-closure follow-up cases agree with dossier/resume without mutating accepted records.
-- [ ] Evidence: [batch 1 implementation and targeted results](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
-  Full candidate review, release qualification and deployed readback remain pending.
+- [x] Acceptance: Blocked-to-done, explicit terminal precedence and post-closure follow-up cases agree with dossier/resume without mutating accepted records.
+- [x] Evidence: [Batch 1 qualification](docs/plans/2026-11-16-memory-evolution/BATCH_1.md)
+  and [merged PR #27](https://github.com/anervalens-netizen/ContextKeep/pull/27).
+  Source, synthetic behavior, exact-head reviews, CI and the full release gate
+  are verified. Deployed MCP capability and original-regression readbacks passed,
+  followed by independent recovery of the candidate-produced snapshot. Private
+  runtime/recovery receipts are retained in ContextKeep.
 
 ### ME-06
 
@@ -230,8 +248,10 @@ Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Use the shared projection in search, HTTP, MCP, PWA and host views. Preserve explicit nulls, terminal status, classified attention and follow-up semantics.
 - [ ] Acceptance: All relevant surfaces agree on effective state and provenance; reads do not change knowledge, progress, authority or external execution; legitimate telemetry/cache/cursor bookkeeping is allowed; closed/paused/retired cases retain legitimate attention.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Partial: Batch 1 task-state parity passed in HTTP, compact/legacy MCP and
+  PWA synthetic checks. The deployed MCP task-state canary agrees with dossier.
+  Ranking, freshness,
+  lifecycle and the remaining cross-surface scenarios are still open.
 
 ### ME-10
 
@@ -582,8 +602,10 @@ Dependencies: ME-03 · Validation: [V-41](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: For each release's affected contracts, update public MCP/HTTP documentation, ContextKeep Workflows and relevant UI/host metadata. Prefer additive defaults and versioned resource advertisement when bundled UI changes. Do not wait for unrelated future features.
 - [ ] Acceptance: Old clients retain documented behavior; new clients discover fields/tools after required metadata refresh; no silent budget, resource URI or representation change.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 subset: additive search projection, MCP 2.22.0 / schema 19,
+  compatibility documentation, compact/legacy reads and 9 host-widget modes
+  passed the release checks. Deployed capability discovery confirms the qualified
+  build and contract; compatibility duties continue for later programme releases.
 
 ### ME-42
 
@@ -593,8 +615,9 @@ Dependencies: ME-03 · Validation: [V-42](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: For every release, record selected item IDs, server/index/consumer order, mixed-version behavior, canary, feature controls and external repository dependencies.
 - [ ] Acceptance: Consumers never require undeployed fields; canary and rollback decisions are explicit; implemented, published and runtime-verified statuses remain separate.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 subset: exact source, required reviews, CI, release manifest and
+  rollback plan are qualified. Activation, the deployed canary and independent
+  recovery of the candidate-produced snapshot passed. See [release qualification](docs/plans/2026-11-16-memory-evolution/BATCH_1.md#qualified-source-and-reviews).
 
 ### ME-43
 
@@ -604,8 +627,12 @@ Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: For any affected index/schema release, verify recovery point, compatible runtime/database rollback, bounded backfill, storage reserve and scratch cleanup using established policy.
 - [ ] Acceptance: Failure/restart/rollback drill succeeds on isolated data; redaction/delete stay correct; singular writer preserved; code-only work does not create unnecessary production copies.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 subset: 84 operational tests passed, including 11 new runtime-kit
+  identity/layout cases. Isolated snapshot recovery and same-clone candidate
+  compatibility passed with cleanup confirmed privately. A subsequent independent
+  restore qualified the new candidate-produced snapshot and backup format, with
+  matching artifact checksums and cleanup. Broader migration/index drills remain
+  applicable to their future releases.
 
 ### ME-44
 
@@ -615,8 +642,13 @@ Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: For application changes, obtain required Codex Connector/DSH current-head reviews, explicit dispositions and CI; qualify deployed behavior and matching runtime/source identities.
 - [ ] Acceptance: Required checks and review closure are evidenced for the delivered revision; a merge/command alone is not called deployment or verification; private operational proof stays private.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 subset: [Codex review](https://github.com/anervalens-netizen/ContextKeep/pull/27#issuecomment-6912299583),
+  [DSH review](https://github.com/anervalens-netizen/ContextKeep/pull/27#issuecomment-6913356673),
+  [version-bound disposition](https://github.com/anervalens-netizen/ContextKeep/pull/27#issuecomment-6913458554),
+  required CI and all 12 release-gate stages passed for `c13f1d6e1efcf1693082c014c66acdcf6ff85c1b`.
+  Grouped review closure and deployed MCP/task-state behavior were read back
+  privately. Independent recovery of the candidate-produced snapshot also passed;
+  the wider programme's release duties remain open.
 
 ### ME-45
 
@@ -637,8 +669,9 @@ Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Map every audit section/finding to tracker IDs, private source/version evidence and eventual commit/test/deployment references. Preserve concise task-scoped checkpoints and unresolved limits.
 - [ ] Acceptance: All audit findings are accounted for without publishing private metrics/identities; handoff points to exact artifacts; planning completion is distinct from feature completion.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 evidence, exact run identities, review closure and recovery receipts
+  are preserved in task-scoped private memory. This tracker records sanitized
+  scope and public references; the programme-wide ledger remains a rolling duty.
 
 ### ME-47
 
@@ -648,8 +681,11 @@ Dependencies: ME-03 · Validation: [V-47](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Apply integrated negative controls to new search/index/summary/client paths: untrusted source instructions, scope crossing, stale fences, truncated evidence, unresolved runs and closed tasks.
 - [ ] Acceptance: No read starts execution, resolves blockers or promotes reports; uncertain effects are reconciled rather than replayed; every applicable hard gate passes before its release.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 applicable regression controls passed: original authority/provenance,
+  current-task classification, project scope, terminal precedence, explicit
+  unknowns/nulls and no business-state mutation on read. Existing uncertainty,
+  no-replay and privacy gates remain in force. Future changed paths still need
+  their own controls.
 
 ### ME-48
 
@@ -659,8 +695,9 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Measure DB main/WAL/index growth, query/backfill latency, lock contention, service resource trends and retention impact. Use realistic bounded workloads and existing storage policy.
 - [ ] Acceptance: Report trends and separate transient peaks from leaks/bottlenecks; growth fits reserve; no SQLite replacement or hardware claim is based on a single snapshot.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 release/recovery capacity and cleanup were observed privately.
+  These are bounded qualification measurements, not a growth trend or evidence
+  for replacing storage. The planned longitudinal workload study remains open.
 
 ### ME-49
 
@@ -681,8 +718,9 @@ Dependencies: none · Validation: [V-50](docs/plans/2026-11-16-memory-evolution/
 
 - [ ] Scope: Use this tracker as the only active checklist. Assign actual owners at start; update dependencies, evidence, decisions and status with work. Keep archived trackers historical.
 - [ ] Acceptance: No orphan/missing items or invalid dependencies; done requires applicable evidence, deferred/stopped requires rationale; unresolved work is handed off rather than silently omitted.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 1 source/review/test evidence and remaining work are mapped here and
+  in [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
+  All 50 item IDs and dependencies are retained. Programme closure remains open.
 
 ## Definition of completion
 
@@ -719,3 +757,16 @@ synthetic or sanitized technical evidence.
   and external memory research into 50 items, 20 finding groups and 50 acceptance
   scenarios. All feature work remains planned or gated. This documentation update
   does not deploy code, migrate data, install services or change project/task state.
+
+- **2026-11-16 — Batch 1 delivered and verified.** Development agent;
+  ME-05 IMPLEMENTED → VERIFIED → DONE. Candidate `c13f1d6e1efcf1693082c014c66acdcf6ff85c1b`
+  was merged as `a8fea680edd317db84d0fc6dcb40b241546c540e` with an identical source tree.
+  Both required reviews, explicit dispositions, CI and all 12 release-gate stages
+  passed. The full gate includes 1,348 functional and 84 operational tests plus
+  6 synthetic performance gates. Activation, capability discovery and the deployed
+  task-state canary passed. Independent recovery of the new candidate-produced
+  snapshot passed, qualifying the backup producer as well as the runtime.
+  ME-01/02/03, the wider ME-09 contract and rolling release duties stay open.
+  Next bounded correctness work: ME-18/19, alongside the private evaluation corpus.
+  The existing LOW `deepmerge` advisory and follow-up remain documented in
+  [Batch 1 limits](docs/plans/2026-11-16-memory-evolution/BATCH_1.md#known-limits-and-next-work).

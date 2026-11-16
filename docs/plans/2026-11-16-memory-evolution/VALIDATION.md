@@ -12,11 +12,19 @@ this catalogue defines the evidence needed to assess that item's acceptance.
 
 ## Execution status
 
-The initial planning snapshot had all 50 cases NOT RUN. Batch 1 adds a bounded
-ME-05 task-state regression suite and the [baseline protocol](BASELINE_PROTOCOL.md).
-A passing subset does not complete the full programme catalogue. Check the
-tracker and exact candidate receipts for implemented, verified and deployed scope;
-the private real-question baseline and broader currentness work remain open.
+The initial planning snapshot had all 50 cases NOT RUN. Batch 1 qualifies V-05
+with synthetic task-state regression coverage and the task-state subset of V-09.
+Its exact-head reviews, CI and all 12 release-gate stages passed; see
+[BATCH_1.md](BATCH_1.md). Production activation and the original task-state canary
+passed. A subsequent independent restore also qualified the newly produced
+candidate snapshot; private operational receipts remain outside this catalogue.
+The [baseline protocol](BASELINE_PROTOCOL.md) is documented; the full private
+real-question corpus and matched outcome evaluation remain open.
+
+A passing release subset does not complete the full programme catalogue. Cases
+V-41–V-48 and V-50 retain their full scenario status below; release-specific
+execution evidence belongs in the tracker and Batch 1 record. Do not infer that
+all their synthetic setup variants or future release duties were executed.
 
 ## Method and evidence rules
 
@@ -149,7 +157,11 @@ Status: **NOT RUN**
 ### V-05
 
 **ME-05 — Expose effective task state in search**\
-Status: **NOT RUN**
+Status: **PASS — synthetic Batch 1 regression suite and deployed original-regression canary**
+
+Executed coverage: blocked-to-done progress, explicit terminal precedence,
+  post-closure follow-up, dossier/resume parity and unchanged business state.
+  Exact source, test totals and review evidence: [BATCH_1.md](BATCH_1.md).
 
 - **Setup:** Seed a task whose original record is blocked, followed by valid done
   progress. Add an explicit terminal task-status change and a later checkpoint.
@@ -209,7 +221,11 @@ Status: **NOT RUN**
 ### V-09
 
 **ME-09 — Qualify current-state parity across surfaces**\
-Status: **NOT RUN**
+Status: **PARTIAL — task-state subset passed; broader scenario remains open**
+
+Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
+  behavior. Ranking, freshness, lifecycle and the remaining host/attention matrix
+  are not closed by this batch. See [BATCH_1.md](BATCH_1.md).
 
 - **Setup:** Prepare open, closed, paused and retired synthetic cases, including
   explicit null next actions, unresolved verification and post-closure follow-up.
