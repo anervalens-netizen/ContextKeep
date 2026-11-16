@@ -6,6 +6,14 @@ This repository is public. Use wholly synthetic fixtures and generic examples. N
 
 Production operations must use explicitly configured hosts, secrets and data directories; a repository checkout is not evidence of runtime identity or deployment health. Preserve a verified recovery copy before changing persistent production data.
 
+## Active memory improvement programme
+
+For memory, retrieval, indexing, ingestion or telemetry work, read
+[MEMORY_EVOLUTION_TRACKER.md](MEMORY_EVOLUTION_TRACKER.md) and its linked plan and
+validation catalogue. Reuse its item IDs and keep status, dependencies and
+verification evidence current as work proceeds. Planning completion does not mean
+implementation or deployment completion. Archived trackers remain historical.
+
 ## Public merge identity
 
 Every reachable author and committer must use an `@users.noreply.github.com`

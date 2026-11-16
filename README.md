@@ -41,6 +41,15 @@ Public contracts are summarized in [architecture and invariants](docs/ARCHITECTU
 [HTTP/MCP recovery contract](docs/RECOVERY_CONTRACT.md). Operational profiles,
 endpoints, data and deployment evidence remain private.
 
+## Memory and retrieval improvement programme
+
+The active [memory evolution tracker](MEMORY_EVOLUTION_TRACKER.md) records the
+complete improvement backlog, dependencies, status and acceptance evidence.
+Read the [detailed plan](docs/plans/2026-11-16-memory-evolution/PLAN.md) and
+[validation catalogue](docs/plans/2026-11-16-memory-evolution/VALIDATION.md) before
+starting an item. Planned work and conditional experiments are not implemented
+features; private operational evidence remains outside this public repository.
+
 ## Current-state dossier and task continuity
 
 Read [Operational dossier](docs/OPERATIONAL_DOSSIER.md) for outcome-first project/task
