@@ -17,6 +17,8 @@ the item rows and later dated updates are authoritative as work proceeds.
 
 Current inventory after Batch 2 forward-ingestion verification: **50 items —
 28 PLANNED, 6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 2 VERIFIED, 1 DONE.**
+Batch 3 verifies a private corpus freeze and collects descriptive observations;
+it does not change this programme-wide status inventory.
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -92,6 +94,34 @@ Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolutio
   recovery and later programme releases retain their own gates.
 
 The opening creation inventory is historical. Current item rows own status.
+
+## Batch 3 — 2026-11-16
+
+Scope, measurement contract and limits: [BATCH_3.md](docs/plans/2026-11-16-memory-evolution/BATCH_3.md).
+
+- ME-01: bounded population and retained-usage evidence is collected privately.
+  Exact stored counts remain separate from sampled counters, with retention,
+  reset, migration and partial-window limits. No complete historical call ledger
+  or continuous resource trend is claimed.
+- ME-02: 40 investigator-authored RO/EN formulations from 20 real episodes are
+  independently reviewed and frozen in the canonical private registry before
+  tuning. There are 20 cases per split, six abstention cases and ten task-state
+  cases. All 40 fixed live observations were collected once. The limited baseline
+  passed independent contract, capture, metric and size verification, with
+  no substantive discrepancies and a display-rounding note; failures are retained.
+  The public helper passes 49 tests. Required reviews, CI, archive closure,
+  broader synthetic counterparts and agent outcomes remain open.
+- ME-03: a separately reviewed private scorer passes 32 synthetic guard tests.
+  Its exact field/identity metrics, denominators, serialization measures and
+  client wall-clock observation method are predeclared. Source recall is
+  inapplicable to the current MCP search surface; semantic abstention and agent
+  outcomes remain NOT_RUN, with provider tokens/cost unknown.
+- ME-24 / ME-25: covered private usage supports prioritizing compact catalogue
+  responses and a controlled consumer examination. This is a sequencing decision,
+  not implementation or a measured payload reduction.
+- ME-46 / ME-48 / ME-50: corpus/review identities, observation boundaries and
+  remaining limits are preserved privately and mapped here. No application
+  deployment or ranking/alias tuning is part of this batch.
 
 ## Status and ownership rules
 
@@ -181,10 +211,12 @@ Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/
 - [ ] Scope: Capture source/runtime/schema versions, exact observation windows and timezones, corpus identity, read-only query definitions and coverage gaps. Keep record/source/progress/run/handoff/relation/delta/volatility populations separate.
 - [ ] Acceptance: Reproducible private manifest exists; sampled counters and exact stored counts are labeled correctly; partial periods and runtime/description disagreement are recorded.
 - [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
-  and exact candidate/review identities are recorded. The complete frozen private
-  baseline manifest and matched observation windows remain open. The
-  [corpus preflight](scripts/evaluation/README.md) validates evidence and freeze
-  structure; it cannot establish semantic truth by itself.
+  and [Batch 3](docs/plans/2026-11-16-memory-evolution/BATCH_3.md) bind source/runtime
+  identity, the canonical private corpus, bounded population reads and retained
+  usage windows. Exact counts, sampled increases and coverage gaps are separated.
+  The full programme baseline and matched candidate outcomes remain open. The
+  [corpus preflight](scripts/evaluation/README.md) checks structure and identity;
+  independent review supplies the separate semantic assessment.
 
 ### ME-02
 
@@ -195,12 +227,24 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 - [ ] Scope: Freeze 30–50 private real questions with expected record/source/task identities and time semantics. Extend existing RO/EN fixtures with synthetic equivalents; maintain a tuning/held-out split.
 - [ ] Acceptance: Retrieval, presentation and agent outcomes have distinct scores; cases cover current/history, source-only facts, closed tasks, identifiers, paraphrases, conflicts and abstention; no private fixtures enter Git.
 - [ ] Evidence: Partial: 8 new backend task-state cases and 5 PWA cases passed with synthetic
-  fixtures; the existing held-out corpus remains unchanged. The private
-  30–50-question corpus, independent split and expected identities remain open.
+  fixtures; the existing held-out corpus remains unchanged.
   Batch 2 adds 45 synthetic corpus-guard tests, without changing retrieval
-  fixtures, held-out questions or quality floors. Execution of the intended
-  40 natural private questions remains **NOT_RUN**. Independent ground-truth
-  review and the canonical private freeze registry remain open.
+  fixtures, held-out questions or quality floors. Batch 3 independently reviews
+  and freezes 40 private formulations from 20 real episodes, with 37 complete
+  selected captures and a canonical registry. All 40 fixed observations are
+  collected once; the limited baseline passed independent contract, capture,
+  metric and size verification, retaining negative outcomes. Synthetic
+  counterparts and agent outcomes remain open.
+- [ ] Bounded correction awaiting required reviews and CI: Guard eight explicit source-backed
+  flags in the preflight: the freshness reference-summary fields
+  `supportReferencesTruncated` and `possiblyRelatedReferencesTruncated`, plus six
+  packing flags on allowed read-tool responses. Independent review excluded two
+  partial freshness-reference captures from gold and substituted complete sources
+  before freeze. Reject true/malformed flags and preserve boolean false. All
+  49 helper tests pass; four new parameterized tests cover all eight flags for
+  true, false, invalid types and fail-closed freeze behavior. The pre-fix
+  reproduction produced eight subtest failures. The frozen private evaluator
+  and observation results remain unchanged.
 
 ### ME-03
 
@@ -212,10 +256,16 @@ Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-ev
 - [ ] Acceptance: Targets and sample protocol are fixed before comparisons; existing held-out gate is preserved; omissions and HTTP success are not misreported as failures or task success.
 - [ ] Evidence: Partial: [baseline protocol](docs/plans/2026-11-16-memory-evolution/BASELINE_PROTOCOL.md)
   defines measurement semantics and first-release gates. Six existing synthetic
-  performance gates passed unchanged. Real-question quality and matched outcome
-  measurements remain open. Batch 2's offline size diagnostics distinguish
+  performance gates passed unchanged. Batch 3 freezes bounded live contracts and
+  a private observed-field scorer with 32 synthetic guard tests. The limited live
+  baseline passed independent contract, capture, metric and size verification;
+  the final check has no substantive discrepancies and a display-rounding note.
+  Failures remain in the report. Matched candidate and agent outcome measurements
+  remain open. Batch 2's offline size diagnostics distinguish
   Unicode code points, UTF-16 units, logical UTF-8 bytes and the complete
   serialized MCP result; unavailable provider tokens/cost remain unknown.
+  Current MCP search has no ranked source list, so source recall is inapplicable.
+  Exact field fidelity does not establish semantic abstention or agent success.
 
 ### ME-04
 
@@ -462,8 +512,10 @@ Dependencies: ME-03 · Validation: [V-24](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Provide a small identity/metadata projection, scoped pagination and version/ETag semantics for repeated name-to-ID resolution. Define cache invalidation, renames and same-name projects.
 - [ ] Acceptance: Consumers receive only requested fields; conditional responses still authenticate; identity cache never claims runtime freshness; pagination and changes remain detectable.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 3](docs/plans/2026-11-16-memory-evolution/BATCH_3.md) identifies
+  catalogue payload as a strong target in the covered private usage samples.
+  The compact/conditional contract and matched reduction remain unimplemented
+  and unverified; preserve the declared compatibility and authentication gates.
 
 ### ME-25
 
@@ -473,8 +525,10 @@ Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Update the deployed companion consumer to use compact/conditional reads with periodic fuller semantic checks through the authenticated application perimeter. Use a controlled consumer cohort; ME-27 is required only if the chosen attribution method needs it.
 - [ ] Acceptance: Fewer serialized bytes per equivalent qualified check are measured; call rate is reported and reducing it is optional. Auth/application/database failure detection and its timing are preserved; a liveness-only endpoint does not replace the existing semantic check.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Batch 3 supports examining the consumer after the ME-24 contract
+  is qualified. Sampled tool labels do not identify every historical consumer.
+  Implementation, a controlled comparison and preserved semantic health-check
+  behavior remain open.
 
 ### ME-26
 
@@ -719,7 +773,9 @@ Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution
 - [ ] Acceptance: All audit findings are accounted for without publishing private metrics/identities; handoff points to exact artifacts; planning completion is distinct from feature completion.
 - [ ] Evidence: Batch 1 evidence, exact run identities, review closure and recovery receipts
   are preserved in task-scoped private memory. This tracker records sanitized
-  scope and public references; the programme-wide ledger remains a rolling duty.
+  scope and public references. Batch 3 adds reviewed corpus/split identities,
+  a canonical freeze registry, scorer identity and explicit observation limits;
+  the programme-wide ledger remains a rolling duty.
 
 ### ME-47
 
@@ -745,7 +801,9 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
 - [ ] Acceptance: Report trends and separate transient peaks from leaks/bottlenecks; growth fits reserve; no SQLite replacement or hardware claim is based on a single snapshot.
 - [ ] Evidence: Batch 1 release/recovery capacity and cleanup were observed privately.
   These are bounded qualification measurements, not a growth trend or evidence
-  for replacing storage. The planned longitudinal workload study remains open.
+  for replacing storage. Batch 3 adds bounded population/storage and point
+  resource observations with separate timestamps and concurrent-workload limits.
+  The planned longitudinal workload study remains open.
 
 ### ME-49
 
@@ -767,7 +825,9 @@ Dependencies: none · Validation: [V-50](docs/plans/2026-11-16-memory-evolution/
 - [ ] Scope: Use this tracker as the only active checklist. Assign actual owners at start; update dependencies, evidence, decisions and status with work. Keep archived trackers historical.
 - [ ] Acceptance: No orphan/missing items or invalid dependencies; done requires applicable evidence, deferred/stopped requires rationale; unresolved work is handed off rather than silently omitted.
 - [ ] Evidence: Batch 1 source/review/test evidence and remaining work are mapped here and
-  in [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
+  in [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md). Batch 3 corpus
+  preparation, evaluation limits and next priorities are mapped in
+  [BATCH_3.md](docs/plans/2026-11-16-memory-evolution/BATCH_3.md).
   All 50 item IDs and dependencies are retained. Programme closure remains open.
 
 ## Definition of completion
@@ -832,3 +892,18 @@ synthetic or sanitized technical evidence.
   retained the known fence; this does not establish indefinite stability.
   ME-01/02/03 stay open; the 40-question natural corpus remains NOT_RUN and
   canonical freeze registration remains an ME-02 follow-up.
+
+- **2026-11-16 — Batch 3 limited baseline independently verified.** Development
+  agent; ME-01 / ME-02 / ME-03 remain IN_PROGRESS. Independent gold/split review
+  and canonical registration qualify 40 private formulations from 20 episodes
+  before tuning. All 40 fixed observations are collected once. The private scorer
+  passes 32 synthetic guard tests; its frozen inputs and existing retrieval
+  fixtures/floors remain unchanged. Population/usage evidence retains gaps and
+  sampled-counter limits. Final independent verification passes with a
+  display-rounding note and no substantive discrepancies; negative outcomes are
+  retained. The public helper passes 49 tests, including four new parameterized
+  tests for eight explicit truncation flags; the pre-fix reproduction produced
+  eight subtest failures. Archive closure and qualification of the ME-02 offline
+  completeness correction, including required reviews and CI, remain pending.
+  Semantic abstention and agent outcomes are NOT_RUN. Prioritize ME-24 / ME-25
+  for a separately qualified implementation.

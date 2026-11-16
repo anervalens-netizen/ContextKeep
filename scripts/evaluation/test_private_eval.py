@@ -16,6 +16,19 @@ import private_eval as subject
 AT = "2026-01-01T09:00:00Z"
 NS = uuid.UUID("00000000-0000-4000-8000-000000000001")
 
+# Explicit boolean flags emitted by allowed reads, not a suffix-name heuristic.
+# Producers: memory-freshness.ts, context-packing.ts and context-budget.ts.
+NESTED_TRUNCATION_PATHS = (
+    ("freshness", "referenceSummary", "supportReferencesTruncated"),
+    ("freshness", "referenceSummary", "possiblyRelatedReferencesTruncated"),
+    ("latestCheckpoint", "checkpoint", "summaryTruncated"),
+    ("latestCheckpoint", "checkpoint", "outcomeTruncated"),
+    ("latestCheckpoint", "checkpoint", "nextActionTruncated"),
+    ("latestCheckpoint", "checkpoint", "blockersTruncated"),
+    ("project", "nameTruncated"),
+    ("workingMemory", "budgetOmittedRecordIdsTruncated"),
+)
+
 
 class ProtocolIdentity(unittest.TestCase):
     def test_protocol_hash_matches_pinned_git_bytes(self):
@@ -279,6 +292,59 @@ class CorpusGuardTests(unittest.TestCase):
         ]
         self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], value)
         self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def nested_truncation_capture(self, original, path, flag_value):
+        eid, ref = next(iter(self.corpus["evidence"].items()))
+        capture = deepcopy(original)
+        if path[0] != "freshness":
+            capture["tool"] = "get_work_context"
+            capture["arguments"] = {"projectId": identity("project")}
+        payload = capture["result"]["structuredContent"]
+        current = payload
+        for key in path[:-1]:
+            current = current.setdefault(key, {})
+        current[path[-1]] = flag_value
+        capture["result"]["content"] = [{"type": "text", "text": json.dumps(payload)}]
+        self.corpus["evidence"][eid] = save_artifact(self.root, ref["path"], capture)
+
+    def test_known_nested_truncation_flags_block_gold(self):
+        ref = next(iter(self.corpus["evidence"].values()))
+        original = subject.read_json(self.root / ref["path"])
+        for path in NESTED_TRUNCATION_PATHS:
+            self.nested_truncation_capture(original, path, True)
+            with self.subTest(flag=path[-1]):
+                self.assertEqual(subject.validate(self.corpus, self.root)["status"], "BLOCKED")
+                self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_known_nested_truncation_flags_accept_explicit_false(self):
+        ref = next(iter(self.corpus["evidence"].values()))
+        original = subject.read_json(self.root / ref["path"])
+        for path in NESTED_TRUNCATION_PATHS:
+            self.nested_truncation_capture(original, path, False)
+            with self.subTest(flag=path[-1]):
+                result = subject.validate(self.corpus, self.root)
+                self.assertEqual(result["status"], "READY", result)
+
+    def test_known_nested_truncation_flags_reject_non_boolean_values(self):
+        ref = next(iter(self.corpus["evidence"].values()))
+        original = subject.read_json(self.root / ref["path"])
+        for path in NESTED_TRUNCATION_PATHS:
+            for malformed in ("true", "false", 0, 1, None, [], {}):
+                self.nested_truncation_capture(original, path, malformed)
+                with self.subTest(flag=path[-1], value=malformed):
+                    self.assertEqual(subject.validate(self.corpus, self.root)["status"], "BLOCKED")
+                    self.assertIn("evidence_artifact_invalid", self.codes())
+
+    def test_known_nested_truncation_flags_block_freeze_before_kind_gate(self):
+        ref = next(iter(self.corpus["evidence"].values()))
+        original = subject.read_json(self.root / ref["path"])
+        for path in NESTED_TRUNCATION_PATHS:
+            self.nested_truncation_capture(original, path, True)
+            with self.subTest(flag=path[-1]):
+                # The corpus remains synthetic. Require rejection by the evidence
+                # gate, not merely the later synthetic-not-natural freeze gate.
+                with self.assertRaisesRegex(subject.Invalid, "private freeze blocked"):
+                    subject.freeze(self.corpus, self.root, AT)
 
     def test_search_completeness_cannot_be_promoted_to_complete_ground_truth(self):
         eid, ref = next(iter(self.corpus["evidence"].items()))
