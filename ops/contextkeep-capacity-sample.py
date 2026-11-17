@@ -80,6 +80,9 @@ def sample(database: Path) -> dict[str, object]:
             connection = sqlite3.connect(uri(database), uri=True, timeout=0.5)
             try:
                 connection.execute("PRAGMA query_only=ON")
+                # Pin a single read snapshot across PRAGMA metadata and dbstat;
+                # no write transaction is started.
+                connection.execute("BEGIN")
                 page_size = nonnegative(connection.execute("PRAGMA page_size").fetchone()[0])
                 page_count = nonnegative(connection.execute("PRAGMA page_count").fetchone()[0])
                 freelist = nonnegative(connection.execute("PRAGMA freelist_count").fetchone()[0])
@@ -106,10 +109,13 @@ def sample(database: Path) -> dict[str, object]:
                         index_measurement = "dbstat_unavailable"
             finally:
                 connection.close()
-        except sqlite3.OperationalError:
-            # Do not hide a locked, busy or damaged running database; only a
-            # fully absent WAL/SHM quiescent case can produce file-only status.
-            if (Path(str(database) + "-wal").exists()
+        except sqlite3.OperationalError as error:
+            # Fail closed on BUSY, LOCKED, IOERR or unclassified errors even
+            # when the database has no WAL sidecars. Only CANTOPEN with no
+            # sidecars is an eligible quiescent file-only observation.
+            code = getattr(error, "sqlite_errorcode", None)
+            if (type(code) is not int or (code & 0xFF) != sqlite3.SQLITE_CANTOPEN
+                    or Path(str(database) + "-wal").exists()
                     or Path(str(database) + "-shm").exists()):
                 raise
             query_available = False

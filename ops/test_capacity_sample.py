@@ -133,7 +133,9 @@ class CapacitySamplerTests(unittest.TestCase):
         real_connect = sampler.sqlite3.connect
         def stopped_open(location, *args, **kwargs):
             if "fixture.sqlite?" in str(location):
-                raise sqlite3.OperationalError("readonly WAL has no shared memory")
+                error = sqlite3.OperationalError("readonly WAL has no shared memory")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
             return real_connect(location, *args, **kwargs)
         with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=stopped_open):
             value = sampler.sample(self.db)
@@ -145,6 +147,28 @@ class CapacitySamplerTests(unittest.TestCase):
         self.assertIsNone(value["index_bytes"])
         self.assertEqual(value["main_bytes"], len(before))
         self.assertEqual(self.db.read_bytes(), before)
+
+    def test_busy_delete_store_never_falls_back_to_file_only(self):
+        reader = sqlite3.connect(self.db, isolation_level=None, timeout=0)
+        writer = sqlite3.connect(self.db, isolation_level=None, timeout=0)
+        try:
+            writer.execute("BEGIN EXCLUSIVE")
+            with self.read_only_namespace(), self.assertRaises(sqlite3.OperationalError):
+                sampler.sample(self.db)
+        finally:
+            writer.rollback()
+            writer.close()
+            reader.close()
+
+    def test_unclassified_sqlite_error_fails_without_success_event(self):
+        real_connect = sampler.sqlite3.connect
+        def fake_open(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location):
+                raise sqlite3.OperationalError("unclassified synthetic I/O error")
+            return real_connect(location, *args, **kwargs)
+        with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=fake_open):
+            with self.assertRaises(sqlite3.OperationalError):
+                sampler.sample(self.db)
 
     def test_large_database_skips_unbounded_index_scan_explicitly(self):
         with self.read_only_namespace(), mock.patch.object(sampler, "MAX_DBSTAT_DATABASE_BYTES", 1024):
