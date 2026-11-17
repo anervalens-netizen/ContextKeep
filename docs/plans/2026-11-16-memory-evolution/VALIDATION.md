@@ -956,8 +956,18 @@ Status: **NOT RUN**
 ### V-45
 
 **ME-45 — Measure post-release outcomes against matched baseline**\
-Status: **NOT RUN**
+Status: **PARTIAL — exploratory readout, prospective matched evaluation NOT RUN**
 
+- **Execution:** A bounded retrospective comparison examined two equal-duration
+  natural windows using existing Prometheus per-tool byte/call/duration series,
+  reset and scrape checks, alongside separately reconstructed owner-health
+  outcomes. A limited paired authenticated live catalogue read separately
+  compared complete, compact and conditional responses for equal field/ID
+  content. The former does not isolate client type or match dayparts; the
+  latter is additional observer traffic and cannot be mixed into the natural
+  denominator. Raw operational results and source/retention boundaries
+  remain private. Neither is a prospectively matched causal benchmark nor
+  a proof of production provider-cost or total CPU savings. See [Batch 5](BATCH_5.md).
 - **Setup:** Define matched synthetic baseline, canary and post-release workloads,
   plus an intentionally incompatible period with different traffic and coverage.
 - **Action:** For each affected release, compare quality, errors, reads, bytes,
@@ -1003,8 +1013,17 @@ Status: **NOT RUN**
 ### V-48
 
 **ME-48 — Measure capacity before infrastructure changes**\
-Status: **NOT RUN**
+Status: **PARTIAL — read-only snapshot and limited historical range**
 
+- **Execution:** One read-only SQLite page/free-list/index/WAL footprint and
+  host/process resource snapshot passed; a short window of existing process
+  memory telemetry and independently verified encrypted backup receipts
+  provides bounded context. No SQLite WAL checkpoint, write, backfill, migration
+  or load generator ran. Encrypted archive growth does not establish database
+  file growth, and one DB snapshot cannot identify persistent bloat, contention
+  or a memory leak. The 48-second conditional-consumer deadline is characterized
+  analytically for one to five pages; high-page slow routes remain a synthetic
+  validation and future-observation gate. See [Batch 5](BATCH_5.md).
 - **Setup:** Prepare realistic bounded synthetic read/write/backfill workloads
   with separate main-file, WAL, index and retention storage, including transient
   memory peaks and concurrent readers.

@@ -18,11 +18,13 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 4 server and consumer qualification: **50 items —
-26 PLANNED, 6 GATED, 13 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
-ME-24 and ME-25 are verified within their bounded release scope. The separate
-ME-45 natural-traffic outcome comparison, the ME-48 slow-route budget study
-and other rolling programme duties remain open.
+Current inventory after the Batch 5 initial read-only measurement: **50 items —
+25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-24 and ME-25 stay verified within their bounded release scope. ME-45 is
+now IN_PROGRESS, while ME-48 remains IN_PROGRESS. Their observational readouts
+are partial and do not qualify representative same-daypart/client-matched
+outcomes, long-term database growth, or high-contention write workloads.
+See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md).
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -243,7 +245,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-42](#me-42) | Plan and qualify each staged rollout | IN_PROGRESS | P0 | W7 | Maintainer | ME-03 |
 | [ME-43](#me-43) | Verify migration, index rebuild and recovery | IN_PROGRESS | P0 | W7 | Operations | ME-01, ME-48 |
 | [ME-44](#me-44) | Complete exact-head reviews and release qualification | IN_PROGRESS | P0 | W7 | Maintainer | ME-42 |
-| [ME-45](#me-45) | Measure post-release outcomes against matched baseline | PLANNED | P1 | W7 | Evaluation | ME-03, ME-44 |
+| [ME-45](#me-45) | Measure post-release outcomes against matched baseline | IN_PROGRESS | P1 | W7 | Evaluation | ME-03, ME-44 |
 | [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | IN_PROGRESS | P0 | W7 | Maintainer | ME-01 |
 | [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | IN_PROGRESS | P0 | W7 | Backend | ME-03 |
 | [ME-48](#me-48) | Measure capacity before infrastructure changes | IN_PROGRESS | P1 | W4 | Operations | ME-01 |
@@ -841,13 +843,20 @@ Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution
 ### ME-45
 
 **Measure post-release outcomes against matched baseline**\
-Status: **PLANNED** · Priority: P1 · Wave: W7 · Owner role: Evaluation\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W7 · Owner role: Evaluation\
 Dependencies: ME-03, ME-44 · Validation: [V-45](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-45)
 
 - [ ] Scope: For each release's affected behavior, compare canary and representative post-release windows for applicable quality, errors, reads, bytes, latency and resources. Control sample/traffic/retention differences and retain failed scenarios. Use bounded evidence before ME-29 exists; the full dashboard is not a prerequisite.
 - [ ] Acceptance: Changes and limits are quantified on comparable populations; regressions have dispositions; no selective threshold changes or vendor-score extrapolation.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
+  records a bounded retrospective equal-duration Prometheus/journal comparison
+  and a separate, read-only live paired catalogue sample. The natural samples
+  have different dayparts and mixed unlabelled consumers; the paired check
+  adds observer traffic. Neither alone is a causal post-release gain, a
+  provider-cost calculation, nor a representative prospective comparison.
+  The exact source queries, window/counter coverage and observations remain
+  in private project memory; [V-45](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-45)
+  is PARTIAL until the unmatched scenarios and limits are addressed.
 
 ### ME-46
 
@@ -885,11 +894,16 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Measure DB main/WAL/index growth, query/backfill latency, lock contention, service resource trends and retention impact. Use realistic bounded workloads and existing storage policy.
 - [ ] Acceptance: Report trends and separate transient peaks from leaks/bottlenecks; growth fits reserve; no SQLite replacement or hardware claim is based on a single snapshot.
-- [ ] Evidence: Batch 1 release/recovery capacity and cleanup were observed privately.
-  These are bounded qualification measurements, not a growth trend or evidence
-  for replacing storage. Batch 3 adds bounded population/storage and point
-  resource observations with separate timestamps and concurrent-workload limits.
-  The planned longitudinal workload study remains open.
+- [ ] Evidence: Batch 1 recovery and Batch 3 population/storage observations
+  retain their original limits. [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
+  adds one read-only SQLite main/WAL/index footprint and resource snapshot,
+  existing metrics-window memory ranges and checked encrypted backup
+  receipt sizes. Archive compression is not database growth. The disclosed
+  multi-page 48-second fail-closed control budget is an extrapolation, not a
+  current production latency regression. Longer database/WAL trends, lock
+  contention, write/backfill and retention impact remain unqualified.
+  [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
+  is PARTIAL; no replacement/timeout/DB migration follows from this readout.
 
 ### ME-49
 
@@ -1029,3 +1043,18 @@ synthetic or sanitized technical evidence.
   slow-route budgets, other pipeline stages and broad programme outcomes remain
   separate. The inventory is now 26 PLANNED, 6 GATED, 13 IN_PROGRESS,
   0 IMPLEMENTED, 4 VERIFIED and 1 DONE, totaling 50 items.
+
+- **2026-11-17 — Batch 5 initial observational qualification.** Evaluation
+  and operations; ME-45 PLANNED → IN_PROGRESS; ME-48 remains IN_PROGRESS.
+  Read-only natural aggregate and live paired catalogue observations passed
+  scoped integrity checks, without code or database modification. The former
+  cannot attribute a change to one consumer or match the time-of-day mix,
+  and the latter is an extra controlled load, not normal traffic. Capacity
+  captures one main/WAL/index footprint and existing resource/backup samples,
+  not a DB growth trend, lock profile or representative write/backfill result.
+  Keep [V-45](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-45)
+  and [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
+  PARTIAL. Do not widen the 48-second deadline, replace SQLite or claim
+  provider/CPU savings without new comparable evidence. New inventory:
+  25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED and 1 DONE
+  (50 total). No Batch 4 deliverable is reopened.
