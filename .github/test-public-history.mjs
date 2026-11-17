@@ -3,7 +3,12 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { checkRepository, inspectCommitMessage, hasAllowedHistoryIdentity, publishedMergeIdentityException } from "./check-public-data.mjs";
+import {
+  checkRepository,
+  inspectCommitMessage,
+  hasAllowedHistoryIdentity,
+  publishedMergeIdentityException,
+} from "./check-public-data.mjs";
 
 const root = mkdtempSync(path.join(tmpdir(), "contextkeep-public-history-"));
 const git = (args, options = {}) =>
@@ -158,29 +163,92 @@ function capturedCheck(args, directory) {
 // The already-public GitHub merge is an immutable grandfathered metadata
 // exception, not a general exception for a personal email or GitHub merges.
 assert.equal(
-  hasAllowedHistoryIdentity(publishedMergeIdentityException, 'legacy@example.com', 'github@example.com'),
+  hasAllowedHistoryIdentity(
+    publishedMergeIdentityException,
+    "legacy@example.com",
+    "github@example.com",
+  ),
   true,
 );
-for(const sha of ['0'.repeat(40), 'c23660d7aec68a4c93313c4731c4daf0492514a2']){
-  assert.equal(hasAllowedHistoryIdentity(sha,'legacy@example.com','github@example.com'),false);
+for (const sha of [
+  "0".repeat(40),
+  "c23660d7aec68a4c93313c4731c4daf0492514a2",
+]) {
+  assert.equal(
+    hasAllowedHistoryIdentity(sha, "legacy@example.com", "github@example.com"),
+    false,
+  );
 }
 assert.equal(
-  hasAllowedHistoryIdentity('0'.repeat(40),'runner@users.noreply.github.com','runner@users.noreply.github.com'),
+  hasAllowedHistoryIdentity(
+    "0".repeat(40),
+    "runner@users.noreply.github.com",
+    "runner@users.noreply.github.com",
+  ),
   true,
+);
+assert.equal(
+  hasAllowedHistoryIdentity(
+    "0".repeat(40),
+    "legacy@example.org@users.noreply.github.com",
+    "runner@users.noreply.github.com",
+  ),
+  false,
+);
+assert.equal(
+  hasAllowedHistoryIdentity(
+    "0".repeat(40),
+    "runner@users.noreply.github.com",
+    "legacy@example.org@users.noreply.github.com",
+  ),
+  false,
 );
 {
   const { directory } = fixtureRepository();
-  execFileSync('git',['commit','--allow-empty','-qm','Synthetic future non-noreply author'],{
-    cwd: directory, encoding:'utf8',
-    env:{...process.env,
-      GIT_AUTHOR_NAME:'Synthetic',
-      GIT_COMMITTER_NAME:'Synthetic',
-      GIT_AUTHOR_EMAIL:'legacy@example.com',
-      GIT_COMMITTER_EMAIL:'runner@users.noreply.github.com'}
-  });
-  const attempt=capturedCheck(['--history','HEAD'],directory);
-  assert.equal(attempt.code,1);
-  assert.ok(attempt.result.issues.some(x=>x.kind==='non-noreply-author'));
+  execFileSync(
+    "git",
+    ["commit", "--allow-empty", "-qm", "Synthetic future non-noreply author"],
+    {
+      cwd: directory,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Synthetic",
+        GIT_COMMITTER_NAME: "Synthetic",
+        GIT_AUTHOR_EMAIL: "legacy@example.com",
+        GIT_COMMITTER_EMAIL: "runner@users.noreply.github.com",
+      },
+    },
+  );
+  const attempt = capturedCheck(["--history", "HEAD"], directory);
+  assert.equal(attempt.code, 1);
+  assert.ok(attempt.result.issues.some((x) => x.kind === "non-noreply-author"));
+}
+{
+  const { directory } = fixtureRepository();
+  execFileSync(
+    "git",
+    [
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "Synthetic future non-noreply committer",
+    ],
+    {
+      cwd: directory,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Synthetic",
+        GIT_COMMITTER_NAME: "Synthetic",
+        GIT_AUTHOR_EMAIL: "runner@users.noreply.github.com",
+        GIT_COMMITTER_EMAIL: "legacy@example.com",
+      },
+    },
+  );
+  const attempt = capturedCheck(["--history", "HEAD"], directory);
+  assert.equal(attempt.code, 1);
+  assert.ok(attempt.result.issues.some((x) => x.kind === "non-noreply-author"));
 }
 
 {

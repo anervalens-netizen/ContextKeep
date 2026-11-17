@@ -58,7 +58,7 @@ export const publishedMergeIdentityException =
   'aae0f4c3be1c87763036f8643dfd8e169e08381a';
 
 export function hasAllowedHistoryIdentity(commit,author,committer){
-  const safe=(email)=>email.endsWith('@users.noreply.github.com');
+  const safe=(email)=>/^[A-Za-z0-9._%+-]+@users\.noreply\.github\.com$/.test(email);
   return (safe(author)&&safe(committer))||commit===publishedMergeIdentityException;
 }
 
