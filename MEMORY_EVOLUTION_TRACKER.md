@@ -18,13 +18,15 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after the Batch 5 initial read-only measurement: **50 items —
-25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
-ME-24 and ME-25 stay verified within their bounded release scope. ME-45 is
-now IN_PROGRESS, while ME-48 remains IN_PROGRESS. Their observational readouts
-are partial and do not qualify representative same-daypart/client-matched
-outcomes, long-term database growth, or high-contention write workloads.
-See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md).
+Current inventory after bounded Batch 6 operational pilots: **50 items —
+24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-24 and ME-25 remain verified. ME-27 moved to IN_PROGRESS after a known
+local executor telemetry cohort was deployed. ME-48 remains IN_PROGRESS after
+the primary's first read-only capacity observation and enabled hourly timer.
+ME-45 remains IN_PROGRESS. Matched natural outcomes, longitudinal database
+growth and isolated write/lock workload measurement remain open.
+See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
+and [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -227,7 +229,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
 | [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
 | [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
-| [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | PLANNED | P1 | W4 | Operations | ME-03 |
+| [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | IN_PROGRESS | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
 | [ME-29](#me-29) | Build an outcome-oriented usage readout | PLANNED | P1 | W4 | Evaluation | ME-03, ME-26, ME-27, ME-28 |
 | [ME-30](#me-30) | Pilot existing delta consumption safely | PLANNED | P1 | W4 | Integration | ME-03, ME-31 |
@@ -610,13 +612,19 @@ Dependencies: ME-01, ME-03 · Validation: [V-26](docs/plans/2026-11-16-memory-ev
 ### ME-27
 
 **Attribute consumers with bounded, trustworthy metadata**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Operations\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Operations\
 Dependencies: ME-03 · Validation: [V-27](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-27)
 
 - [ ] Scope: Introduce finite consumer classes and unknown buckets where useful. Use authenticated server identity for trust; caller clientId remains untrusted metadata. Validate cardinality and privacy.
 - [ ] Acceptance: Attribution strength is stated; spoofed clientId grants no authority; no raw IDs/queries/URLs in labels; catalogue-polling attribution can be tested prospectively.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Companion PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
+  passed exact-head reviews, CI and guarded live rollout. One known local
+  owner-health executor now emits fixed-schema private journal telemetry for
+  complete, compact and conditional catalogue results, sourced from its
+  own process rather than a declared clientId. Other clients share bearer
+  credentials and remain explicitly unattributed. The production-qualified
+  pilot does not complete server-wide trustworthy attribution or V-27.
+  See [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
 
 ### ME-28
 
@@ -904,13 +912,17 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
   contention, write/backfill and retention impact remain unqualified.
   [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
   is PARTIAL; no replacement/timeout/DB migration follows from this readout.
-  The optional source candidate [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
-  adds a single-primary, read-only capacity observer. Its review identified WAL
-  sidecar writes and restore-lock overlap; the follow-up source enforces a
-  read-only mount and the existing shared restore lease, with explicit file-only
-  observations during stopped-WAL conditions and bounded index scans. Candidate
-  tests and documentation do not establish deployment, an hourly trend, or
-  complete ME-48 qualification.
+  [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  passed independent reviews, CI and guarded primary installation. A single
+  read-only SQLite/WAL capacity observer produced its first genuine service
+  observation, and the hourly timer is enabled on the primary only. It
+  requires a read-only mount and shared restore lease; fails closed on
+  inaccessible/busy/truncated stores; and bounds expensive index scans.
+  Stopped WAL can produce a clearly partial file-only observation, not a
+  database integrity verdict. Additional actual scheduled hourly samples,
+  database/WAL growth trends and separate write-lock/backfill tests remain
+  unverified. [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md)
+  records these limits. ME-48 and V-48 stay partial.
 
 ### ME-49
 
@@ -1065,3 +1077,17 @@ synthetic or sanitized technical evidence.
   provider/CPU savings without new comparable evidence. New inventory:
   25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED and 1 DONE
   (50 total). No Batch 4 deliverable is reopened.
+
+- **2026-11-17 — Batch 6 bounded source attribution and capacity observer.**
+  The single known local catalogue consumer passed current-head review, CI,
+  guarded rollout and subsequent real scheduled journal readback in
+  [PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55).
+  The primary-only read-only SQLite observer passed current-head reviews,
+  CI, guarded installation and one first-run systemd SQLite/WAL observation
+  through [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31).
+  Its hourly timer is enabled; genuine later scheduled observations are
+  not yet verified. ME-27 moves to IN_PROGRESS; ME-48 remains IN_PROGRESS.
+  V-27/V-48 and the prospective V-45 outcome remain PARTIAL. No complete
+  database integrity proof, longitudinal trend, all-client identity or
+  hardware change is inferred. The 50-item inventory is now 24 PLANNED,
+  6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED and 1 DONE.

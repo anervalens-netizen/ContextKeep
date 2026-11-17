@@ -670,8 +670,16 @@ Status: **NOT RUN**
 ### V-27
 
 **ME-27 — Attribute consumers with bounded, trustworthy metadata**\
-Status: **NOT RUN**
+Status: **PARTIAL — one known local executor cohort deployed**
 
+- **Execution:** [Companion PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
+  passed current-head Codex/DSH reviews, CI, regressions and guarded live
+  release. A fixed-schema private journal event from the known local
+  owner-health executor was verified on real scheduled polling.
+  Self-declared clientId never authenticates the caller; other consumers
+  sharing the upstream MCP bearer remain unattributed. No server-wide
+  identity, end-to-end causal gain or full V-27 is claimed.
+  See [Batch 6](BATCH_6.md).
 - **Setup:** Use synthetic authenticated consumers, shared credentials, unknown
   callers and spoofed clientId values with many distinct declared strings.
 - **Action:** Observe attribution and metrics while checking authorization and
@@ -1024,11 +1032,13 @@ Status: **PARTIAL — read-only snapshot and limited historical range**
   or a memory leak. The 48-second conditional-consumer deadline is characterized
   analytically for one to five pages; high-page slow routes remain a synthetic
   validation and future-observation gate. See [Batch 5](BATCH_5.md).
-  The optional observer in [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
-  is a separate source candidate: tests cover effective read-only mounts,
-  shared restore lease exclusion, WAL/file-only observations and bounded index
-  scans. It cannot pass the longitudinal or isolated write/lock criteria before
-  scheduled deployment and measured observations.
+  The observer from [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  passed independent exact-head reviews and CI, followed by a guarded primary
+  installation. Its first actual systemd read-only observation of the live
+  SQLite/WAL store passed and the hourly timer is enabled. A first-run
+  service event is not two genuine scheduled hourly events, multi-day
+  database/index growth, full SQLite integrity or an isolated lock/backfill
+  workload. V-48 stays PARTIAL. See [Batch 6](BATCH_6.md).
 - **Setup:** Prepare realistic bounded synthetic read/write/backfill workloads
   with separate main-file, WAL, index and retention storage, including transient
   memory peaks and concurrent readers.
