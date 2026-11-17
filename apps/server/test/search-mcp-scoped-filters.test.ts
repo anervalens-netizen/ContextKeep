@@ -187,11 +187,25 @@ describe("ME-13 shared MCP scoped search filters", () => {
     );
   });
 
+  it("matches offset timestamps by inclusive UTC recorded day, not literal local day", async () => {
+    const { app, projectId, add } = await fixture();
+    const early = add({ recordedAt: "2024-02-28T22:00:00-02:00" });
+    const late = add({ recordedAt: "2024-03-01T01:59:59.999+02:00" });
+    const out = await mcp(app, {
+      projectId,
+      recordedFrom: day,
+      recordedTo: day,
+    });
+    expect(out.isError).not.toBe(true);
+    expect(ids(out.structuredContent.records)).toEqual([early, late].sort());
+    expect(out.structuredContent.records).toHaveLength(2);
+  });
+
   it("fails closed for reversed, malformed and unsupported inputs without business-state writes", async () => {
     const { app, projectId, add } = await fixture();
     add();
     const before = app.app.ck.deps.sqlite
-      .prepare("SELECT id, recorded_at FROM records ORDER BY id")
+      .prepare("SELECT * FROM records ORDER BY id")
       .all();
     for (const bad of [
       "",
@@ -226,7 +240,7 @@ describe("ME-13 shared MCP scoped search filters", () => {
     });
     expect(valid.isError).not.toBe(true);
     const after = app.app.ck.deps.sqlite
-      .prepare("SELECT id, recorded_at FROM records ORDER BY id")
+      .prepare("SELECT * FROM records ORDER BY id")
       .all();
     expect(after).toEqual(before);
   });

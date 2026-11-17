@@ -378,8 +378,8 @@ Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 - **Source test:** Bounded MCP search_context projectId, recordType,
   recordedFrom/recordedTo inclusive UTC recordedAt filters reuse HTTP
   selection and preserve working/canonical status. Synthetic tests include
-  same-day timezone boundaries, invalid/reversed dates, unsupported types,
-  legacy search and no business-state mutation. Full taskId/sourceId,
+  inclusive UTC-day boundaries (including offset timestamps), invalid/reversed
+  dates, unsupported types, legacy search and whole-row nonmutation. Full taskId/sourceId,
   source excerpt and explicit event/effective/verified time filters remain
   unimplemented; correctness has not been qualified for those scopes.
   [Batch 7](BATCH_7_SCOPED_SEARCH.md) retains open gates.

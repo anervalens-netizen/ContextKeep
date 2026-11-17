@@ -15,7 +15,9 @@ MCP without adding a query path or database index.
 Each date is an ISO calendar date and filters the UTC date of recordedAt.
 It does **not** filter sourceEventAt, effectiveFrom/effectiveTo, reviewedAt
 or project import time. Invalid calendar dates, reversed bounds, unsupported
-record types and undeclared parameters fail explicitly.
+record types and undeclared **MCP** parameters fail explicitly. The existing
+HTTP query schema may ignore undeclared keys; declared-filter selection parity
+is the contract tested here.
 
 Canonical accepted and working proposed reports remain separate arrays.
 Historical accepted content remains opt-in and may include superseded data.

@@ -493,12 +493,13 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readBrief(deps, input), BriefResult);
   define("get_project_timeline", "Read accepted and superseded history, newest first, with confirmed supersession links. SQL pagination; limit 1–50.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readTimeline(deps, input), TimelineResult);
-  define("search_context", "Search accepted (default), working or separate all; history opt-in. compact avoids duplicate canonical array. Effective taskState stays separate. recordType/from/to filter recordedAt UTC, not eventAt. Limit 1–15.",
+  const RecordedUtcDay = z.iso.date();
+  define("search_context", "scope=canonical|working|all (separate trust); includeHistorical opts into superseded. compact avoids a duplicate array; taskState is effective. recordType and recordedFrom/recordedTo (YYYY-MM-DD, inclusive UTC) filter recordedAt, not sourceEventAt/effectiveFrom/To. Limit 1–15.",
     z.strictObject({ q: z.string().trim().min(1).max(500), projectId: ProjectId.optional(),
       compact: z.boolean().optional(), match: z.enum(["terms", "phrase"]).default("terms"),
       scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false),
       recordType: RecordType.optional(),
-      recordedFrom: z.iso.date().optional(), recordedTo: z.iso.date().optional(),
+      recordedFrom: RecordedUtcDay.optional(), recordedTo: RecordedUtcDay.optional(),
       limit: z.number().int().min(1).max(15).default(10) }).refine(
         ({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo,
         { path: ["recordedTo"], message: "recordedFrom must be on or before recordedTo" },
