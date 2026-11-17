@@ -670,8 +670,15 @@ Status: **NOT RUN**
 ### V-27
 
 **ME-27 — Attribute consumers with bounded, trustworthy metadata**\
-Status: **NOT RUN**
+Status: **PARTIAL — one known local executor source contract**
 
+- **Source contract:** [Companion PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
+  implements finite local-executor classification with numeric result-size
+  buckets and negative controls. A shared bearer does not identify other
+  consumers; caller-supplied clientId grants no authority. Broader
+  authenticated attribution, retention and prospective matching remain
+  unqualified. Runtime evidence belongs in private ContextKeep memory.
+  See [Batch 6](BATCH_6.md).
 - **Setup:** Use synthetic authenticated consumers, shared credentials, unknown
   callers and spoofed clientId values with many distinct declared strings.
 - **Action:** Observe attribution and metrics while checking authorization and
@@ -1015,20 +1022,14 @@ Status: **NOT RUN**
 **ME-48 — Measure capacity before infrastructure changes**\
 Status: **PARTIAL — read-only snapshot and limited historical range**
 
-- **Execution:** One read-only SQLite page/free-list/index/WAL footprint and
-  host/process resource snapshot passed; a short window of existing process
-  memory telemetry and independently verified encrypted backup receipts
-  provides bounded context. No SQLite WAL checkpoint, write, backfill, migration
-  or load generator ran. Encrypted archive growth does not establish database
-  file growth, and one DB snapshot cannot identify persistent bloat, contention
-  or a memory leak. The 48-second conditional-consumer deadline is characterized
-  analytically for one to five pages; high-page slow routes remain a synthetic
-  validation and future-observation gate. See [Batch 5](BATCH_5.md).
-  The optional observer in [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
-  is a separate source candidate: tests cover effective read-only mounts,
-  shared restore lease exclusion, WAL/file-only observations and bounded index
-  scans. It cannot pass the longitudinal or isolated write/lock criteria before
-  scheduled deployment and measured observations.
+- **Source contract:** [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  supplies a bounded read-only SQLite main/WAL/index/volume observer with
+  shared restore exclusion, explicit partial file-only classification and
+  negative controls. This alone does not establish longitudinal database
+  growth, lock contention, write/backfill latency, retention effects or
+  complete SQLite integrity. Continue the [Batch 5](BATCH_5.md) evaluation
+  method and [Batch 6](BATCH_6.md) acceptance gates. Operational samples
+  and backup receipts are stored privately; V-48 stays PARTIAL.
 - **Setup:** Prepare realistic bounded synthetic read/write/backfill workloads
   with separate main-file, WAL, index and retention storage, including transient
   memory peaks and concurrent readers.

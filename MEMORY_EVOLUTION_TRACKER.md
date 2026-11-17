@@ -18,13 +18,15 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after the Batch 5 initial read-only measurement: **50 items —
-25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
-ME-24 and ME-25 stay verified within their bounded release scope. ME-45 is
-now IN_PROGRESS, while ME-48 remains IN_PROGRESS. Their observational readouts
-are partial and do not qualify representative same-daypart/client-matched
-outcomes, long-term database growth, or high-contention write workloads.
-See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md).
+Current inventory after Batch 6 source qualification: **50 items —
+24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-24 and ME-25 retain their bounded verified scopes. ME-27 is now
+IN_PROGRESS; ME-45 and ME-48 remain IN_PROGRESS. The broader attribution,
+prospective comparable outcome evaluation, longitudinal capacity assessment,
+and isolated write/lock workload gates remain open. Runtime observations and
+deployment receipts are stored privately in ContextKeep, not this tracker.
+See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
+and [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
@@ -227,7 +229,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
 | [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
 | [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
-| [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | PLANNED | P1 | W4 | Operations | ME-03 |
+| [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | IN_PROGRESS | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
 | [ME-29](#me-29) | Build an outcome-oriented usage readout | PLANNED | P1 | W4 | Evaluation | ME-03, ME-26, ME-27, ME-28 |
 | [ME-30](#me-30) | Pilot existing delta consumption safely | PLANNED | P1 | W4 | Integration | ME-03, ME-31 |
@@ -610,13 +612,18 @@ Dependencies: ME-01, ME-03 · Validation: [V-26](docs/plans/2026-11-16-memory-ev
 ### ME-27
 
 **Attribute consumers with bounded, trustworthy metadata**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Operations\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Operations\
 Dependencies: ME-03 · Validation: [V-27](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-27)
 
 - [ ] Scope: Introduce finite consumer classes and unknown buckets where useful. Use authenticated server identity for trust; caller clientId remains untrusted metadata. Validate cardinality and privacy.
 - [ ] Acceptance: Attribution strength is stated; spoofed clientId grants no authority; no raw IDs/queries/URLs in labels; catalogue-polling attribution can be tested prospectively.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Companion PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
+  defines a bounded source-attributed catalogue-consumer event with static
+  classification and numeric counts. Self-declared clientId is never
+  authoritative, and other shared-bearer consumers stay unclassified.
+  The source design and synthetic regression matrix inform
+  [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md);
+  runtime proofs and deployment identifiers remain private. V-27 stays PARTIAL.
 
 ### ME-28
 
@@ -894,23 +901,16 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Measure DB main/WAL/index growth, query/backfill latency, lock contention, service resource trends and retention impact. Use realistic bounded workloads and existing storage policy.
 - [ ] Acceptance: Report trends and separate transient peaks from leaks/bottlenecks; growth fits reserve; no SQLite replacement or hardware claim is based on a single snapshot.
-- [ ] Evidence: Batch 1 recovery and Batch 3 population/storage observations
-  retain their original limits. [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
-  adds one read-only SQLite main/WAL/index footprint and resource snapshot,
-  existing metrics-window memory ranges and checked encrypted backup
-  receipt sizes. Archive compression is not database growth. The disclosed
-  multi-page 48-second fail-closed control budget is an extrapolation, not a
-  current production latency regression. Longer database/WAL trends, lock
-  contention, write/backfill and retention impact remain unqualified.
-  [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
-  is PARTIAL; no replacement/timeout/DB migration follows from this readout.
-  The optional source candidate [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
-  adds a single-primary, read-only capacity observer. Its review identified WAL
-  sidecar writes and restore-lock overlap; the follow-up source enforces a
-  read-only mount and the existing shared restore lease, with explicit file-only
-  observations during stopped-WAL conditions and bounded index scans. Candidate
-  tests and documentation do not establish deployment, an hourly trend, or
-  complete ME-48 qualification.
+- [ ] Evidence: [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
+  records the bounded measurement method and stated limitations. The
+  [PR #31 observer](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  defines a read-only main/WAL/SHM/index sampling contract with fixed
+  classification, restore exclusion and bounded index scans. See
+  [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
+  Source checks are not a longitudinal growth trend or a write/lock
+  workload. Production observations and backup receipts are retained
+  privately; V-48 remains PARTIAL and no infrastructure replacement
+  follows from this source-only evidence.
 
 ### ME-49
 
@@ -1065,3 +1065,14 @@ synthetic or sanitized technical evidence.
   provider/CPU savings without new comparable evidence. New inventory:
   25 PLANNED, 6 GATED, 14 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED and 1 DONE
   (50 total). No Batch 4 deliverable is reopened.
+
+- **2026-11-17 — Batch 6 source qualification and programme status.**
+  [PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
+  and [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  contain the bounded executor-attribution and read-only capacity-observer
+  implementations and tests. ME-27 moves to IN_PROGRESS; ME-48 and
+  ME-45 stay IN_PROGRESS. V-27/V-48 and prospective V-45 remain PARTIAL,
+  pending the broader attributable cohorts, source-covered trend and
+  isolated backfill/lock contracts. The tracker remains 50 items:
+  24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.
+  Actual deployment state and recovery evidence are kept privately.
