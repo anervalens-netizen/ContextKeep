@@ -26,11 +26,20 @@ def nonnegative(value: object) -> int:
     return value
 
 
-def safe_size(path: Path) -> int:
+def sidecar_info(path: Path) -> os.stat_result | None:
+    """Do not follow sidecar symlinks or report external file sizes as WAL."""
     try:
-        return nonnegative(path.stat().st_size)
+        info = path.lstat()
     except FileNotFoundError:
-        return 0
+        return None
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise ValueError("Invalid SQLite sidecar")
+    return info
+
+
+def safe_size(path: Path) -> int:
+    info = sidecar_info(path)
+    return 0 if info is None else nonnegative(info.st_size)
 
 
 def _single_regular_file(path: Path) -> bool:
@@ -39,6 +48,23 @@ def _single_regular_file(path: Path) -> bool:
         return stat.S_ISREG(item.st_mode) and item.st_nlink == 1
     except FileNotFoundError:
         return False
+
+
+def _is_readable_quiescent_wal(database: Path) -> bool:
+    """Disambiguate a stopped WAL store from unreadable/invalid SQLite files.
+
+    A closed WAL store retains WAL read/write version flags in its main-file
+    header even when its -wal and -shm sidecars have been removed. The direct
+    read deliberately propagates PermissionError and other I/O failures;
+    file_only is not a success classification for an inaccessible database.
+    """
+    with database.open("rb") as stream:
+        header = stream.read(100)
+    return (
+        len(header) == 100
+        and header[:16] == b"SQLite format 3\x00"
+        and header[18:20] == b"\x02\x02"
+    )
 
 
 def sample(database: Path) -> dict[str, object]:
@@ -52,6 +78,8 @@ def sample(database: Path) -> dict[str, object]:
         raise ValueError("Invalid database configuration")
     if not _single_regular_file(database):
         raise ValueError("SQLite database missing or invalid")
+    if database.stat().st_size < 100:
+        raise ValueError("SQLite main file uninitialized or truncated")
     volume = os.statvfs(database.parent)
     if not volume.f_flag & os.ST_RDONLY:
         raise ValueError("Capacity observer requires a read-only filesystem mount")
@@ -110,13 +138,20 @@ def sample(database: Path) -> dict[str, object]:
             finally:
                 connection.close()
         except sqlite3.OperationalError as error:
-            # Fail closed on BUSY, LOCKED, IOERR or unclassified errors even
-            # when the database has no WAL sidecars. Only CANTOPEN with no
-            # sidecars is an eligible quiescent file-only observation.
+            # Busy/locked/IO errors and unclassified errors are not a
+            # stopped WAL store. A zero-length WAL is harmless if SHM is
+            # absent; any nonempty WAL or rollback journal refuses fallback.
             code = getattr(error, "sqlite_errorcode", None)
+            wal = sidecar_info(Path(str(database) + "-wal"))
+            shm = sidecar_info(Path(str(database) + "-shm"))
+            rollback = sidecar_info(Path(str(database) + "-journal"))
             if (type(code) is not int or (code & 0xFF) != sqlite3.SQLITE_CANTOPEN
-                    or Path(str(database) + "-wal").exists()
-                    or Path(str(database) + "-shm").exists()):
+                    or shm is not None or rollback is not None
+                    or (wal is not None and wal.st_size > 0)):
+                raise
+            # CANTOPEN alone is insufficient: permissions/invalid DB could
+            # also trigger it. Require readable SQLite magic + WAL header.
+            if not _is_readable_quiescent_wal(database):
                 raise
             query_available = False
             page_size = page_count = freelist = index_bytes = journal_mode = None

@@ -19,6 +19,12 @@ used by the supplied unit; configure
 CK_CAPACITY_DB=/absolute/path/to/actual/store.sqlite in host-private
 /etc/default/contextkeep-capacity-sample; instantiate
 the supplied systemd timer unit template for the existing service user.
+This command requires **Python 3.11 or newer** for the SQLite error-code
+classification, and a Linux host supporting the systemd security directives.
+Install the reviewed script root-owned, mode 0555, with a private root-readable
+environment file mode 0600; the unit User/Group instance must match the
+existing primary runtime account and retain read access to the store and the
+permanent directory-lease database. The unit logs to the private system journal.
 The supported command requires an **actually read-only mount namespace**.
 SQLite mode=ro alone can still create/update WAL or SHM sidecars, so running the
 Python entry point directly from a writable shell intentionally fails.
@@ -50,3 +56,11 @@ different times, the same runtime/database identity, and independent
 backup/restore integrity. Trend conclusions require representative days and
 separate write/lock workloads in an isolated fixture. Check journal retention
 before selecting a comparison window.
+
+File-only fallback requires a readable WAL-mode SQLite header and CANTOPEN,
+no SHM, no rollback journal and at most an empty WAL (zero bytes). Unreadable,
+truncated or invalid stores fail without an event. Sidecar symlinks/hard-links
+are rejected instead of reporting unrelated file sizes. The timer's shared
+restore lease can briefly block an exclusive restore attempt; stop the timer
+before a planned restore. A read transaction can delay writers on DELETE-mode
+stores, while the production WAL mode supports concurrent readers and writers.

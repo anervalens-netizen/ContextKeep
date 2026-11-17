@@ -148,6 +148,92 @@ class CapacitySamplerTests(unittest.TestCase):
         self.assertEqual(value["main_bytes"], len(before))
         self.assertEqual(self.db.read_bytes(), before)
 
+    def test_cantopen_without_wal_header_fails_closed(self):
+        # The synthetic fixture is DELETE-journal, not a stopped WAL DB.
+        original = sampler.sqlite3.connect
+        def cantopen(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location):
+                error = sqlite3.OperationalError("synthetic cannot open")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
+            return original(location, *args, **kwargs)
+        with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=cantopen):
+            with self.assertRaises(sqlite3.OperationalError):
+                sampler.sample(self.db)
+
+    def test_unreadable_wal_header_cannot_be_a_successful_file_only_sample(self):
+        writer = sqlite3.connect(self.db)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.commit()
+        writer.close()
+        original = sampler.sqlite3.connect
+        def cantopen(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location):
+                error = sqlite3.OperationalError("synthetic cannot open")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
+            return original(location, *args, **kwargs)
+        with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=cantopen):
+            with mock.patch.object(sampler.Path, "open", side_effect=PermissionError("unreadable fixture")):
+                with self.assertRaises(PermissionError):
+                    sampler.sample(self.db)
+
+    def test_zero_length_primary_is_never_a_successful_capacity_sample(self):
+        self.db.write_bytes(b"")
+        with self.read_only_namespace(), self.assertRaisesRegex(ValueError, "uninitialized"):
+            sampler.sample(self.db)
+
+    def test_sidecar_symlink_is_rejected_instead_of_leaking_another_file_size(self):
+        target = Path(self.temp.name) / "unrelated-fixture"
+        target.write_bytes(b"synthetic unrelated bytes")
+        Path(str(self.db) + "-wal").symlink_to(target)
+        with self.read_only_namespace(), self.assertRaisesRegex(ValueError, "Invalid SQLite sidecar"):
+            sampler.sample(self.db)
+
+    def test_empty_wal_sidecar_allows_qualified_quiescent_file_only(self):
+        writer = sqlite3.connect(self.db)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.commit()
+        writer.close()
+        wal = Path(str(self.db) + "-wal")
+        wal.write_bytes(b"")
+        original = sampler.sqlite3.connect
+        def stopped(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location):
+                error = sqlite3.OperationalError("synthetic stopped WAL")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
+            return original(location, *args, **kwargs)
+        with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=stopped):
+            value = sampler.sample(self.db)
+        self.assertEqual(value["observation"], "file_only")
+        self.assertEqual(value["wal_bytes"], 0)
+        self.assertTrue(wal.exists())
+        self.assertFalse(Path(str(self.db) + "-shm").exists())
+
+    def test_nonempty_wal_or_rollback_journal_blocks_file_only_fallback(self):
+        writer = sqlite3.connect(self.db)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.commit()
+        writer.close()
+        original = sampler.sqlite3.connect
+        def stopped(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location):
+                error = sqlite3.OperationalError("synthetic cannot open")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
+            return original(location, *args, **kwargs)
+        for suffix in ("-wal", "-journal"):
+            with self.subTest(suffix=suffix):
+                file = Path(str(self.db) + suffix)
+                file.write_bytes(b"synthetic nonempty sidecar")
+                try:
+                    with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=stopped):
+                        with self.assertRaises(sqlite3.OperationalError):
+                            sampler.sample(self.db)
+                finally:
+                    file.unlink()
+
     def test_busy_delete_store_never_falls_back_to_file_only(self):
         reader = sqlite3.connect(self.db, isolation_level=None, timeout=0)
         writer = sqlite3.connect(self.db, isolation_level=None, timeout=0)
