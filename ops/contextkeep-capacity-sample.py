@@ -51,20 +51,42 @@ def _single_regular_file(path: Path) -> bool:
 
 
 def _is_readable_quiescent_wal(database: Path) -> bool:
-    """Disambiguate a stopped WAL store from unreadable/invalid SQLite files.
+    """Validate a clean stopped WAL main file without writing its sidecars.
 
-    A closed WAL store retains WAL read/write version flags in its main-file
-    header even when its -wal and -shm sidecars have been removed. The direct
-    read deliberately propagates PermissionError and other I/O failures;
-    file_only is not a success classification for an inaccessible database.
+    The caller holds the application's shared restore lease and a true
+    read-only mount. This is a bounded schema check, not full data integrity.
     """
+    size = database.stat().st_size
     with database.open("rb") as stream:
-        header = stream.read(100)
-    return (
-        len(header) == 100
-        and header[:16] == b"SQLite format 3\x00"
-        and header[18:20] == b"\x02\x02"
-    )
+        header = stream.read(101)
+    if (len(header) != 101 or header[:16] != b"SQLite format 3\x00"
+            or header[18:20] != b"\x02\x02"):
+        return False
+    encoded_size = int.from_bytes(header[16:18], "big")
+    page_size = 65536 if encoded_size == 1 else encoded_size
+    if (not 512 <= page_size <= 65536 or page_size & (page_size - 1)
+            or header[100] not in (0x05, 0x0D)):
+        return False
+    header_pages = int.from_bytes(header[28:32], "big")
+    if header_pages < 1 or size != header_pages * page_size:
+        return False
+    # Mode=ro&immutable=1 opens the checkpointed main file without WAL/SHM
+    # creation. If its schema cannot be read, fail instead of file_only.
+    uri = "file:" + quote(str(database), safe="/") + "?mode=ro&immutable=1"
+    try:
+        readonly = sqlite3.connect(uri, uri=True, timeout=0.2)
+    except sqlite3.Error:
+        return False
+    try:
+        readonly.execute("PRAGMA query_only=ON")
+        count = readonly.execute(
+            "SELECT count(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
+        return type(count) is int and count > 0
+    except sqlite3.Error:
+        return False
+    finally:
+        readonly.close()
 
 
 def sample(database: Path) -> dict[str, object]:

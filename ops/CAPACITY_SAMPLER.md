@@ -57,10 +57,13 @@ backup/restore integrity. Trend conclusions require representative days and
 separate write/lock workloads in an isolated fixture. Check journal retention
 before selecting a comparison window.
 
-File-only fallback requires a readable WAL-mode SQLite header and CANTOPEN,
-no SHM, no rollback journal and at most an empty WAL (zero bytes). Unreadable,
-truncated or invalid stores fail without an event. Sidecar symlinks/hard-links
-are rejected instead of reporting unrelated file sizes. The timer's shared
-restore lease can briefly block an exclusive restore attempt; stop the timer
-before a planned restore. A read transaction can delay writers on DELETE-mode
-stores, while the production WAL mode supports concurrent readers and writers.
+File-only fallback requires CANTOPEN, no SHM or rollback journal, and at
+most an empty WAL. The readable main file must have a WAL-mode SQLite header,
+page size/count matching the full file length, a valid schema-page b-tree
+type, and a successful immutable read-only schema query. Truncated,
+inaccessible and header/schema-invalid files fail without an event. File-only
+is a partial filesystem observation, **not full SQLite data integrity**.
+Sidecar symlinks/hard-links are rejected rather than reporting unrelated file
+sizes. The timer's shared restore lease can briefly block an exclusive restore
+attempt; stop the timer before planned restores. A read transaction can delay
+writers on DELETE-mode stores; production WAL mode supports concurrent reads.

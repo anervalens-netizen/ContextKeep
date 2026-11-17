@@ -132,7 +132,7 @@ class CapacitySamplerTests(unittest.TestCase):
         before = self.db.read_bytes()
         real_connect = sampler.sqlite3.connect
         def stopped_open(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 error = sqlite3.OperationalError("readonly WAL has no shared memory")
                 error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
                 raise error
@@ -152,7 +152,7 @@ class CapacitySamplerTests(unittest.TestCase):
         # The synthetic fixture is DELETE-journal, not a stopped WAL DB.
         original = sampler.sqlite3.connect
         def cantopen(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 error = sqlite3.OperationalError("synthetic cannot open")
                 error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
                 raise error
@@ -168,7 +168,7 @@ class CapacitySamplerTests(unittest.TestCase):
         writer.close()
         original = sampler.sqlite3.connect
         def cantopen(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 error = sqlite3.OperationalError("synthetic cannot open")
                 error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
                 raise error
@@ -177,6 +177,36 @@ class CapacitySamplerTests(unittest.TestCase):
             with mock.patch.object(sampler.Path, "open", side_effect=PermissionError("unreadable fixture")):
                 with self.assertRaises(PermissionError):
                     sampler.sample(self.db)
+
+    def test_truncated_and_crafted_wal_mains_fail_file_only_validation(self):
+        writer = sqlite3.connect(self.db)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("INSERT INTO fixture (value) VALUES ('wal fixture')")
+        writer.commit()
+        writer.close()
+        original_bytes = self.db.read_bytes()
+        assert len(original_bytes) >= 4096
+        connection = sampler.sqlite3.connect
+        def failed_primary(location, *args, **kwargs):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
+                error = sqlite3.OperationalError("synthetic readonly cannot open")
+                error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+                raise error
+            return connection(location, *args, **kwargs)
+        forged = bytearray(original_bytes[:100] + b"\x00" * (4096 - 100))
+        forged[28:32] = (1).to_bytes(4, "big")
+        forged[100] = 0x0D
+        for label, blob in (("100-byte-main", original_bytes[:100]),
+                            ("512-byte-main", original_bytes[:512]),
+                            ("4096-byte-truncation", original_bytes[:4096]),
+                            ("forged-single-page", bytes(forged))):
+            with self.subTest(case=label):
+                self.db.write_bytes(blob)
+                with self.read_only_namespace(), mock.patch.object(
+                        sampler.sqlite3, "connect", side_effect=failed_primary):
+                    with self.assertRaises(sqlite3.OperationalError):
+                        sampler.sample(self.db)
+        self.db.write_bytes(original_bytes)
 
     def test_zero_length_primary_is_never_a_successful_capacity_sample(self):
         self.db.write_bytes(b"")
@@ -199,7 +229,7 @@ class CapacitySamplerTests(unittest.TestCase):
         wal.write_bytes(b"")
         original = sampler.sqlite3.connect
         def stopped(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 error = sqlite3.OperationalError("synthetic stopped WAL")
                 error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
                 raise error
@@ -218,7 +248,7 @@ class CapacitySamplerTests(unittest.TestCase):
         writer.close()
         original = sampler.sqlite3.connect
         def stopped(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 error = sqlite3.OperationalError("synthetic cannot open")
                 error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
                 raise error
@@ -249,7 +279,7 @@ class CapacitySamplerTests(unittest.TestCase):
     def test_unclassified_sqlite_error_fails_without_success_event(self):
         real_connect = sampler.sqlite3.connect
         def fake_open(location, *args, **kwargs):
-            if "fixture.sqlite?" in str(location):
+            if "fixture.sqlite?" in str(location) and "immutable=1" not in str(location):
                 raise sqlite3.OperationalError("unclassified synthetic I/O error")
             return real_connect(location, *args, **kwargs)
         with self.read_only_namespace(), mock.patch.object(sampler.sqlite3, "connect", side_effect=fake_open):
