@@ -1234,7 +1234,11 @@ export class ContextKeepMemoryService {
         taskStatus: record.taskStatus,
         ...(record.taskState ? { taskState: record.taskState } : {}),
         recordedAt: record.recordedAt,
-        observedAt: record.sourceEventAt ?? record.recordedAt,
+        observedAt: record.sourceEventAt,
+        sourceEventAt: record.sourceEventAt,
+        effectiveFrom: record.effectiveFrom,
+        effectiveTo: record.effectiveTo,
+        temporal: record.temporal,
         reviewedAt: record.reviewedAt,
         reviewDueAt: record.reviewDueAt,
         volatile: record.volatile,
@@ -1262,6 +1266,7 @@ export class ContextKeepMemoryService {
       compactSearchRecord(record, true),
     );
     return {
+      ranking: result.ranking,
       completeness: result.completeness,
       query: result.query,
       mode: "canonical",

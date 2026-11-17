@@ -18,8 +18,8 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 6 source qualification: **50 items —
-24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+Current inventory after bounded ME-06 / ME-08 source work: **50 items —
+22 PLANNED, 6 GATED, 17 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
 ME-24 and ME-25 retain their bounded verified scopes. ME-27 is now
 IN_PROGRESS; ME-45 and ME-48 remain IN_PROGRESS. The broader attribution,
 prospective comparable outcome evaluation, longitudinal capacity assessment,
@@ -208,9 +208,9 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-03](#me-03) | Define metric semantics and predeclare quality gates | IN_PROGRESS | P0 | W0 | Evaluation | ME-01, ME-02 |
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
-| [ME-06](#me-06) | Rank current observations and historical answers correctly | PLANNED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
+| [ME-06](#me-06) | Rank current observations and historical answers correctly | IN_PROGRESS | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
-| [ME-08](#me-08) | Define event, validity, capture and verification time | PLANNED | P0 | W1 | Backend | ME-01, ME-02 |
+| [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | PLANNED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | PLANNED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
@@ -352,13 +352,25 @@ Dependencies: ME-02 · Validation: [V-05](docs/plans/2026-11-16-memory-evolution
 ### ME-06
 
 **Rank current observations and historical answers correctly**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-06)
 
 - [ ] Scope: Make current-vs-historical intent, relevant evidence and freshness influence selection/ranking. Keep canonical and working results separate; avoid both newest-always-wins and accepted-always-wins rules.
 - [ ] Acceptance: Current migration scenarios return dated relevant evidence; old accepted constraints remain visible; history queries recover prior state; no proposed report becomes accepted.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence — 2026-11-17, development agent. The working-tree
+  candidate starts from `c4b31d7663a2f70774364a08aa01ed2cba50c447`.
+  Search opts into bounded lexical/temporal lanes with exact-ID priority,
+  current/historical RO/EN intent and an additive ranking explanation. Canonical,
+  working and explicit historical boundaries stay authoritative. Other internal
+  retrieval callers retain the existing scoring policy by default.
+  `apps/server/test/search-temporal.test.ts` passes 40 synthetic cases; the five
+  targeted search/evaluation files pass 68 tests. The original source fails both
+  FTS/LIKE saturation reproductions; the candidate passes both. The unchanged
+  63-case held-out corpus retains Recall@5/@10 0.8627, currentness 0.5385 and
+  abstention 0.6667 before/after, with zero provider calls. Its semantic gate
+  remains PILOT_WARRANTED. V-06 is PARTIAL. The frozen private matched comparison,
+  broader recall/resource gates, reviews, CI and release qualification remain
+  pending. This entry records source tests only; deployment is unverified.
 
 ### ME-07
 
@@ -374,13 +386,22 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
 ### ME-08
 
 **Define event, validity, capture and verification time**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-08)
 
 - [ ] Scope: Document temporal fields and missing-time behavior. Add freshness policy by evidence class, expiry/review handling and source-change revalidation without fabricating observation dates.
 - [ ] Acceptance: Late imports do not look like new observations; future/expired/superseded/conflicting evidence stays labeled; missing volatility tags are not interpreted as proof of freshness or staleness.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence — 2026-11-17, development agent. The same bounded source
+  candidate as ME-06 defines event/effective ranking time separately from capture
+  and review time. Search rejects malformed, future, expired and inverted validity
+  times for current bonuses, preserves fractional-instant ordering and keeps
+  unknown observation time null. MCP search exposes source/effective timestamps
+  and preserves proposal authority. Missing volatility tags cause no automatic
+  expiry. Search currentness cannot certify invalid/future events as current.
+  The 40-case synthetic temporal suite and targeted 68-test search/evaluation
+  suite pass. V-08 is PARTIAL. This search policy reuses existing operational
+  claim classification; broader evidence-class/revalidation policy, cross-surface
+  qualification and release/deployment evidence remain open.
 
 ### ME-09
 
@@ -1076,3 +1097,13 @@ synthetic or sanitized technical evidence.
   isolated backfill/lock contracts. The tracker remains 50 items:
   24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.
   Actual deployment state and recovery evidence are kept privately.
+
+- **2026-11-17 — Bounded ME-06 / ME-08 source candidate.** Development agent;
+  both items move PLANNED → IN_PROGRESS. Synthetic current/history selection,
+  authority, exact identifiers, temporal boundaries, saturated candidates and
+  read-only negative controls pass, with additive HTTP/MCP ranking metadata.
+  The existing held-out quality metrics are unchanged. V-06 and V-08 remain
+  PARTIAL pending the wider private evaluation and qualification gates. The
+  inventory is 22 PLANNED, 6 GATED, 17 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED,
+  1 DONE, totaling 50. No deployment is asserted. Dependency advisory work
+  remains a separate external blocker and audit settings are retained.
