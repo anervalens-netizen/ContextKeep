@@ -904,6 +904,13 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
   contention, write/backfill and retention impact remain unqualified.
   [V-48](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-48)
   is PARTIAL; no replacement/timeout/DB migration follows from this readout.
+  The optional source candidate [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  adds a single-primary, read-only capacity observer. Its review identified WAL
+  sidecar writes and restore-lock overlap; the follow-up source enforces a
+  read-only mount and the existing shared restore lease, with explicit file-only
+  observations during stopped-WAL conditions and bounded index scans. Candidate
+  tests and documentation do not establish deployment, an hourly trend, or
+  complete ME-48 qualification.
 
 ### ME-49
 

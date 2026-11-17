@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly ContextKeep read-only capacity sampling
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=90s
+Unit=contextkeep-capacity-sample@%i.service
+
+[Install]
+WantedBy=timers.target
