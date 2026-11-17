@@ -1024,6 +1024,11 @@ Status: **PARTIAL — read-only snapshot and limited historical range**
   or a memory leak. The 48-second conditional-consumer deadline is characterized
   analytically for one to five pages; high-page slow routes remain a synthetic
   validation and future-observation gate. See [Batch 5](BATCH_5.md).
+  The optional observer in [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
+  is a separate source candidate: tests cover effective read-only mounts,
+  shared restore lease exclusion, WAL/file-only observations and bounded index
+  scans. It cannot pass the longitudinal or isolated write/lock criteria before
+  scheduled deployment and measured observations.
 - **Setup:** Prepare realistic bounded synthetic read/write/backfill workloads
   with separate main-file, WAL, index and retention storage, including transient
   memory peaks and concurrent readers.

@@ -23,7 +23,7 @@
     "format:context-value": "prettier --check apps/server/src/services/context-selection.ts apps/server/src/services/context-packing.ts packages/shared/src/resume.ts apps/server/src/evals/context-value-resume.ts apps/server/src/services/context-budget.ts apps/server/src/services/sync-policy.ts apps/web/src/lib/offline/queue-policy.ts apps/web/src/lib/provenance-query.ts apps/web/src/components/useShellData.ts",
     "check:context-value": "node scripts/context-value-gates.mjs && pnpm lint:context-value && pnpm format:context-value",
     "check:audit": "node scripts/audit-quality-gates.mjs",
-    "test:ops": "python3 -m unittest discover -s ops -p \"test_recovery.py\" -v",
+    "test:ops": "python3 -m unittest discover -s ops -p \"test_*.py\" -v",
     "verify:nav": "pnpm --filter @contextkeep/web verify:nav",
     "verify:load": "node --import ./apps/server/node_modules/tsx/dist/esm/index.mjs apps/server/scripts/audit-large-project.ts",
     "check:privacy": "node .github/test-public-data.mjs && node .github/test-public-history.mjs && node .github/check-public-data.mjs",
