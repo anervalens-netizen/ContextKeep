@@ -262,7 +262,7 @@ Executed coverage: blocked-to-done progress, explicit terminal precedence,
 ### V-06
 
 **ME-06 — Rank current observations and historical answers correctly**\
-Status: **NOT RUN**
+Status: **PARTIAL**
 
 - **Setup:** Model a synthetic service moving between runtimes, with old accepted
   observations, newer proposed evidence and an older still-binding constraint.
@@ -273,6 +273,18 @@ Status: **NOT RUN**
   prior state. Neither recency nor acceptance alone determines truth.
 - **Retain:** Ranked identities, evidence/time labels, candidate diagnostics,
   baseline comparison and unresolved or conflicting answers.
+
+- **2026-11-17 source result.** Development agent. The working-tree source
+  candidate qualifies the bounded search implementation starting at
+  `c4b31d7663a2f70774364a08aa01ed2cba50c447`. Forty synthetic temporal cases and
+  68 targeted search/evaluation tests pass. The two FTS/LIKE saturated-observation
+  reproductions fail on the original search source and pass on the candidate.
+  The frozen public 63-case evaluation retains Recall@5/@10 0.8627, currentness
+  0.5385 and abstention 0.6667 before/after. Zero provider calls are made. The
+  existing semantic gate remains PILOT_WARRANTED. Private corpus evaluation,
+  resource/recall qualification, reviews, CI and release gates remain pending.
+  Candidate saturation exposes narrower-filter recovery, with at most 200
+  scored candidates per authority bucket. Deployment is unverified.
 
 ### V-07
 
@@ -294,7 +306,7 @@ Status: **NOT RUN**
 ### V-08
 
 **ME-08 — Define event, validity, capture and verification time**\
-Status: **NOT RUN**
+Status: **PARTIAL**
 
 - **Setup:** Use a fixed clock with an old event imported later, future-effective
   evidence, an expired fact, a superseded claim and an observation lacking event
@@ -304,6 +316,16 @@ Status: **NOT RUN**
   superseded and unknown states remain explicit. Missing tags alone prove neither
   freshness nor staleness; verification time retains its distinct meaning.
 - **Retain:** Temporal truth table, selected timestamp basis and boundary outputs.
+
+- **2026-11-17 source result.** The same bounded source candidate as V-06 passes
+  synthetic late-import, null event, effective-start fallback, review-time,
+  missing-volatility, invalid/future event, expired/inverted validity, UTC offset
+  and fractional-boundary checks. In-process HTTP and MCP compact/compatibility
+  search retain distinct time fields and proposal provenance. `observedAt` is
+  null when `sourceEventAt` is null. Capture/review dates provide no current-time
+  bonus. Scope, history-toggle and no-business-write negative controls pass.
+  This is a search-only policy. The wider evidence-class/revalidation and
+  cross-surface gates remain open. Deployment is unverified.
 
 ### V-09
 
