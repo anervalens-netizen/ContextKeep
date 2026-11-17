@@ -493,9 +493,16 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readBrief(deps, input), BriefResult);
   define("get_project_timeline", "Read accepted and superseded history, newest first, with confirmed supersession links. SQL pagination; limit 1–50.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readTimeline(deps, input), TimelineResult);
-  define("search_context", "Search canonical (default), proposed agent reports (working), or separately labeled arrays (all). Preserve status/provenance/timestamps; never blend working into truth. Current task hits add taskState with progress provenance and a read-only resume pointer; taskStatus stays original. Prefer compact=true to return canonical data once in records. Default compatibility mode also includes canonicalRecords. Historical canonical content is opt-in. Limit 1–15.",
+  define("search_context", "Search accepted (default), working or separate all; history opt-in. compact avoids duplicate canonical array. Effective taskState stays separate. recordType/from/to filter recordedAt UTC, not eventAt. Limit 1–15.",
     z.strictObject({ q: z.string().trim().min(1).max(500), projectId: ProjectId.optional(),
-      compact: z.boolean().optional(), match: z.enum(["terms", "phrase"]).default("terms"), scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false), limit: z.number().int().min(1).max(15).default(10) }), true,
+      compact: z.boolean().optional(), match: z.enum(["terms", "phrase"]).default("terms"),
+      scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false),
+      recordType: RecordType.optional(),
+      recordedFrom: z.iso.date().optional(), recordedTo: z.iso.date().optional(),
+      limit: z.number().int().min(1).max(15).default(10) }).refine(
+        ({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo,
+        { path: ["recordedTo"], message: "recordedFrom must be on or before recordedTo" },
+      ), true,
     (input) => service.searchContext(context, input), McpSearchResultDto);
   define("get_record", "Read one record with paged evidence. Accepted-only by default; includeUnreviewed explicitly opts into proposed reports. Preserve provenance and review status.",
     z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,

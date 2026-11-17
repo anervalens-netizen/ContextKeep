@@ -28,6 +28,14 @@ deployment receipts are stored privately in ContextKeep, not this tracker.
 See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
 and [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
 
+Current inventory after the scoped-search Batch 7 source candidate: **50 items —
+23 PLANNED, 6 GATED, 16 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-13 moves to IN_PROGRESS for the bounded project/type/recordedAt MCP
+filtering subset. Task/source/observation time scope, the candidate search
+evaluation, and final reviewed release remain open. Earlier completed
+scope is preserved.
+See [Batch 7](docs/plans/2026-11-16-memory-evolution/BATCH_7_SCOPED_SEARCH.md).
+
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
 contracts. It is not a production status report.
@@ -215,7 +223,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-10](#me-10) | Add budgeted search summaries | PLANNED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | PLANNED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | PLANNED | P1 | W2 | Retrieval | ME-10, ME-11 |
-| [ME-13](#me-13) | Expose scoped filters through MCP | PLANNED | P1 | W2 | Backend | ME-02 |
+| [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
 | [ME-14](#me-14) | Index detailed sources and excerpts with FTS | PLANNED | P1 | W2 | Retrieval | ME-02, ME-13 |
 | [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
 | [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
@@ -431,13 +439,19 @@ Dependencies: ME-10, ME-11 · Validation: [V-12](docs/plans/2026-11-16-memory-ev
 ### ME-13
 
 **Expose scoped filters through MCP**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-02 · Validation: [V-13](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-13)
 
 - [ ] Scope: Add project/task/date/type/source filters using existing backend behavior where possible. Specify whether each date is event, valid, import or write time.
 - [ ] Acceptance: Filtering, counts, pagination and snippets respect selected scope; missing/invalid filters are explicit; current clients preserve documented defaults.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 7 scoped-filter contract](docs/plans/2026-11-16-memory-evolution/BATCH_7_SCOPED_SEARCH.md)
+  uses the already qualified HTTP backend for project scope, record type and
+  recordedAt UTC-day intervals through the MCP search_context tool.
+  Strict ISO date and inclusive-range validation, canonical/working truth
+  separation, legacy defaults and bounded completeness have synthetic
+  tests. The source-only candidate does not yet expose explicit taskId,
+  source/excerpt or event/effective time filters. These distinct scope
+  contracts remain open, and V-13 is PARTIAL until full qualification.
 
 ### ME-14
 

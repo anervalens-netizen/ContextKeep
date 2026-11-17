@@ -373,8 +373,16 @@ Status: **NOT RUN**
 ### V-13
 
 **ME-13 — Expose scoped filters through MCP**\
-Status: **NOT RUN**
+Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 
+- **Source test:** Bounded MCP search_context projectId, recordType,
+  recordedFrom/recordedTo inclusive UTC recordedAt filters reuse HTTP
+  selection and preserve working/canonical status. Synthetic tests include
+  same-day timezone boundaries, invalid/reversed dates, unsupported types,
+  legacy search and no business-state mutation. Full taskId/sourceId,
+  source excerpt and explicit event/effective/verified time filters remain
+  unimplemented; correctness has not been qualified for those scopes.
+  [Batch 7](BATCH_7_SCOPED_SEARCH.md) retains open gates.
 - **Setup:** Use projects with similar names, separate tasks, multiple record
   types and sources whose event, validity and import dates differ.
 - **Action:** Combine project/task/date/type/source filters through MCP; include

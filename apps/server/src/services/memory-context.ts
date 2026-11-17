@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import type { ContextDiagnosticReason, EvidenceDto } from "@contextkeep/shared";
+import type { ContextDiagnosticReason, EvidenceDto, RecordType } from "@contextkeep/shared";
 import { handoffs, projects, records } from "../db/schema.js";
 import { workspaceBindings } from "../db/workspace-schema.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
@@ -1181,6 +1181,9 @@ export class ContextKeepMemoryService {
       includeHistorical?: boolean;
       match?: "terms" | "phrase";
       scope?: "canonical" | "working" | "all";
+      recordType?: RecordType;
+      recordedFrom?: string;
+      recordedTo?: string;
       limit?: number;
     },
   ): Record<string, unknown> {
@@ -1192,6 +1195,9 @@ export class ContextKeepMemoryService {
       match: input.match ?? "terms",
       scope: input.scope ?? "canonical",
       projectId,
+      type: input.recordType,
+      recordedFrom: input.recordedFrom,
+      recordedTo: input.recordedTo,
       includeHistorical: input.includeHistorical === true,
       limit,
     });
