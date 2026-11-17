@@ -14,12 +14,33 @@ service-health verdict. Failure/missing samples must remain visible.
 
 The unit files in ops/systemd/ are templates, not enabled by checkout.
 For a qualified single-primary installation, install the reviewed Python file
-at a stable private system path; configure
+at the exact path /usr/local/libexec/contextkeep/capacity-sample.py
+used by the supplied unit; configure
 CK_CAPACITY_DB=/absolute/path/to/actual/store.sqlite in host-private
 /etc/default/contextkeep-capacity-sample; instantiate
 the supplied systemd timer unit template for the existing service user.
-The sample unit runs unprivileged and read-only with no network activity.
-Do not configure this on a passive standby or conflicting writer.
+The supported command requires an **actually read-only mount namespace**.
+SQLite mode=ro alone can still create/update WAL or SHM sidecars, so running the
+Python entry point directly from a writable shell intentionally fails.
+The sample acquires the **existing shared SQLite directory lease** before
+opening the primary database and holds it through file-size observations;
+exclusive restore blocks a sample. Missing lock database, invalid path or
+locked restore fails closed. The systemd template runs unprivileged with
+ProtectSystem=strict, IPAddressDeny=any and RestrictAddressFamilies=AF_UNIX.
+Verify sandbox mount flags and real WAL sidecar immutability in a live test.
+
+When a **stopped WAL primary** has no shared-memory sidecar, the hardened
+read-only namespace may refuse to open SQLite. In that case, a file-only
+observation reports main/WAL/SHM file sizes and free space but sets logical
+page, index and journal-mode values to null, with observation=file_only;
+this is **not** a successful SQLite integrity check. Busy/locked restores
+must still fail without an event. An index dbstat scan is performed only
+when the logical store is at most 256 MiB; larger databases retain exact
+file/page sizes but index_bytes=null with index_measurement explicitly
+skipped_large_database. This bounds the shared-lock holding time; it does
+not measure write-lock contention or query latency.
+Do not enable on a passive standby or while restoring a non-cooperating legacy
+database without further review.
 
 Local synthetic verification:
     python3 -B -m unittest ops/test_capacity_sample.py -v

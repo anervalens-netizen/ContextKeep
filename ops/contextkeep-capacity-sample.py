@@ -11,11 +11,13 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import sys
 from urllib.parse import quote
 
 EVENT = "contextkeep_sqlite_capacity_v1"
 MAX_DB_PATH = 4096
+MAX_DBSTAT_DATABASE_BYTES = 256 * 1024 * 1024
 
 
 def nonnegative(value: object) -> int:
@@ -31,57 +33,116 @@ def safe_size(path: Path) -> int:
         return 0
 
 
+def _single_regular_file(path: Path) -> bool:
+    try:
+        item = path.lstat()
+        return stat.S_ISREG(item.st_mode) and item.st_nlink == 1
+    except FileNotFoundError:
+        return False
+
+
 def sample(database: Path) -> dict[str, object]:
-    """One bounded, read-only metadata observation; absence fails, never writes."""
+    """Read-only snapshot with the existing restore exclusion lease held.
+
+    Production requires a genuinely read-only mount namespace, not merely a
+    SQLite read-only URI. This prevents WAL/SHM creation or updates, even when
+    the last writer has closed and SQLite would otherwise create sidecars.
+    """
     if not database.is_absolute() or len(str(database)) > MAX_DB_PATH:
         raise ValueError("Invalid database configuration")
-    if database.is_symlink() or not database.is_file():
+    if not _single_regular_file(database):
         raise ValueError("SQLite database missing or invalid")
-    # SQLite URI quotes arbitrary path characters, preventing query injection.
-    uri = "file:" + quote(str(database), safe="/") + "?mode=ro"
-    connection = sqlite3.connect(uri, uri=True, timeout=0.5)
+    volume = os.statvfs(database.parent)
+    if not volume.f_flag & os.ST_RDONLY:
+        raise ValueError("Capacity observer requires a read-only filesystem mount")
+    # The application and restore both coordinate through this permanent
+    # SQLite DELETE-journal lock database. A concurrent exclusive restore
+    # prevents acquiring the shared lease and must fail the sample closed.
+    lease_file = database.parent / ".contextkeep-lock.sqlite"
+    if not _single_regular_file(lease_file):
+        raise ValueError("Shared database directory lease unavailable")
+    def uri(path: Path) -> str:
+        return "file:" + quote(str(path), safe="/") + "?mode=ro"
+    lease = sqlite3.connect(uri(lease_file), uri=True, timeout=0.05)
     try:
-        connection.execute("PRAGMA query_only=ON")
-        page_size = nonnegative(connection.execute("PRAGMA page_size").fetchone()[0])
-        page_count = nonnegative(connection.execute("PRAGMA page_count").fetchone()[0])
-        freelist = nonnegative(connection.execute("PRAGMA freelist_count").fetchone()[0])
-        if not 512 <= page_size <= 65536 or page_count < freelist:
-            raise ValueError("Invalid SQLite page counters")
-        journal_mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
-        if journal_mode not in ("wal", "delete", "truncate", "persist", "memory", "off"):
-            raise ValueError("Invalid SQLite journal mode")
-        # dbstat is optional; never confuse an unavailable index value with zero.
-        index_bytes: int | None = None
+        lease.execute("PRAGMA query_only=ON")
+        lease.execute("BEGIN")
+        lease.execute("SELECT COUNT(*) FROM directory_lease").fetchone()
+        # Keep the lease through every logical and filesystem observation,
+        # so a restore cannot replace the pathname mid-sample. A quiescent
+        # WAL store may lack SHM and cannot be opened on the read-only mount.
+        # Emit an explicit file-only observation rather than fabricating
+        # logical SQLite counters or silently leaving a gap in storage trend.
+        page_size = page_count = freelist = index_bytes = journal_mode = None
+        query_available = False
+        index_measurement = "unavailable"
         try:
-            value = connection.execute(
-                "SELECT COALESCE(SUM(pgsize),0) FROM dbstat "
-                "WHERE name IN (SELECT name FROM sqlite_master WHERE type='index')"
-            ).fetchone()[0]
-            index_bytes = nonnegative(value)
-        except sqlite3.Error:
-            pass
+            connection = sqlite3.connect(uri(database), uri=True, timeout=0.5)
+            try:
+                connection.execute("PRAGMA query_only=ON")
+                page_size = nonnegative(connection.execute("PRAGMA page_size").fetchone()[0])
+                page_count = nonnegative(connection.execute("PRAGMA page_count").fetchone()[0])
+                freelist = nonnegative(connection.execute("PRAGMA freelist_count").fetchone()[0])
+                if not 512 <= page_size <= 65536 or page_count < freelist:
+                    raise ValueError("Invalid SQLite page counters")
+                journal_mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+                if journal_mode not in ("wal", "delete", "truncate", "persist", "memory", "off"):
+                    raise ValueError("Invalid SQLite journal mode")
+                query_available = True
+                # A dbstat scan visits index pages. Bound the total logical
+                # database bytes to avoid holding the shared restore lease
+                # for unbounded time as a store grows.
+                if page_count * page_size > MAX_DBSTAT_DATABASE_BYTES:
+                    index_measurement = "skipped_large_database"
+                else:
+                    try:
+                        value = connection.execute(
+                            "SELECT COALESCE(SUM(pgsize),0) FROM dbstat "
+                            "WHERE name IN (SELECT name FROM sqlite_master WHERE type='index')"
+                        ).fetchone()[0]
+                        index_bytes = nonnegative(value)
+                        index_measurement = "measured"
+                    except sqlite3.Error:
+                        index_measurement = "dbstat_unavailable"
+            finally:
+                connection.close()
+        except sqlite3.OperationalError:
+            # Do not hide a locked, busy or damaged running database; only a
+            # fully absent WAL/SHM quiescent case can produce file-only status.
+            if (Path(str(database) + "-wal").exists()
+                    or Path(str(database) + "-shm").exists()):
+                raise
+            query_available = False
+            page_size = page_count = freelist = index_bytes = journal_mode = None
+            index_measurement = "unavailable"
+        free_bytes = nonnegative(volume.f_bavail * volume.f_frsize)
+        total_bytes = nonnegative(volume.f_blocks * volume.f_frsize)
+        if total_bytes == 0 or free_bytes > total_bytes:
+            raise ValueError("Invalid volume counters")
+        sizes = {name: safe_size(path) for name, path in (
+            ("main", database), ("wal", Path(str(database) + "-wal")),
+            ("shm", Path(str(database) + "-shm"))
+        )}
+        return {
+            "event": EVENT,
+            "source": "local_readonly_sqlite" if query_available else "local_readonly_filesystem",
+            "observation": "sqlite" if query_available else "file_only",
+            "captured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "main_bytes": sizes["main"],
+            "wal_bytes": sizes["wal"],
+            "shm_bytes": sizes["shm"],
+            "page_bytes": page_size,
+            "pages": page_count,
+            "free_pages": freelist,
+            "index_bytes": index_bytes,
+            "index_measurement": index_measurement,
+            "fs_available_bytes": free_bytes,
+            "fs_total_bytes": total_bytes,
+            "journal_mode": journal_mode,
+        }
+
     finally:
-        connection.close()
-    fs = os.statvfs(database.parent)
-    free_bytes = nonnegative(fs.f_bavail * fs.f_frsize)
-    total_bytes = nonnegative(fs.f_blocks * fs.f_frsize)
-    if total_bytes == 0 or free_bytes > total_bytes:
-        raise ValueError("Invalid volume counters")
-    return {
-        "event": EVENT,
-        "source": "local_readonly_sqlite",
-        "captured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "main_bytes": safe_size(database),
-        "wal_bytes": safe_size(Path(str(database) + "-wal")),
-        "shm_bytes": safe_size(Path(str(database) + "-shm")),
-        "page_bytes": page_size,
-        "pages": page_count,
-        "free_pages": freelist,
-        "index_bytes": index_bytes,
-        "fs_available_bytes": free_bytes,
-        "fs_total_bytes": total_bytes,
-        "journal_mode": journal_mode,
-    }
+        lease.close()
 
 
 def main() -> int:

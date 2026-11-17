@@ -62,6 +62,11 @@ configuration before reload, then verify `up` and real
 available comparison window; enabling scraping does not backfill history.
 Keep task, run, user and request IDs, arguments and result text out of labels.
 
+For optional hourly SQLite main/WAL/index and volume-capacity observations,
+see [the bounded read-only capacity sampler](../ops/CAPACITY_SAMPLER.md).
+It is installed only on the single primary with a host-private database path;
+a checkout or an enabled metrics scrape does not enable it.
+
 ## Startup and recovery invariants
 
 Startup claims the single-primary writer before migrations or recovery. A
