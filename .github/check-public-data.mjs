@@ -49,6 +49,19 @@ export function inspectCommitMessage(commit,text=''){
  return detectors;
 }
 
+// Single immutable public merge grandfathered after GitHub published a
+// non-noreply author. This exception accepts exactly ONE already-public
+// commit hash, never an email/domain, future commit or private file content.
+// A force-rewrite cannot erase GitHub pull refs and would invalidate downstream
+// evidence. Keep full history scanning; this one-off exception is auditable.
+export const publishedMergeIdentityException =
+  'aae0f4c3be1c87763036f8643dfd8e169e08381a';
+
+export function hasAllowedHistoryIdentity(commit,author,committer){
+  const safe=(email)=>email.endsWith('@users.noreply.github.com');
+  return (safe(author)&&safe(committer))||commit===publishedMergeIdentityException;
+}
+
 const GIT_MAX_BUFFER=8*1024*1024;
 class GitCheckError extends Error{constructor(kind){super(kind);this.kind=kind;}}
 const git=(args,options={})=>{
@@ -71,8 +84,19 @@ function checkRepositoryUnsafe(args,repository){
   if(!/^[A-Za-z0-9_./-]+$/.test(ref)||ref.startsWith('-'))throw new GitCheckError('invalid-git-reference');
   const roots=git(['rev-list','--max-parents=0',ref],{...gitOptions,encoding:'utf8'}).trim().split('\n').filter(Boolean);
   if(roots.length!==1||git(['log','-1','--format=%s',roots[0]],{...gitOptions,encoding:'utf8'}).trim()!=='Publish sanitized public source baseline')issues.push({path:'<history>',kind:'legacy-history',line:1});
-  const metadata=git(['log','--format=%ae%n%ce',ref],{...gitOptions,encoding:'utf8'}).trim().split('\n');
-  if(metadata.some(email=>!email.endsWith('@users.noreply.github.com')))issues.push({path:'<history>',kind:'non-noreply-author',line:1});
+  // Per-commit metadata is required so the immutable GitHub merge exception
+  // cannot become an exception for any other actor or later GitHub merge.
+  const metadata=git(['log','--format=%H%x00%ae%x00%ce',ref],{...gitOptions,encoding:'utf8'}).trim().split('\n');
+  let invalidIdentity=false;
+  for(const row of metadata){
+    const pieces=row.split('\0');
+    if(pieces.length!==3||!/^[a-f0-9]{40}$/.test(pieces[0])||
+       !pieces[1]||!pieces[2]||!hasAllowedHistoryIdentity(...pieces)){
+      invalidIdentity=true;
+      break;
+    }
+  }
+  if(invalidIdentity)issues.push({path:'<history>',kind:'non-noreply-author',line:1});
   const commits=git(['rev-list',ref],{...gitOptions,encoding:'utf8'}).trim().split('\n').filter(Boolean);
   for(const commit of commits){
    const record=git(['show','-s','--format=%H%x00%B',commit],{...gitOptions,encoding:'utf8'}).toString();

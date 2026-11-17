@@ -67,6 +67,11 @@ see [the bounded read-only capacity sampler](../ops/CAPACITY_SAMPLER.md).
 It is installed only on the single primary with a host-private database path;
 a checkout or an enabled metrics scrape does not enable it.
 
+Public Git history identity safeguards are documented in
+[the strict commit identity policy](PUBLIC_GIT_IDENTITY.md).
+The historical GitHub PR merge exception is constrained to one immutable
+commit; no future author/committer identity is exempt.
+
 ## Startup and recovery invariants
 
 Startup claims the single-primary writer before migrations or recovery. A
