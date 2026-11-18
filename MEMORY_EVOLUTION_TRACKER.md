@@ -64,6 +64,24 @@ records the synthetic comparison, local gates and remaining limits. Current
 inventory: **50 items — 18 PLANNED, 6 GATED, 19 IN_PROGRESS, 2 IMPLEMENTED,
 4 VERIFIED, 1 DONE.**
 
+### Consolidated release candidate
+
+[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) now targets
+`main` and includes the source from PRs #33–#35. The synthetic
+regressions cover a valid recent observation displaced by temporal slot
+reservation in both FTS and LIKE, exact identifiers next to sentence
+punctuation, and matching currentness across search and record detail.
+The item-level acceptance statuses above still apply.
+
+Qualify this candidate as one release. Check the frozen private recall
+comparison and document remaining FTS and LIKE saturation gaps. Check
+search-to-detail currentness and evidence recovery, serialized budget limits,
+catalogue and legacy-client compatibility, and restoration of the compatible
+runtime and database. Record CI and review for the integration head. Synthetic
+results can qualify the source contracts. Representative private recall,
+authenticated runtime readback, recovery, and post-release traffic observations
+each require their own evidence.
+
 ### Programme delivery order
 
 Continue from the latest qualified scope and its evidence. This sequence guides

@@ -1,4 +1,4 @@
-import { compareInstants } from "./instant.js";
+import { compareInstants, observationEligibility } from "./instant.js";
 import { z } from "zod";
 import type { SearchTemporalDto } from "@contextkeep/shared";
 import {
@@ -20,31 +20,9 @@ export function searchTemporal(
         ? "effective_from"
         : "unknown";
   const rankTime = row.sourceEventAt ?? row.effectiveFrom;
-  // Review time is not an observation or validity boundary. A malformed
-  // reviewDueAt cannot erase an independently valid sourceEventAt.
-  const times = [
-    row.sourceEventAt,
-    row.effectiveFrom,
-    row.effectiveTo,
-  ].filter((time) => time !== null);
+  const eligibility = observationEligibility(row, nowIso);
   const invalidReviewTime = row.reviewDueAt !== null &&
     !instant.safeParse(row.reviewDueAt).success;
-  let eligibility: SearchTemporalDto["eligibility"] = "unknown";
-  if (
-    times.some((time) => !instant.safeParse(time).success) ||
-    (row.effectiveFrom !== null &&
-      row.effectiveTo !== null &&
-      compareInstants(row.effectiveFrom, row.effectiveTo) >= 0)
-  )
-    eligibility = "invalid";
-  else if (
-    (row.sourceEventAt && compareInstants(row.sourceEventAt, nowIso) > 0) ||
-    (row.effectiveFrom && compareInstants(row.effectiveFrom, nowIso) > 0)
-  )
-    eligibility = "future";
-  else if (row.effectiveTo && compareInstants(row.effectiveTo, nowIso) <= 0)
-    eligibility = "expired";
-  else if (rankTime !== null) eligibility = "dated";
   const operational = isCurrentStateClaim(row);
   const overdue =
     row.volatile === 1 || row.volatile === true

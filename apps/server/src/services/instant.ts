@@ -1,3 +1,6 @@
+import { z } from "zod";
+import type { SearchTemporalDto } from "@contextkeep/shared";
+
 /**
  * Order ISO instants without rounding fractional seconds to milliseconds. UTC
  * and numeric offsets (including minute-only times) share a UTC seconds key;
@@ -25,4 +28,29 @@ export function compareInstants(a: string, b: string): number {
   const left = instantKey(a);
   const right = instantKey(b);
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+const verifiedObservationInstant = z.iso.datetime({ offset: true });
+
+export function observationEligibility(
+  { sourceEventAt, effectiveFrom, effectiveTo }: {
+    sourceEventAt: string | null;
+    effectiveFrom: string | null;
+    effectiveTo: string | null;
+  },
+  nowIso: string,
+): SearchTemporalDto["eligibility"] {
+  const times = [sourceEventAt, effectiveFrom, effectiveTo];
+  if (
+    times.some((time) => time !== null && !verifiedObservationInstant.safeParse(time).success) ||
+    (effectiveFrom !== null &&
+      effectiveTo !== null &&
+      compareInstants(effectiveFrom, effectiveTo) >= 0)
+  ) return "invalid";
+  if (
+    (sourceEventAt !== null && compareInstants(sourceEventAt, nowIso) > 0) ||
+    (effectiveFrom !== null && compareInstants(effectiveFrom, nowIso) > 0)
+  ) return "future";
+  if (effectiveTo !== null && compareInstants(effectiveTo, nowIso) <= 0) return "expired";
+  return sourceEventAt !== null || effectiveFrom !== null ? "dated" : "unknown";
 }

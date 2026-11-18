@@ -189,11 +189,14 @@ function isExactIdentifierMatch(row: RecordRow, profile: SearchProfile): boolean
   const haystack = fold(rowSearchText(row));
   const recordId = fold(row.id);
   const isIdentifierPart = (char: string | undefined) =>
-    char !== undefined && /[\p{L}\p{N}._-]/u.test(char);
+    char !== undefined && /[\p{L}\p{N}_-]/u.test(char);
+  const joinsIdentifier = (text: string, index: number, direction: -1 | 1) =>
+    isIdentifierPart(text[index]) ||
+    (text[index] === "." && isIdentifierPart(text[index + direction]));
   const containsWholeIdentifier = (text: string, token: string) => {
     for (let offset = text.indexOf(token); offset >= 0; offset = text.indexOf(token, offset + 1)) {
-      if (!isIdentifierPart(text[offset - 1]) &&
-          !isIdentifierPart(text[offset + token.length])) return true;
+      if (!joinsIdentifier(text, offset - 1, -1) &&
+          !joinsIdentifier(text, offset + token.length, 1)) return true;
     }
     return false;
   };
@@ -391,7 +394,7 @@ export function retrieveRecordMatches(
     : ftsQuery(sql`ck_records_fts.review_status = 'superseded'`)
         .orderBy(sql`bm25(ck_records_fts)`, records.id).limit(laneLimit * 2).all();
   const temporal = selectTemporal([...new Map(
-    [...extra, ...lexical.slice(budget)].map(candidate => [candidate.row.id, candidate]),
+    [...lexical, ...extra].map(candidate => [candidate.row.id, candidate]),
   ).values()]);
   let saturated = lexical.length >= budget;
   let candidates = [...new Map([...temporal, ...lexical].map((candidate) => [candidate.row.id, candidate])).values()]
@@ -439,7 +442,7 @@ export function retrieveRecordMatches(
       .from(records)
       .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition));
     const lexicalFallback = fallbackQuery().orderBy(identifierOrder, desc(records.recordedAt), records.id).limit(overscanLimit).all();
-    const temporalFallback = selectTemporal(lexicalFallback.slice(budget));
+    const temporalFallback = selectTemporal(lexicalFallback);
     saturated = lexicalFallback.length >= budget;
     candidates = [...new Map([...temporalFallback, ...lexicalFallback].map((candidate) => [candidate.row.id, candidate])).values()]
       .sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
@@ -583,16 +586,7 @@ export function search(
   const withTaskState = (record: RecordDto) => {
     const taskState = taskStates.get(record.id);
     const temporal = searchTemporal(record, nowIso);
-    const freshness = record.freshness;
-    // A legacy freshness verdict can predate strict event-time validation.
-    // Preserve authority and warnings while preventing an invalid/future event
-    // from being presented as a currently valid observation in search.
-    const guardedFreshness = freshness?.currentness === "current" &&
-      (temporal.eligibility === "invalid" || temporal.eligibility === "future")
-      ? { ...freshness, currentness: "unknown" as const, requiresReview: true,
-          reasons: [...freshness.reasons, "observation_time_unknown" as const] }
-      : freshness;
-    return { ...record, freshness: guardedFreshness, temporal, ...(taskState ? { taskState } : {}) };
+    return { ...record, temporal, ...(taskState ? { taskState } : {}) };
   };
 
   return {

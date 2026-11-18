@@ -4,7 +4,7 @@ import type {
   ReviewStatus,
   TaskStatus,
 } from "@contextkeep/shared";
-import { compareInstants } from "./instant.js";
+import { compareInstants, observationEligibility } from "./instant.js";
 import { z } from "zod";
 const verifiedReviewInstant = z.iso.datetime({ offset: true });
 
@@ -478,7 +478,8 @@ export function classifyRecordFreshness(
   }
 
   if (authority === "canonical" && isCurrentStateClaim(row)) {
-    if (!row.sourceEventAt && !row.effectiveFrom) {
+    const eligibility = observationEligibility(row, context.nowIso);
+    if (eligibility !== "dated") {
       reasons.push("observation_time_unknown");
       return withReferenceSummary(row, context, {
         authority,
@@ -486,7 +487,7 @@ export function classifyRecordFreshness(
         progress,
         provenance,
         stale: false,
-        requiresReview: false,
+        requiresReview: eligibility === "invalid" || eligibility === "future",
         reasons,
         supportRecordIds,
         possiblyRelatedRecordIds,

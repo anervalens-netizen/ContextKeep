@@ -242,7 +242,8 @@ describe("ME-06 bounded retrieval and authority", () => {
 
   it("does not score partial textual identifiers as exact identity matches", async () => {
     const { t, projectId, add } = await fixture();
-    const valid = add({text: "Beacon current deployment PR35"});
+    const valid = add({text: "Beacon current deployment PR35."});
+    const extension = add({text: "Beacon current deployment PR35.txt"});
     const partial = add({text: "Beacon current deployment PR350"});
     const matches = retrieveRecordMatches(t.app.ck.deps.db, {
       q: "Beacon current deployment PR35", projectId,
@@ -251,6 +252,7 @@ describe("ME-06 bounded retrieval and authority", () => {
     });
     expect(matches.find((m) => m.row.id === valid)?.exactIdentifier).toBe(true);
     expect(matches.find((m) => m.row.id === partial)?.exactIdentifier).toBe(false);
+    expect(matches.find((m) => m.row.id === extension)?.exactIdentifier).toBe(false);
     expect(matches[0]?.row.id).toBe(valid);
   });
 
@@ -454,8 +456,42 @@ describe("ME-06 bounded retrieval and authority", () => {
         reviewStatus: "accepted",
         freshness: { currentness: "unknown", requiresReview: true },
       });
+      const response = await t.app.inject({
+        method: "POST", url: "/mcp",
+        headers: { authorization: "Bearer " + token, accept: "application/json, text/event-stream" },
+        payload: {
+          jsonrpc: "2.0", id: randomUUID(), method: "tools/call",
+          params: { name: "get_record", arguments: { recordId: id, expectedRevision: 1 } },
+        },
+      });
+      expect(response.json().result.structuredContent.freshness).toMatchObject({
+        currentness: "unknown", requiresReview: true,
+      });
     }
   });
+
+  it.each([false, true])(
+    "keeps a recent observation in the first lexical window when reserving temporal slots (LIKE %s)",
+    async (like) => {
+      const { t, add, matches } = await fixture();
+      for (let i = 0; i < 35; i++) {
+        add({
+          text: "Beacon current deployment Beacon current deployment",
+          recordedAt: recent,
+          sourceEventAt: null,
+        });
+      }
+      const wanted = add({
+        recordedAt: "2026-05-18T00:00:00.000Z",
+        sourceEventAt: recent,
+      });
+      for (let i = 0; i < 22; i++) {
+        add({ text: "Beacon status" });
+      }
+      if (like) t.app.ck.deps.sqlite.exec("DELETE FROM ck_records_fts");
+      expect(matches("Beacon current deployment", ["accepted"], 1)[0]?.row.id).toBe(wanted);
+    },
+  );
 
   it("finds the newest matching observation beyond 400 stronger lexical matches", async () => {
     const { t, projectId, add, matches } = await fixture();
