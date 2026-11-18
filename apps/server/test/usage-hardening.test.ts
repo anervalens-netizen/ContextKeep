@@ -154,7 +154,7 @@ describe("usage hardening regressions", () => {
       },
       true,
     );
-    expect(rejected.error.code).toBe("checkpoint_task_required");
+    expect(rejected.error).toMatchObject({ code: "checkpoint_task_required", retryable: false, nextAction: "select_task_or_explicit_project_note" });
 
     const projectNote = await call(t, "capture_work", {
       projectId,

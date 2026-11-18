@@ -291,6 +291,7 @@ describe("ME10 budgeted MCP search cards", () => {
       "error.code",
       "search_budget_exceeded",
     );
+    expect(rejected.structuredContent).toHaveProperty("error.nextAction", "use_cards_or_narrow_search");
     const tooSmall = await call(t, {
       projectId,
       scope: "all",

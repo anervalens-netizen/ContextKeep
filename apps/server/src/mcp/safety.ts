@@ -129,6 +129,12 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
       const nextAction =
         ["idempotency_outcome_unknown", "idempotency_result_expired", "idempotency_result_unavailable"].includes(error.code) ? "reconcile_state_before_retry"
         : error.code === "idempotency_in_progress" ? "retry_same_event_later"
+        : error.code === "credential_detected" ? "remove_credentials"
+        : error.code === "task_revision_conflict" || error.code === "task_progress_conflict" ? "resume_task_and_reconcile"
+        : error.code === "checkpoint_task_required" || error.code === "checkpoint_scope_conflict" ? "select_task_or_explicit_project_note"
+        : error.code === "task_project_mismatch" ? "select_task_in_project"
+        : error.code === "search_budget_exceeded" ? "use_cards_or_narrow_search"
+        : error.code === "search_budget_too_small" ? "increase_budget_or_narrow_search"
         : error.code === "stale_revision" ? "read_current_revision"
         : error.code === "project_catalogue_changed" ? "restart_catalogue_from_first_page"
         : error.code === "context_delta_page_expired" ? "restart_from_committed_cursors"

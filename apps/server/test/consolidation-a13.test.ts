@@ -85,6 +85,11 @@ describe("CK-A13 common runtime metadata and bounded MCP diagnostics", () => {
     });
     expect(bounded.isError).not.toBe(true);
 
+    const invalid = await rpc(t, "search_context", {
+      q: "synthetic search", representation: "untrusted-format-value", maxResultBytes: "secret-budget-value",
+    });
+    expect(invalid.structuredContent.error.code).toBe("invalid_input");
+
     const metrics = (await t.get("/api/metrics")).payload;
     expect(metrics).toContain('ck_mcp_tool_calls_total{tool="list_projects",outcome="success",error_class="none"}');
     expect(metrics).toContain('ck_mcp_tool_calls_total{tool="get_project",outcome="error",error_class="not_found"}');
@@ -94,6 +99,9 @@ describe("CK-A13 common runtime metadata and bounded MCP diagnostics", () => {
       expect(metrics).toContain('ck_mcp_tool_budget_omissions_total{tool="get_work_context"}');
     }
 
+    expect(metrics).toContain('ck_mcp_tool_failure_details_total{tool="search_context",cause="invalid_input",format="invalid",budget="invalid"}');
+    expect(metrics).not.toContain("untrusted-format-value");
+    expect(metrics).not.toContain("secret-budget-value");
     expect(metrics).not.toContain(projectId);
     expect(metrics).not.toContain("xxxxxxxxxxxxxxxx");
     expect(metrics).not.toMatch(/projectId=|sessionId=|requestId=/);
