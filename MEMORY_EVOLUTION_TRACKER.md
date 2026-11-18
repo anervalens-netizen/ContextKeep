@@ -91,8 +91,8 @@ slices. The item rows retain remaining scope and verification requirements.
 
 The follow-on source candidate adds bounded project source discovery and
 operator error guidance without a persistent schema change. Its programme
-inventory is **50 items — 12 PLANNED, 6 GATED, 24 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**. This records source
-implementation. Installed verification and wider traffic outcomes retain
+inventory is **50 items — 11 PLANNED, 6 GATED, 25 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**.
+This records source implementation. Installed verification and wider traffic outcomes retain
 their individual acceptance gates.
 
 ## Batch 1 — 2026-11-16
@@ -561,7 +561,7 @@ Dependencies: ME-14 · Validation: [V-15](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Define bounded backfill, restart/resume, index versioning, consistency checks, update/delete/redact propagation and rebuild controls. Measure write lock/WAL and storage impact.
 - [ ] Acceptance: Interrupted rebuild resumes safely; stale/redacted/deleted fragments cannot be delivered; index removal does not destroy authority; migration/recovery gate is satisfied before release.
-- [ ] Evidence: The initial index is bounded, reconstructible and memory-only. New search snapshots re-read authoritative metadata after local writes, external commits, or changed credentials. The source path requires no schema migration or durable backfill. Wider cache efficiency, workload coverage and installed recovery evidence remain open.
+- [ ] Evidence: The initial index is bounded, reconstructible and memory-only. Two project slots are kept. Local writes, external commits, or credential changes revalidate source inputs before a query can reuse an index. The source path requires no schema migration or durable backfill. Wider cache efficiency, workload coverage and installed recovery evidence remain open.
 
 ### ME-16
 
