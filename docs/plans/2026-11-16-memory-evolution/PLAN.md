@@ -430,6 +430,17 @@ Graphiti-style temporal graph. Account for extraction errors, episode provenance
 validity time, retractions, synchronization, database operations and rollback.
 If benefit does not justify those costs, record a decision to stop.
 
+### 5.8 Consolidated source qualification
+
+The batch starting at PR36 `67f86dd` delivers one candidate for temporal
+shortlisting (ME-06/ME-08), task continuity budgets (ME-11) and selected
+evidence expansion (ME-12). Existing record cards inherit the detail fences
+under ME-10. Source/excerpt discovery remains open. The
+[acceptance catalogue](VALIDATION.md#consolidated-source-batch) records the
+matched synthetic comparison and the scope of the local qualification.
+Representative evaluation, independent review, CI and production release
+qualification remain separate gates.
+
 ## 6. Research ledger and adoption decisions
 
 Research snapshot: 2026-11-15. Availability, dates, releases, licensing and API

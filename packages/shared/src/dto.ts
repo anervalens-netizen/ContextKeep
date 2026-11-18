@@ -141,8 +141,23 @@ export const RecordDto = z.object({
 });
 export type RecordDto = z.infer<typeof RecordDto>;
 
+/** Search ranking evidence only. A dated proposal retains working authority. */
+export const SearchTemporalDto = z.object({
+  basis: z.enum(["source_event", "effective_from", "unknown"]),
+  rankTime: z.string().nullable(),
+  eligibility: z.enum(["dated", "unknown", "invalid", "future", "expired"]),
+  currentAdjustment: z.number(),
+});
+export type SearchTemporalDto = z.infer<typeof SearchTemporalDto>;
+export const SearchRankingDto = z.object({
+  policy: z.literal("bounded-temporal-v1"),
+  intent: z.enum(["current", "historical", "mixed", "unspecified"]),
+  notes: z.array(z.string()),
+});
+
 /** Search-only fields stay out of unrelated record tool schemas and legacy DTOs. */
 export const SearchRecordDto = RecordDto.extend({
+  temporal: SearchTemporalDto.optional(),
   taskState: SearchTaskStateDto.optional(),
 });
 export type SearchRecordDto = z.infer<typeof SearchRecordDto>;
@@ -333,6 +348,13 @@ export const McpWorkContextResult = z.object({
   }).passthrough(),
   recentHandoffs: McpWorkSectionResult.optional(),
   latestCheckpoint: WorkContextCheckpointDto.nullable(),
+  protectCurrent: z.literal(true).optional(),
+  resumeCapsule: z.object({
+    projectId: z.string().uuid(),
+    taskId: z.string().uuid(),
+    state: z.string(),
+    nextAction: z.string().nullable(),
+  }).partial({ projectId: true }).passthrough().nullable().optional(),
   blockerState: z.object({
     activeCount: z.number().int().min(0),
     resolvedCount: z.number().int().min(0),
@@ -653,6 +675,11 @@ export const SearchCompletenessSectionsDto = z.object({
 });
 
 export const SearchRecordSummaryDto = WorkContextRecordSummaryDto.extend({
+  temporal: SearchTemporalDto.optional(),
+  sourceEventAt: z.string().nullable().optional(),
+  effectiveFrom: z.string().nullable().optional(),
+  effectiveTo: z.string().nullable().optional(),
+  observedAt: z.string().nullable().optional(),
   taskState: SearchTaskStateDto.optional(),
   projectId: z.string().uuid().nullable(),
   subject: z.string(),
@@ -666,6 +693,7 @@ export const SearchRecordSummaryDto = WorkContextRecordSummaryDto.extend({
   requiresReview: z.boolean(),
 });
 const McpSearchBaseDto = z.object({
+  ranking: SearchRankingDto.optional(),
   query: z.string(), scope: SearchScope,
   records: z.array(SearchRecordSummaryDto),
   workingRecords: z.array(SearchRecordSummaryDto),
@@ -692,6 +720,7 @@ export const TimelineEntrySummaryDto = z.object({
 });
 
 export const SearchResultDto = z.object({
+  ranking: SearchRankingDto.optional(),
   query: z.string(),
   mode: SearchMode,
   match: SearchMatch,

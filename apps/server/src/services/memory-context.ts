@@ -1,5 +1,17 @@
+import {
+  recordEvidenceVersion,
+  recordEvidenceVersions,
+} from "./evidence-versions.js";
+import {
+  protectedWorkContext,
+  type ContextRedactor,
+} from "./protected-context.js";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import type { ContextDiagnosticReason, EvidenceDto } from "@contextkeep/shared";
+import type {
+  ContextDiagnosticReason,
+  EvidenceDto,
+  RecordType,
+} from "@contextkeep/shared";
 import { handoffs, projects, records } from "../db/schema.js";
 import { workspaceBindings } from "../db/workspace-schema.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
@@ -19,6 +31,7 @@ import {
   type RetrievedRecordMatch,
 } from "./search.js";
 import { searchRelations } from "./relations.js";
+import { enforceSearchResultBytes, packSearchCards } from "./search-budget.js";
 import { synthesize } from "./synthesis.js";
 import { requireTaskScope } from "./task-scope.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
@@ -325,10 +338,18 @@ export class ContextKeepMemoryService {
       totalContextBudgetChars?: number;
       diagnostics?: boolean;
       permanentConstraintIds?: string[];
+      protectCurrent?: boolean;
     },
+    redact: ContextRedactor = (value) => value,
   ): Record<string, unknown> {
+    if (input.protectCurrent && !input.taskId)
+      throw new ApiError(
+        400,
+        "protected_context_requires_task",
+        "Supply the taskId whose current state needs protection.",
+      );
     return readWithDatabaseGeneration(this.deps.db, (generation) =>
-      this.getWorkContextSnapshot(context, input, generation),
+      this.getWorkContextSnapshot(context, input, generation, redact),
     );
   }
 
@@ -336,6 +357,7 @@ export class ContextKeepMemoryService {
     context: MemoryToolRunContext,
     input: Parameters<ContextKeepMemoryService["getWorkContext"]>[1],
     generation: string | null,
+    redact: ContextRedactor,
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
     const project = this.deps.db
@@ -1068,9 +1090,17 @@ export class ContextKeepMemoryService {
             taskId: input.taskId,
             state: continuity.state,
             stateSource: continuity.stateSource,
-            stateProvenance: continuity.stateSource === "reported_progress" && continuity.progress
-              ? { reviewStatus: continuity.progress.reviewStatus, evidenceBasis: continuity.progress.evidenceBasis }
-              : { reviewStatus: continuity.task.reviewStatus, evidenceBasis: continuity.task.evidenceBasis },
+            stateProvenance:
+              continuity.stateSource === "reported_progress" &&
+              continuity.progress
+                ? {
+                    reviewStatus: continuity.progress.reviewStatus,
+                    evidenceBasis: continuity.progress.evidenceBasis,
+                  }
+                : {
+                    reviewStatus: continuity.task.reviewStatus,
+                    evidenceBasis: continuity.task.evidenceBasis,
+                  },
             nextAction: continuity.nextAction,
             followUp: continuity.followUp,
             ownerAction: continuity.progress?.ownerAction ?? null,
@@ -1110,6 +1140,16 @@ export class ContextKeepMemoryService {
     // registry's single shared McpWorkContextResult validator. Do not parse a
     // second time here: output validation belongs at the transport boundary
     // and the duplicate traversal is material on the 1k+1k hot-path fixture.
+    if (input.protectCurrent && input.taskId) {
+      return protectedWorkContext(
+        this.deps,
+        projectId,
+        input.taskId,
+        payload,
+        input.totalContextBudgetChars ?? 12_000,
+        redact,
+      );
+    }
     return fitWorkContext(payload, input.totalContextBudgetChars);
   }
 
@@ -1177,24 +1217,60 @@ export class ContextKeepMemoryService {
     input: {
       q: string;
       compact?: boolean;
+      representation?: "full" | "cards";
+      maxResultBytes?: number;
       projectId?: string;
       includeHistorical?: boolean;
       match?: "terms" | "phrase";
       scope?: "canonical" | "working" | "all";
+      recordType?: RecordType;
+      recordedFrom?: string;
+      recordedTo?: string;
       limit?: number;
     },
+    redactForMcp?: (value: unknown) => unknown,
+    secrets: string[] = [],
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
+    // Cards and their evidence fence are snapshots of the same read.
+    if (input.representation === "cards") {
+      return this.deps.sqlite.transaction(() =>
+        this.searchContextSnapshot(projectId, input, redactForMcp, secrets),
+      )();
+    }
+    return this.searchContextSnapshot(projectId, input, redactForMcp, secrets);
+  }
+
+  private searchContextSnapshot(
+    projectId: string | null,
+    input: Parameters<ContextKeepMemoryService["searchContext"]>[1],
+    redactForMcp: ((value: unknown) => unknown) | undefined,
+    secrets: string[],
+  ) {
     const limit = clamp(input.limit, 10, MAX_SEARCH_RECORDS);
     const result = search(this.deps, {
       q: input.q,
       mode: "canonical",
+      hydrateEvidence: input.representation !== "cards",
       match: input.match ?? "terms",
       scope: input.scope ?? "canonical",
       projectId,
+      type: input.recordType,
+      recordedFrom: input.recordedFrom,
+      recordedTo: input.recordedTo,
       includeHistorical: input.includeHistorical === true,
       limit,
     });
+    const versions =
+      input.representation === "cards"
+        ? recordEvidenceVersions(
+            this.deps,
+            [...result.records, ...result.workingRecords].map(
+              (record) => record.id,
+            ),
+            secrets,
+          )
+        : null;
     const compactSearchRecord = (
       record: (typeof result.records)[number],
       working: boolean,
@@ -1222,7 +1298,18 @@ export class ContextKeepMemoryService {
         supportRecordIds: [],
         possiblyRelatedRecordIds: [],
       };
+      const evidenceVersion = versions?.get(record.id);
       return {
+        ...(evidenceVersion
+          ? {
+              revision: record.revision,
+              evidenceVersion: recordEvidenceVersion(
+                evidenceVersion.version,
+                record.freshness,
+              ),
+              evidenceCount: evidenceVersion.total,
+            }
+          : {}),
         recordId: record.id,
         projectId: record.projectId,
         projectName: record.projectName,
@@ -1234,7 +1321,11 @@ export class ContextKeepMemoryService {
         taskStatus: record.taskStatus,
         ...(record.taskState ? { taskState: record.taskState } : {}),
         recordedAt: record.recordedAt,
-        observedAt: record.sourceEventAt ?? record.recordedAt,
+        observedAt: record.sourceEventAt,
+        sourceEventAt: record.sourceEventAt,
+        effectiveFrom: record.effectiveFrom,
+        effectiveTo: record.effectiveTo,
+        temporal: record.temporal,
         reviewedAt: record.reviewedAt,
         reviewDueAt: record.reviewDueAt,
         volatile: record.volatile,
@@ -1261,7 +1352,8 @@ export class ContextKeepMemoryService {
     const workingRecords = result.workingRecords.map((record) =>
       compactSearchRecord(record, true),
     );
-    return {
+    const response = {
+      ranking: result.ranking,
       completeness: result.completeness,
       query: result.query,
       mode: "canonical",
@@ -1280,6 +1372,25 @@ export class ContextKeepMemoryService {
       },
       limit,
     };
+    // A credential-safe MCP response can be longer than the raw database
+    // projection. Budget the exact redacted representation that the caller
+    // will receive, not the value before toolResult applies safeValue.
+    // Preserve the original default search path: pre-redaction is only
+    // necessary when a caller requests a constrained byte representation.
+    // Unbudgeted legacy reads still use the single MCP boundary redaction.
+    const budgetRequested =
+      input.representation === "cards" || input.maxResultBytes !== undefined;
+    const delivered =
+      budgetRequested && redactForMcp
+        ? (redactForMcp(response) as typeof response)
+        : response;
+    if (input.representation === "cards") {
+      return packSearchCards(delivered, input.maxResultBytes ?? 12_000);
+    }
+    if (input.maxResultBytes !== undefined) {
+      enforceSearchResultBytes(delivered, input.maxResultBytes);
+    }
+    return delivered;
   }
 
   synthesizeContext(

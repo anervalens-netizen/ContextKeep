@@ -17,6 +17,7 @@ const checks = [
   ["attention projection", "attention projection performance"],
   ["portfolio attention", "portfolio attention performance"],
   ["FTS5 search", "FTS5 dedicated performance qualification"],
+  ["saturated temporal search", "keeps saturated current retrieval"],
 ];
 
 for (const [label, pattern] of checks) {

@@ -1,3 +1,5 @@
+import { protectedTaskResume } from "../services/protected-context.js";
+import { safeValue } from "./safety.js";
 import { ApiError } from "../lib/errors.js";
 import { workflowResults } from "./workflow-results.js";
 import { structuredResume } from "../services/resume-response.js";
@@ -76,17 +78,24 @@ export function registerDossierTools(
   );
   define(
     "resume_task",
-    "Read current task state once. Prefer format=structured with an explicit totalContextBudgetChars; both preserves legacy text exports. Read get_task only for additional evidence or stale revisions. Never starts a job.",
+    "Read current task state once. Use protectCurrent for budgeted structured results with a full current action. Legacy both preserves text exports. Never starts a job.",
     z.strictObject({
       ...scope,
       depth: z.enum(["compact", "balanced", "deep"]).default("balanced"),
       format: z.enum(["both", "structured"]).optional(),
+      protectCurrent: z.boolean().optional(),
       totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(),
       unresolvedOffset: z.number().int().min(0).optional(),
       unresolvedLimit: z.number().int().min(1).max(50).optional(),
     }),
     true,
     (i) => {
+      if (i.protectCurrent) {
+        if (i.format === "both")
+          throw new ApiError(400, "protected_context_requires_structured", "Use format=structured or omit format when protectCurrent is enabled.");
+        return protectedTaskResume(deps, i.projectId, i.taskId, i.unresolvedOffset, i.unresolvedLimit,
+          i.depth, i.totalContextBudgetChars ?? 12_000, value => safeValue(value, secrets) as typeof value);
+      }
       const resumed = resumeTask(deps, i.projectId, i.taskId, i.unresolvedOffset, i.unresolvedLimit, i.depth, secrets);
       if (i.format === "structured") return structuredResume(resumed.dossier, i.depth, i.totalContextBudgetChars ?? 6000, resumed.omitted);
       if (i.totalContextBudgetChars !== undefined && JSON.stringify(resumed).length > i.totalContextBudgetChars) throw new ApiError(413, "context_budget_unrepresentable", "Use format=structured or increase the resume budget.");

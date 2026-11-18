@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import type { EvidenceDto, RecordDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
+import type { SearchTemporalDto, EvidenceDto, RecordDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
 import { projects, recordEvidence, records, sourceExcerpts, sources } from "../db/schema.js";
 import { escapeLike } from "../lib/like.js";
@@ -8,6 +8,8 @@ import type { ServiceDeps } from "./import.js";
 import { sourceProjectScope } from "./source-membership.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import { foldMemoryText } from "./memory-freshness.js";
+import { compareInstants } from "./instant.js";
+import { searchTemporal } from "./search-time.js";
 import { taskSearchStates } from "./task-search-state.js";
 
 const MIN_TOKEN_LENGTH = 2;
@@ -28,7 +30,10 @@ const CONCEPT_ALIASES: Record<string, string> = {
   actual: "current", acum: "current", active: "current", currently: "current", curent: "current", curenta: "current",
   curentă: "current", deployed: "current", live: "current", latest: "current", now: "current", running: "current",
   foloseste: "current", folosește: "current", ruleaza: "current", rulează: "current",
-  old: "historical", previous: "historical", prior: "historical", historical: "historical", former: "historical",
+  istoric: "historical", anterior: "historical", anteriorul: "historical", inainte: "historical", previously: "historical",
+  actuala: "current", prezent: "current", momentan: "current",
+  anterioara: "historical", anterioare: "historical", trecut: "historical",
+  old: "historical", previous: "historical", prior: "historical", historical: "historical", former: "historical", historically: "historical",
   vechi: "historical", veche: "historical", vechiul: "historical", istorica: "historical", istorică: "historical",
   commit: "revision", commits: "revision", revizie: "revision", revizia: "revision", revision: "revision", sha: "revision",
   database: "database", databases: "database", db: "database", sqlite: "database", sqlite3: "database", store: "database",
@@ -73,6 +78,7 @@ function recordedDateConditions(args: RecordedDateFilters) {
 
 export interface RetrievedRecordMatch {
   row: RecordRow;
+  temporal: SearchTemporalDto;
   bm25: number;
   score: number;
   matchedConcepts: string[];
@@ -122,14 +128,19 @@ export function buildSearchProfile(query: string): SearchProfile {
   const preserveAi = query.trim().toLowerCase() === "ai" || /(?:^|[^\p{L}\p{N}])AI(?:$|[^\p{L}\p{N}])/u.test(query);
   const tokens = rawTokens.filter((token) => !STOPWORDS.has(token) || (token === "ai" && preserveAi));
   const concepts = [...new Set(tokens.map((token) => CONCEPT_ALIASES[token] ?? token))];
+  const pastQuestion = /\b(?:(?:what|which|where) (?:was|were)|(?:ce|care|unde) (?:era|erau|rula|rulau|a fost))\b/u.test(fold(query));
+  // "what was deployed" remains historical, even when "deployed" maps to
+  // the current-state concept. A second explicit present-tense clause is mixed.
+  const presentQuestion = /\b(?:(?:what|which|where) (?:is|are)|(?:ce|care|unde) (?:este|sunt)|now|acum|momentan)\b/u.test(fold(query));
   return {
     rawTokens,
     tokens,
     concepts,
     identifiers: operationalIdentifiers(query),
     normalizedQuery: tokens.join(" "),
-    currentIntent: concepts.includes("current"),
-    historicalIntent: concepts.includes("historical"),
+    // One question can explicitly request previous and current state.
+    currentIntent: concepts.includes("current") && (!pastQuestion || presentQuestion),
+    historicalIntent: concepts.includes("historical") || pastQuestion,
   };
 }
 
@@ -173,8 +184,24 @@ function isPhraseMatch(row: RecordRow, profile: SearchProfile): boolean {
 
 function isExactIdentifierMatch(row: RecordRow, profile: SearchProfile): boolean {
   if (profile.identifiers.length === 0) return false;
+  // A token embedded inside a record UUID is not an exact record identity.
+  // Full record ID equality and textual identifier mentions remain eligible.
   const haystack = fold(rowSearchText(row));
-  return profile.identifiers.some((identifier) => haystack.includes(identifier));
+  const recordId = fold(row.id);
+  const isIdentifierPart = (char: string | undefined) =>
+    char !== undefined && /[\p{L}\p{N}_-]/u.test(char);
+  const joinsIdentifier = (text: string, index: number, direction: -1 | 1) =>
+    isIdentifierPart(text[index]) ||
+    (text[index] === "." && isIdentifierPart(text[index + direction]));
+  const containsWholeIdentifier = (text: string, token: string) => {
+    for (let offset = text.indexOf(token); offset >= 0; offset = text.indexOf(token, offset + 1)) {
+      if (!joinsIdentifier(text, offset - 1, -1) &&
+          !joinsIdentifier(text, offset + token.length, 1)) return true;
+    }
+    return false;
+  };
+  return profile.identifiers.some((identifier) =>
+    identifier === recordId || containsWholeIdentifier(haystack, identifier));
 }
 
 function searchScore(
@@ -183,7 +210,10 @@ function searchScore(
   profile: SearchProfile,
   supportCount: number,
   ftsHit: boolean,
+  nowIso: string,
+  temporalRanking: boolean,
 ): Omit<RetrievedRecordMatch, "row" | "evidence"> {
+  const temporal = searchTemporal(row, nowIso);
   const rawRowTokens = new Set(tokenizeSearch(rowSearchText(row)));
   const rowConcepts = conceptsForRow(row);
   const matchedTokens = profile.tokens.filter((token) => rawRowTokens.has(token));
@@ -199,11 +229,14 @@ function searchScore(
   let score = matchedConcepts.length * 18 + matchedTokens.length * 4;
   score += matchedConcepts.filter((concept) => subjectConcepts.has(concept)).length * 7;
   score += supportCount * 1.5;
-  score += Math.max(0, -bm25) * 2;
+  // Current-intent ties compare event time before the BM25 tie-breaker.
+  // Tiny lexical-frequency differences must not undo temporal ordering.
+  if (!temporalRanking || !profile.currentIntent || profile.historicalIntent) score += Math.max(0, -bm25) * 2;
   if (phraseMatch) score += 60;
   if (exactIdentifier) score += 1_000;
 
-  if (profile.currentIntent) {
+  if (profile.currentIntent && (!temporalRanking || !profile.historicalIntent)) {
+    if (temporalRanking) score += temporal.currentAdjustment;
     score += row.reviewStatus === "accepted" ? 20 : -35;
     if (rowConcepts.has("current") || row.volatile === 1) score += 12;
   }
@@ -214,6 +247,7 @@ function searchScore(
 
   const distinctMatchedConcepts = [...new Set(matchedConcepts)];
   return {
+    temporal,
     bm25,
     score,
     matchedConcepts: distinctMatchedConcepts,
@@ -225,8 +259,9 @@ function searchScore(
   };
 }
 
-function isSearchMatch(match: RetrievedRecordMatch, profile: SearchProfile, mode: SearchMatch): boolean {
-  if (mode === "phrase") return match.phraseMatch;
+function isSearchMatch(match: RetrievedRecordMatch, profile: SearchProfile, mode: SearchMatch, exactIdQuery = false): boolean {
+  if (mode === "phrase") return match.phraseMatch ||
+    (exactIdQuery && profile.identifiers.includes(match.row.id));
   if (match.exactIdentifier || match.matchedConceptCount >= 2 || match.ftsOnlyMatch) return true;
   // A one-word lookup such as a service name or project alias is useful. For
   // multi-word questions, one broad overlap ("project", "owner", etc.) is
@@ -287,6 +322,9 @@ export function retrieveRecordMatches(
     synthesisThreshold?: boolean;
     hydrateEvidence?: boolean;
     completeness?: { candidateLimitReached: boolean; mayHaveMore: boolean };
+    nowIso?: string;
+    /** Search opts in; existing synthesis/context callers retain lexical scoring. */
+    temporalRanking?: boolean;
   },
 ): RetrievedRecordMatch[] {
   const profile = buildSearchProfile(args.q);
@@ -302,7 +340,32 @@ export function retrieveRecordMatches(
   if (args.type) filters.push(sql`ck_records_fts.type = ${args.type}`);
   if (args.basis) filters.push(sql`ck_records_fts.basis = ${args.basis}`);
 
-  let candidates = db
+  const nowIso = args.nowIso ?? new Date().toISOString();
+  const temporalRanking = args.temporalRanking === true;
+  const current = temporalRanking && profile.currentIntent && !profile.historicalIntent;
+  // Historical temporal selection has no purpose when superseded records
+  // cannot be returned; unsaturated lexical results already cover all hits.
+  const temporalIntent = temporalRanking &&
+    (current || (profile.historicalIntent && args.statuses.includes("superseded")));
+  const budget = Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40));
+  const laneLimit = temporalIntent ? Math.floor(budget / 2) : budget;
+  const overscanLimit = temporalIntent
+    ? Math.min(MAX_CANDIDATES * 2, Math.max(budget * 2, 256))
+    : budget;
+  const selectTemporal = <T extends { row: RecordRow }>(pool: T[]): T[] => {
+    if (!temporalIntent) return [];
+    return pool.map(candidate => ({ candidate, time: current ? searchTemporal(candidate.row, nowIso) : null }))
+      .filter(({ candidate, time }) => time ? time.currentAdjustment > 0 : candidate.row.reviewStatus === "superseded")
+      .sort((a, b) => current
+        ? compareInstants(b.time?.rankTime ?? "", a.time?.rankTime ?? "")
+        : a.candidate.row.id.localeCompare(b.candidate.row.id))
+      .map(({ candidate }) => candidate)
+      .slice(0, laneLimit);
+  };
+  const identifierOrder = temporalRanking && profile.identifiers.length
+    ? sql`CASE WHEN ${or(...profile.identifiers.map((identifier) => eq(records.id, identifier)))} THEN 0 ELSE 1 END`
+    : sql`0 + 0`;
+  const ftsQuery = (laneFilter?: ReturnType<typeof sql>) => db
     .select({
       row: records,
       bm25: sql<number>`bm25(ck_records_fts)`,
@@ -315,10 +378,29 @@ export function retrieveRecordMatches(
     })
     .from(records)
     .innerJoin(sql`ck_records_fts`, sql`ck_records_fts.record_id = ${records.id}`)
-    .where(and(...filters, ...recordedDateConditions(args)))
-    .orderBy(sql`bm25(ck_records_fts)`, records.id)
-    .limit(Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40)))
-    .all();
+    .where(and(...filters, ...recordedDateConditions(args), laneFilter));
+  const lexical = ftsQuery().orderBy(identifierOrder, sql`bm25(ck_records_fts)`, records.id).limit(overscanLimit).all();
+  // When the lexical window fills, let the FTS index supply a second shortlist.
+  // SQLite's date comparisons are only selection hints. Strict time, relevance
+  // and authority checks still run before results are presented.
+  const eventTime = sql`julianday(coalesce(${records.sourceEventAt}, ${records.effectiveFrom}))`;
+  const nowTime = sql`julianday(${nowIso})`;
+  const extra = !temporalIntent || lexical.length < overscanLimit ? [] : current
+    ? ftsQuery(and(
+        sql`${records.reviewStatus} <> 'superseded'`,
+        sql`${eventTime} <= ${nowTime}`,
+        sql`(${records.effectiveFrom} IS NULL OR julianday(${records.effectiveFrom}) <= ${nowTime})`,
+        sql`(${records.effectiveTo} IS NULL OR julianday(${records.effectiveTo}) >= ${nowTime})`,
+      )).orderBy(desc(eventTime), records.id).limit(laneLimit * 2).all()
+    : ftsQuery(sql`ck_records_fts.review_status = 'superseded'`)
+        .orderBy(sql`bm25(ck_records_fts)`, records.id).limit(laneLimit * 2).all();
+  const temporal = selectTemporal([...new Map(
+    [...lexical, ...extra].map(candidate => [candidate.row.id, candidate]),
+  ).values()]);
+  let saturated = lexical.length >= budget;
+  let candidates = [...new Map([...temporal, ...lexical].map((candidate) => [candidate.row.id, candidate])).values()]
+    .sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
+    .slice(0, budget);
 
   if (candidates.length === 0) {
     const projectFilter = args.projectId ? eq(records.projectId, args.projectId) : undefined;
@@ -346,8 +428,8 @@ export function retrieveRecordMatches(
     });
     const fallbackCondition = match === "phrase"
       ? textConditions[0]
-      : or(...textConditions);
-    candidates = db
+      : or(...textConditions, ...(temporalRanking ? profile.identifiers.map((identifier) => eq(records.id, identifier)) : []));
+    const fallbackQuery = () => db
       .select({
         row: records,
         bm25: sql<number>`0`,
@@ -359,21 +441,65 @@ export function retrieveRecordMatches(
         )`,
       })
       .from(records)
-      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition))
-      .orderBy(desc(records.recordedAt), records.id)
-      .limit(Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40)))
-      .all();
+      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition));
+    const lexicalFallback = fallbackQuery().orderBy(identifierOrder, desc(records.recordedAt), records.id).limit(overscanLimit).all();
+    const temporalFallback = selectTemporal(lexicalFallback);
+    saturated = lexicalFallback.length >= budget;
+    candidates = [...new Map([...temporalFallback, ...lexicalFallback].map((candidate) => [candidate.row.id, candidate])).values()]
+      .sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
+      .slice(0, budget);
   }
 
-  if (args.completeness) args.completeness.candidateLimitReached = candidates.length >= Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40));
+  const recordIds = profile.identifiers.filter((identifier) => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(identifier));
+  // Explicit UUID lookups remain recoverable even with match=phrase. A phrase
+  // containing additional words must still satisfy ordinary phrase matching.
+  const exactIdQuery = recordIds.length === 1 && args.q.trim().toLowerCase() === recordIds[0];
+  if (temporalRanking && recordIds.length > 0 && (match !== "phrase" || exactIdQuery)) {
+    const exactRows = db.select({ row: records, bm25: sql<number>`0`, ftsHit: sql<number>`0`,
+      supportCount: sql<number>`(SELECT count(*) FROM ${recordEvidence} WHERE ${recordEvidence.recordId} = ${records.id} AND ${recordEvidence.relation} = 'supports')`,
+    }).from(records).where(and(
+      inArray(records.id, recordIds), sql`${records.reviewStatus} IN (${statusSql})`,
+      args.projectId ? eq(records.projectId, args.projectId) : undefined,
+      args.type ? eq(records.type, args.type) : undefined,
+      args.basis ? eq(records.evidenceBasis, args.basis) : undefined,
+      ...recordedDateConditions(args),
+    )).limit(recordIds.length).all();
+    const combined = [...new Map([...exactRows, ...candidates].map((candidate) => [candidate.row.id, candidate])).values()];
+    saturated ||= combined.length > budget;
+    candidates = combined.sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
+      .slice(0, budget);
+  }
+
+  if (args.completeness) args.completeness.candidateLimitReached = saturated;
   const profileForScoring = profile;
   const scored = candidates
     .map(({ row, bm25, ftsHit, supportCount }) => {
-      const details = searchScore(row, bm25, profileForScoring, Number(supportCount), ftsHit === 1);
+      const details = searchScore(row, bm25, profileForScoring, Number(supportCount), ftsHit === 1, nowIso, temporalRanking);
       return { row, evidence: [] as EvidenceDto[], ...details };
     })
-    .filter((candidate) => isSearchMatch(candidate, profileForScoring, match))
-    .sort((a, b) => b.score - a.score || b.matchedConceptCount - a.matchedConceptCount || a.bm25 - b.bm25 || b.row.recordedAt.localeCompare(a.row.recordedAt) || a.row.id.localeCompare(b.row.id));
+    .filter((candidate) => isSearchMatch(candidate, profileForScoring, match, exactIdQuery))
+    .sort((a, b) => {
+      const recordIdOrder = temporalRanking
+        ? Number(profile.identifiers.includes(b.row.id)) - Number(profile.identifiers.includes(a.row.id))
+        : 0;
+      const identifierOrder = temporalRanking ? Number(b.exactIdentifier) - Number(a.exactIdentifier) : 0;
+      const historyOrder = temporalRanking && profile.historicalIntent
+        ? Number(b.row.reviewStatus === "superseded") - Number(a.row.reviewStatus === "superseded")
+        : 0;
+      // A safe dated current claim precedes lexically stronger uncertain or
+      // future claims; exact identifiers still take precedence over timing.
+      // Within each eligibility group the existing lexical order is retained.
+      const currentTier = (candidate: RetrievedRecordMatch) => {
+        if (candidate.row.reviewStatus === "superseded") return 3;
+        if (candidate.temporal.currentAdjustment > 0) return 0;
+        return candidate.temporal.currentAdjustment < 0 ? 2 : 1;
+      };
+      const currentOrder = current ? currentTier(a) - currentTier(b) : 0;
+      const eventOrder = current ? compareInstants(b.temporal.rankTime ?? "", a.temporal.rankTime ?? "") : 0;
+      return recordIdOrder || identifierOrder || historyOrder || currentOrder || b.score - a.score ||
+        b.matchedConceptCount - a.matchedConceptCount || eventOrder || a.bm25 - b.bm25 ||
+        (current ? 0 : b.row.recordedAt.localeCompare(a.row.recordedAt)) || a.row.id.localeCompare(b.row.id);
+    });
 
   if (args.completeness) args.completeness.mayHaveMore = args.completeness.candidateLimitReached || scored.length > args.limit;
   const selected = args.synthesisThreshold
@@ -395,6 +521,7 @@ export function search(
     type?: string | null;
     basis?: string | null;
     includeHistorical?: boolean;
+    hydrateEvidence?: boolean;
     mode?: SearchMode;
     match?: SearchMatch;
     scope?: SearchScope;
@@ -403,12 +530,14 @@ export function search(
 ): SearchResultDto {
   const { db } = deps;
   const startedAt = performance.now();
+  const nowIso = new Date().toISOString();
   const limit = input.limit ?? 50;
   const includeHistorical = input.includeHistorical ?? false;
   const mode = input.mode ?? "discovery";
   const match = input.match ?? "terms";
   const scope = input.scope ?? "canonical";
   const q = (input.q ?? "").trim();
+  const profile = buildSearchProfile(q);
   const recordFilters = { type: input.type, recordedFrom: input.recordedFrom, recordedTo: input.recordedTo };
   // Record filters do not imply that a project's metadata or raw source text matches.
   const includeDiscovery = mode === "discovery" && scope !== "working" &&
@@ -419,7 +548,7 @@ export function search(
   const canonicalMatches = scope === "working" || !q
     ? []
     : retrieveRecordMatches(db, {
-        q,
+        q, nowIso, temporalRanking: true,
         projectId: input.projectId,
         ...recordFilters,
         basis: input.basis,
@@ -427,11 +556,12 @@ export function search(
         match,
         limit,
         completeness: canonicalCompleteness,
+        hydrateEvidence: input.hydrateEvidence,
       });
   const workingMatches = scope === "canonical"
     ? []
     : q
-      ? retrieveRecordMatches(db, { q, projectId: input.projectId, ...recordFilters, basis: "agent_report", statuses: ["proposed"], match, limit, completeness: workingCompleteness })
+      ? retrieveRecordMatches(db, { q, nowIso, temporalRanking: true, projectId: input.projectId, ...recordFilters, basis: "agent_report", statuses: ["proposed"], match, limit, completeness: workingCompleteness, hydrateEvidence: input.hydrateEvidence })
       : [];
   const recordRows = scope === "working"
     ? []
@@ -458,10 +588,21 @@ export function search(
   const taskStates = taskSearchStates(deps, [...recordDtos, ...workingRecordDtos]);
   const withTaskState = (record: RecordDto) => {
     const taskState = taskStates.get(record.id);
-    return taskState ? { ...record, taskState } : record;
+    const temporal = searchTemporal(record, nowIso);
+    return { ...record, temporal, ...(taskState ? { taskState } : {}) };
   };
 
   return {
+    ranking: {
+      policy: "bounded-temporal-v1",
+      intent: profile.currentIntent && profile.historicalIntent ? "mixed" : profile.historicalIntent ? "historical" : profile.currentIntent ? "current" : "unspecified",
+      notes: [
+        "Exact record IDs lead. At most 400 lexical and 200 additional FTS temporal candidates are fetched per bucket before scoring at most 200. The additional shortlist runs only when the temporal lexical window fills; LIKE fallback uses lexical overscan only. Saturation means relevant matches can still be omitted.",
+        "Historical (including mixed) intent prioritizes matched superseded rows. For current-only queries, eligible dated operational claims precede unknown, invalid/future/expired/review-due, and then superseded claims after exact identifiers. Within a tier lexical score, event/validity time, BM25 and stable identity rank results. For current-only scoring, BM25 is a tie-break only, not a score bonus. Capture recency gives no current bonus.",
+        "recordedAt gives capture/import time, sourceEventAt gives event time, effectiveFrom/effectiveTo delimit validity, and reviewedAt gives review time. Missing event time stays null. Temporal eligibility is ranking evidence. Invalid/future events cannot establish currentness. freshness.currentness retains review/conflict warnings. reviewStatus retains authority.",
+        "Scope and includeHistorical remain authoritative. Proposed working observations require review. Saturated candidates may omit relevant rows. Narrow project, type or recorded-date filters to recover more.",
+      ],
+    },
     query: q,
     mode,
     match,

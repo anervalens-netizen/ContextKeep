@@ -48,8 +48,24 @@ export function rejectCredentials(input: unknown, secrets: string[]): void {
   }
 }
 
-export function toolResult(value: unknown, secrets: string[]): CallToolResult {
+export function toolResult(value: unknown, secrets: string[], maxStructuredBytes?: number): CallToolResult {
   const clean = safeValue(value, secrets) as Record<string, unknown>;
+  // The final, credential-redacted result must satisfy any requested byte
+  // budget. The service packs before the protocol boundary, so this guard
+  // fails closed if a future redaction rule expands it unexpectedly.
+  if (maxStructuredBytes !== undefined) {
+    const actual = Buffer.byteLength(JSON.stringify(clean), "utf8");
+    if (actual > maxStructuredBytes) {
+      throw new ApiError(422, "search_budget_exceeded",
+        "Redacted search content exceeds maxResultBytes. Increase the budget or narrow the query.");
+    }
+    const budget = clean.budget;
+    if (budget && typeof budget === "object" && !Array.isArray(budget) &&
+        (budget as { actualBytes?: unknown }).actualBytes !== actual) {
+      throw new ApiError(422, "search_budget_unstable",
+        "Search byte count changed during redaction. Increase the budget or narrow the query.");
+    }
+  }
   const text = JSON.stringify(clean);
   const result: CallToolResult = { content: [{ type: "text", text }], structuredContent: clean };
   // This is the complete MCP result object, including both protocol content
@@ -117,6 +133,10 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         : error.code === "project_catalogue_changed" ? "restart_catalogue_from_first_page"
         : error.code === "context_delta_page_expired" ? "restart_from_committed_cursors"
         : error.code === "context_delta_page_offset_invalid" || error.code === "context_delta_page_token_invalid" ? "discard_page_token"
+        : ["record_revision_changed", "record_evidence_changed"].includes(error.code) ? "restart_record_from_first_page"
+        : error.code === "source_evidence_changed" ? "restart_source_from_first_page"
+        : error.code === "protected_context_budget_too_small" ? "increase_context_budget"
+        : error.code === "protected_context_requires_detail_reads" ? "read_protected_records"
         : error.code === "context_budget_unrepresentable" || error.code === "result_too_large" ? "increase_budget_or_reduce_request"
         : error.code === "mcp_output_schema_mismatch" ? "report_contract_error"
         : transientStatus ? "retry_same_request"

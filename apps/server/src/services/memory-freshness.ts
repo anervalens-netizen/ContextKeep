@@ -4,7 +4,9 @@ import type {
   ReviewStatus,
   TaskStatus,
 } from "@contextkeep/shared";
-import { compareInstants } from "./instant.js";
+import { compareInstants, observationEligibility } from "./instant.js";
+import { z } from "zod";
+const verifiedReviewInstant = z.iso.datetime({ offset: true });
 
 export type FreshnessReason = "review_overdue" | "newer_observation" | "explicit_conflict";
 
@@ -233,7 +235,11 @@ export function reviewOverdue(
   row: Pick<LegacyStateRow, "volatile" | "reviewDueAt">,
   nowIso: string,
 ): boolean {
-  return (row.volatile === 1 || row.volatile === true) && row.reviewDueAt !== null && compareInstants(row.reviewDueAt, nowIso) <= 0;
+  // An invalid review deadline cannot prove the observation is current.
+  // Fail closed as needing review, without changing event/validity time.
+  return (row.volatile === 1 || row.volatile === true) && row.reviewDueAt !== null &&
+    (!verifiedReviewInstant.safeParse(row.reviewDueAt).success ||
+      compareInstants(row.reviewDueAt, nowIso) <= 0);
 }
 
 function observationTime(row: Pick<FreshnessRecord, "sourceEventAt" | "effectiveFrom" | "recordedAt">): {
@@ -472,7 +478,8 @@ export function classifyRecordFreshness(
   }
 
   if (authority === "canonical" && isCurrentStateClaim(row)) {
-    if (!row.sourceEventAt && !row.effectiveFrom) {
+    const eligibility = observationEligibility(row, context.nowIso);
+    if (eligibility !== "dated") {
       reasons.push("observation_time_unknown");
       return withReferenceSummary(row, context, {
         authority,
@@ -480,7 +487,7 @@ export function classifyRecordFreshness(
         progress,
         provenance,
         stale: false,
-        requiresReview: false,
+        requiresReview: eligibility === "invalid" || eligibility === "future",
         reasons,
         supportRecordIds,
         possiblyRelatedRecordIds,

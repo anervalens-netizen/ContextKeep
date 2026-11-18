@@ -92,6 +92,44 @@ execution evidence belongs in the tracker and the corresponding batch record.
 Do not infer that all their synthetic setup variants or future release duties
 were executed.
 
+### Consolidated source batch
+
+Base: stacked PR36 `67f86dd0735b58aed98f6c72f70aaf31945e5ceb`. All fixtures
+are synthetic. V-06/V-08, V-10, V-11 and V-12 remain PARTIAL. The candidate
+requires independent review, CI and release qualification.
+
+The matched search benchmark inserts 10,000 synthetic records, including
+8,000 stronger lexical matches, with a fixed event clock. Each revision
+runs 5 warmups and 40 measured retrieval calls on the same database, with
+alternating order. The baseline fails the newest-record assertion. The
+candidate passes the unchanged 150 ms search p95 limit and marks the result
+saturated.
+
+| Retrieval implementation | p50 | p95 | Known newest record |
+| --- | ---: | ---: | --- |
+| Stacked PR36 base | 38.71 ms | 41.34 ms | Missed |
+| Consolidated candidate | 64.61 ms | 67.09 ms | Ranked first |
+
+These measurements are for in-process retrieval on this synthetic workload.
+The approximately 26 ms p95 increase is specific to the saturated fixture.
+In separate runs, the saturated candidate passes at 70.05 ms p95 and the
+existing 10,000-record HTTP search gate passes at 22.43 ms p95.
+The catalogue fits in 195,573 UTF-8 bytes against the unchanged 200,000-byte
+cap. The 131 focused tests include the original context-delta contract.
+Workspace typecheck, 103 operational tests, the 49 synthetic private-corpus
+guard tests and public-data checks pass. The candidate's bounded reference
+fingerprints scan metadata for the selected records/sources, so page transfer
+is bounded while local work scales with their linked metadata.
+
+The full backend run passed 920 of 936 tests. Ten require a loopback
+listener unavailable in the sandbox. The six subprocess failures reproduced
+on the unchanged PR36 base. Shared and web suites passed 15 and 481 tests
+respectively. Six of seven performance checks pass. The brief-route check
+requires the same loopback listener. The dependency audit could not reach
+the registry; the existing audit threshold applies to release. The worktree
+history guard passes at the base revision. Git metadata is read-only in
+this workspace, so the candidate is uncommitted.
+
 ## Method and evidence rules
 
 ### Freeze the comparison before tuning
@@ -262,7 +300,7 @@ Executed coverage: blocked-to-done progress, explicit terminal precedence,
 ### V-06
 
 **ME-06 — Rank current observations and historical answers correctly**\
-Status: **NOT RUN**
+Status: **PARTIAL**
 
 - **Setup:** Model a synthetic service moving between runtimes, with old accepted
   observations, newer proposed evidence and an older still-binding constraint.
@@ -273,6 +311,31 @@ Status: **NOT RUN**
   prior state. Neither recency nor acceptance alone determines truth.
 - **Retain:** Ranked identities, evidence/time labels, candidate diagnostics,
   baseline comparison and unresolved or conflicting answers.
+
+- **2026-11-17 source result.** Development agent. The working-tree source
+  candidate qualifies the bounded search implementation starting at
+  `c4b31d7663a2f70774364a08aa01ed2cba50c447`. Forty synthetic temporal cases and
+  68 targeted search/evaluation tests pass. The two FTS/LIKE saturated-observation
+  reproductions fail on the original search source and pass on the candidate.
+  The frozen public 63-case evaluation retains Recall@5/@10 0.8627, currentness
+  0.5385 and abstention 0.6667 before/after. Zero provider calls are made. The
+  existing semantic gate remains PILOT_WARRANTED. Private corpus evaluation,
+  resource/recall qualification, reviews, CI and release gates remain pending.
+  Candidate saturation exposes narrower-filter recovery, with at most 200
+  scored candidates per authority bucket. Deployment is unverified.
+
+- **2026-11-18 source result.** A fixture with 640 stronger lexical
+  competitors recovers the known latest observation through FTS. The forced
+  LIKE fallback misses it and reports candidate saturation. When the lexical
+  window fills on temporal intent, FTS provides a second shortlist limited
+  to 200 rows per authority bucket. Up to 200 distinct rows per bucket enter
+  final scoring. The synthetic SQLite query plan uses FTS MATCH, record
+  primary-key lookups and an indexed evidence count in one statement.
+  SQLite examines matching postings and uses a temporary B-tree to order
+  the shortlist. Broad queries and invalid or competing dates can exhaust a
+  bounded window. Narrow project, type or recorded-date filters when
+  saturation is reported. The matched 10,000-record benchmark in the
+  consolidated source result qualifies this fixture and leaves representative recall open.
 
 ### V-07
 
@@ -294,7 +357,7 @@ Status: **NOT RUN**
 ### V-08
 
 **ME-08 — Define event, validity, capture and verification time**\
-Status: **NOT RUN**
+Status: **PARTIAL**
 
 - **Setup:** Use a fixed clock with an old event imported later, future-effective
   evidence, an expired fact, a superseded claim and an observation lacking event
@@ -304,6 +367,21 @@ Status: **NOT RUN**
   superseded and unknown states remain explicit. Missing tags alone prove neither
   freshness nor staleness; verification time retains its distinct meaning.
 - **Retain:** Temporal truth table, selected timestamp basis and boundary outputs.
+
+- **2026-11-17 source result.** The same bounded source candidate as V-06 passes
+  synthetic late-import, null event, effective-start fallback, review-time,
+  missing-volatility, invalid/future event, expired/inverted validity, UTC offset
+  and fractional-boundary checks. In-process HTTP and MCP compact/compatibility
+  search retain distinct time fields and proposal provenance. `observedAt` is
+  null when `sourceEventAt` is null. Capture/review dates provide no current-time
+  bonus. Scope, history-toggle and no-business-write negative controls pass.
+  This is a search-only policy. The wider evidence-class/revalidation and
+  cross-surface gates remain open. Deployment is unverified.
+
+- **2026-11-18 source result.** FTS shortlist selection uses approximate
+  SQLite date comparisons. Existing strict parsing, validity, current-claim
+  and review checks remain authoritative for ranking. Capture time still
+  cannot substitute for event or effective time.
 
 ### V-09
 
@@ -328,8 +406,19 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
 ### V-10
 
 **ME-10 — Add budgeted search summaries**\
-Status: **NOT RUN**
+Status: **PARTIAL — canonical/working MCP cards tested in source**
 
+- **Source evaluation:** Optional MCP cards under a JSON UTF-8
+  maxResultBytes budget after redaction; impossible budgets refuse and
+  legacy full results do not truncate silently. Synthetic accepted/working
+  cards preserve first ranked identity, authority, date and provenance
+  with explicit omissions and detail recovery. The exact 10,000-byte
+  digit transition, credential replacement growth and surrogate-safe
+  clipping have negative controls. Candidate saturation remains separate
+  from output packing. Transport framing is not part of the byte budget.
+  Selected record cards now carry the V-12 fences. Source/excerpt-kind
+  discovery cards remain open.
+  See [Batch 8](BATCH_8_BUDGETED_SEARCH.md).
 - **Setup:** Seed long records, checkpoints, evidence lists and freshness
   references across canonical, working and source-evidence results.
 - **Action:** Request summary/detail modes at several declared budgets, including
@@ -343,7 +432,7 @@ Status: **NOT RUN**
 ### V-11
 
 **ME-11 — Protect current context and improve budget remedies**\
-Status: **NOT RUN**
+Status: **PARTIAL — synthetic MCP contract exercised**
 
 - **Setup:** Create a task with a long current next action, active uncertainty,
   extensive history and a checkpoint that cannot fit every requested budget.
@@ -355,10 +444,22 @@ Status: **NOT RUN**
 - **Retain:** Budget breakdowns, protected-field assertions and distinct error
   paths.
 
+- **Source contract.** Task-scoped `get_work_context` and `resume_task`
+  accept `protectCurrent: true` and default to 12,000 serialized UTF-16
+  units. Protected resume emits one structured dossier. It uses the full
+  active action and preserves explicit nulls, state authority, blocker and
+  unresolved execution totals, and record recovery. Historical prose yields
+  before the core. An undersized request returns
+  `protected_context_budget_too_small` with a minimum budget. A core beyond
+  the ceiling returns `protected_context_requires_detail_reads` with
+  record recovery guidance. The legacy paths retain their original behavior.
+  Synthetic tests cover both tools, a long blocked checkpoint, partial
+  blocker/run pages and both errors.
+
 ### V-12
 
 **ME-12 — Implement progressive, version-aware evidence reads**\
-Status: **NOT RUN**
+Status: **PARTIAL — synthetic MCP contract exercised**
 
 - **Setup:** Create a short search hit backed by multiple evidence pages and
   freshness references. Change one supporting source between summary and detail.
@@ -370,11 +471,34 @@ Status: **NOT RUN**
 - **Retain:** Page sequence, revision comparisons, continuation receipts and
   complete recovered identities.
 
+- **Source contract.** Follow a selected card's `detailArgs` to
+  `get_record` with `expectedRevision` and `expectedEvidenceVersion`.
+  Follow `evidenceRecovery` for further linked evidence. Each evidence row
+  identifies its source and carries a `get_source` pointer with
+  `expectedVersion`. Source text and excerpts page independently through
+  `textRecovery` and `excerptRecovery`. Totals, returned counts and
+  next offsets describe the respective collections. Restart at offset zero
+  when a revision or evidence mismatch is reported. Fingerprints use
+  indexed evidence metadata and stored content hashes. Record fences also
+  include project cursors and the delivered freshness reference summary;
+  unrelated project writes can require a restart. Freshness samples keep
+  their existing truncation signals. Exhaustive freshness-reference paging
+  remains open. Synthetic tests traverse all pages and exercise scope,
+  provenance and revision churn.
+
 ### V-13
 
 **ME-13 — Expose scoped filters through MCP**\
-Status: **NOT RUN**
+Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 
+- **Source test:** Bounded MCP search_context projectId, recordType,
+  recordedFrom/recordedTo inclusive UTC recordedAt filters reuse HTTP
+  selection and preserve working/canonical status. Synthetic tests include
+  inclusive UTC-day boundaries (including offset timestamps), invalid/reversed
+  dates, unsupported types, legacy search and whole-row nonmutation. Full taskId/sourceId,
+  source excerpt and explicit event/effective/verified time filters remain
+  unimplemented; correctness has not been qualified for those scopes.
+  [Batch 7](BATCH_7_SCOPED_SEARCH.md) retains open gates.
 - **Setup:** Use projects with similar names, separate tasks, multiple record
   types and sources whose event, validity and import dates differ.
 - **Action:** Combine project/task/date/type/source filters through MCP; include

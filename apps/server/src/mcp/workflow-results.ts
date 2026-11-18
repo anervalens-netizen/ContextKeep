@@ -226,6 +226,7 @@ export const workflowResults: Record<string, z.ZodType> = {
       resumeText: z.string().optional(),
       format: z.enum(["both", "structured"]).optional(),
       contextBudgetChars: count.optional(),
+      protectCurrent: z.literal(true).optional(),
       truncated: z.boolean().optional(),
       omitted: z.array(z.union([z.string(), object])),
     })

@@ -27,7 +27,7 @@ import { captureWork } from "../services/capture-work.js";
 import { getBlockerState, resolveBlocker } from "../services/blockers.js";
 import { getContextDelta } from "../services/context-delta.js";
 import { ApiError } from "../lib/errors.js";
-import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay } from "./safety.js";
+import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay, safeValue } from "./safety.js";
 import { relationKinds } from "@contextkeep/shared";
 import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-metadata.js";
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
@@ -162,6 +162,14 @@ const RecordResult = z.object({
   evidenceBasis: z.string(),
   revision: z.number().int().min(1),
   evidence: z.array(EvidenceResult).optional(),
+}).passthrough();
+
+const RecordReadResult = RecordResult.extend({
+  evidenceTotal: z.number().int().nonnegative(),
+  evidenceReturned: z.number().int().nonnegative(),
+  evidenceNextOffset: z.number().int().nonnegative().nullable(),
+  evidenceVersion: z.string().length(64),
+  evidenceRecovery: z.object({ tool: z.literal("get_record") }).passthrough().nullable(),
 }).passthrough();
 
 const DeltaChangeResult = z.object({
@@ -351,12 +359,17 @@ export interface ContextKeepMcpOptions {
   preferencesPath?: string;
 }
 
-/** UUID format already describes the generated regex; keep runtime Zod validation exact. */
-function compactUuidSchema(value: unknown): void {
+/** Omit explicit allow-all defaults while preserving the advertised constraints.
+ * UUID format already describes the generated regex; runtime Zod stays exact.
+ */
+function compactToolSchema(value: unknown): void {
   if (!value || typeof value !== "object") return;
   const node = value as Record<string, unknown>;
   if (node.format === "uuid") delete node.pattern;
-  for (const child of Object.values(node)) compactUuidSchema(child);
+  const extras = node.additionalProperties;
+  if (extras === true || (extras && typeof extras === "object" && Object.keys(extras).length === 0))
+    delete node.additionalProperties;
+  for (const child of Object.values(node)) compactToolSchema(child);
 }
 
 export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[], options: ContextKeepMcpOptions = {}) {
@@ -383,8 +396,8 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         inputSchema: z.toJSONSchema(schema, { target: "draft-7", reused: "ref" }) as Tool["inputSchema"],
         outputSchema,
         annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly && ["delete_record", "confirm_correction", "set_project_lifecycle", "review_records", "edit_record", "update_project", "restore_record"].includes(name), idempotentHint: true, openWorldHint: false } };
-      compactUuidSchema(metadata.inputSchema);
-      compactUuidSchema(metadata.outputSchema);
+      compactToolSchema(metadata.inputSchema);
+      compactToolSchema(metadata.outputSchema);
       MCP_TOOL_METADATA_CACHE.set(name, metadata);
       mcpToolMetadataCompileCount += 1;
     }
@@ -422,7 +435,12 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
           let result: unknown;
           if (readOnly) {
             result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) :
-              name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) : toolResult(await runChecked(), secrets);
+              name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) :
+              toolResult(await runChecked(), secrets,
+                name === "search_context"
+                  ? (input as { maxResultBytes?: number; representation?: string }).maxResultBytes ??
+                    ((input as { representation?: string }).representation === "cards" ? 12_000 : undefined)
+                  : undefined);
           } else {
             rejectCredentials(input, secrets);
             if (name === "settings.update") {
@@ -458,7 +476,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     return service.getProjectOverview(context, { projectId, limit: 1 });
   }
 
-  define("list_projects", "Resolve project names/aliases to IDs. Paginated; limit 1–50. Full output is the default. Compact metadata supports conditional pages and lifecycle filtering; unchanged metadata never proves memory or runtime freshness.",
+  define("list_projects", "Resolve project names/IDs. Full default; compact conditional/lifecycle pages. Unchanged catalogue metadata does not prove runtime freshness.",
     z.strictObject({
       ...Page,
       limit: z.number().int().min(1).max(50).default(50),
@@ -476,10 +494,10 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("get_project", "Read a project, freshness metadata and bounded accepted context. Use get_work_context for task-scoped working memory.",
     z.strictObject({ projectId: ProjectId, limit: z.number().int().min(1).max(24).default(12) }), true,
     (input) => service.getProjectOverview(context, input), z.object({ project: z.unknown(), recentCanonicalRecords: z.array(z.unknown()), acceptedCounts: z.record(z.string(), z.number()) }).passthrough());
-  define("get_work_context", "Read bounded canonical and separate proposed context, checkpoints, handoffs and freshness. task ranks items; totalContextBudgetChars caps serialized output. diagnostics reports selection/omission. No inferred goals, raw sources or provider calls.",
-    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), limitPerSection: z.number().int().min(1).max(10).default(5), task: z.string().trim().min(1).max(2000).optional(), totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(), diagnostics: z.boolean().default(false), permanentConstraintIds: z.array(z.string().uuid()).max(5).optional() }), true,
-    (input) => service.getWorkContext(context, input), McpWorkContextResult);
-  define("get_context_delta", "Read canonical/working cursor deltas bound to project revision. Page tokens retain a stable high-watermark across writes. Missing, expired or ahead history returns resetRequired plus the full material snapshot, not an empty delta.",
+  define("get_work_context", "Read bounded accepted and separate proposed context, checkpoints, handoffs and freshness. task ranks; protectCurrent with taskId preserves the full current action or returns a budget remedy. No inferred goals, raw sources or provider calls.",
+    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), limitPerSection: z.number().int().min(1).max(10).default(5), task: z.string().trim().min(1).max(2000).optional(), totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(), diagnostics: z.boolean().default(false), protectCurrent: z.boolean().optional(), permanentConstraintIds: z.array(z.string().uuid()).max(5).optional() }), true,
+    (input) => service.getWorkContext(context, input, value => safeValue(value, secrets) as typeof value), McpWorkContextResult);
+  define("get_context_delta", "Read revision-bound canonical/working delta with stable page cursor. Missing, expired or ahead history returns resetRequired and full snapshot, not empty.",
     z.strictObject({
       projectId: ProjectId,
       canonicalCursor: z.number().int().min(0),
@@ -489,22 +507,34 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       pageToken: z.string().trim().min(1).max(200).nullable().default(null),
       requestKey: z.string().uuid().nullable().default(null),
     }), true, input => getContextDelta(deps, input), ContextDeltaResult);
-  define("get_project_brief", "Read canonical accepted brief, with SQL pagination per section. Limit 1–50. Records include revisions and evidence IDs; get_record loads evidence.",
+  define("get_project_brief", "Read accepted brief with paged sections (limit 1–50); records link evidence via get_record.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readBrief(deps, input), BriefResult);
   define("get_project_timeline", "Read accepted and superseded history, newest first, with confirmed supersession links. SQL pagination; limit 1–50.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readTimeline(deps, input), TimelineResult);
-  define("search_context", "Search canonical (default), proposed agent reports (working), or separately labeled arrays (all). Preserve status/provenance/timestamps; never blend working into truth. Current task hits add taskState with progress provenance and a read-only resume pointer; taskStatus stays original. Prefer compact=true to return canonical data once in records. Default compatibility mode also includes canonicalRecords. Historical canonical content is opt-in. Limit 1–15.",
+  const RecordedUtcDay = z.iso.date();
+  define("search_context", "NEVER blend canonical truth with proposed work. Retain status/provenance/taskState/dates. scope=canonical|working|all; includeHistorical adds superseded. representation=cards budgets UTF-8 JSON with omissions; get_record expands. full+maxResultBytes refuses excess; recordedFrom/To use UTC recordedAt. Limit 1–15.",
     z.strictObject({ q: z.string().trim().min(1).max(500), projectId: ProjectId.optional(),
-      compact: z.boolean().optional(), match: z.enum(["terms", "phrase"]).default("terms"), scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false), limit: z.number().int().min(1).max(15).default(10) }), true,
-    (input) => service.searchContext(context, input), McpSearchResultDto);
-  define("get_record", "Read one record with paged evidence. Accepted-only by default; includeUnreviewed explicitly opts into proposed reports. Preserve provenance and review status.",
-    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
-    input => readRecord(deps, input, secrets), RecordResult);
+      compact: z.boolean().optional(),
+      representation: z.enum(["full", "cards"]).default("full"),
+      maxResultBytes: z.number().int().min(2_048).max(32_768).optional(),
+      match: z.enum(["terms", "phrase"]).default("terms"),
+      scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false),
+      recordType: RecordType.optional(),
+      recordedFrom: RecordedUtcDay.optional(), recordedTo: RecordedUtcDay.optional(),
+      limit: z.number().int().min(1).max(15).default(10) }).refine(
+        ({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo,
+        { path: ["recordedTo"], message: "recordedFrom must be on or before recordedTo" },
+      ), true,
+    (input) => service.searchContext(context, input,
+      (value) => safeValue(value, secrets), secrets), McpSearchResultDto);
+  define("get_record", "Read one record and a bounded evidence page. Use expectedRevision and expectedEvidenceVersion from the selected card or previous page. Proposals require includeUnreviewed.",
+    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), projectId: ProjectId.optional(), expectedRevision: z.number().int().min(1).optional(), expectedEvidenceVersion: z.string().length(64).optional(), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
+    input => readRecord(deps, input, secrets), RecordReadResult);
   define("create_handoff", "When the user asks for a handoff, persist a canonical evidence-based handoff snapshot. This writes an export, not new accepted knowledge.",
     z.strictObject({ projectId: ProjectId, objective: z.string().max(2000).nullable().default(null),
       contextBudgetChars: z.number().int().min(2000).max(60000).default(20000), ...IdentityFields, idempotencyKey: WriteKey }), false,
     (input) => renderHandoff(deps, HandoffExportInput.parse(input), actorFor(input)), HandoffExportDto);
-  define("add_owner_note", "Use ONLY when the owner explicitly asks to save their stated fact/decision. Preserve their statement, never invent acceptance. Uses canonical owner declaration + confirmation with evidence/audit. Cannot supersede other records; use propose_correction for changes.",
+  define("add_owner_note", "Only on explicit owner request. Owner-stated fact/decision with audit; never supersedes. For changes use propose_correction.",
     z.strictObject(NoteFields), false, (input) => {
       requireProject(input.projectId);
       // Both canonical operations are synchronous; an outer SQLite transaction makes them atomic.
@@ -533,7 +563,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     ])).max(20).optional(),
     artifactRefs: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
   });
-  define("capture_working_memory", "Delegated proposal-only evidence capture. Checkpoints require taskId, or explicit checkpoint.projectLevelIntent=project_note for project history. Prefer categorized blocker objects. Optional runEvidence. Never changes accepted progress or truth. Requires owner-configured delegation and a stable explicit clientId or configured default identity.",
+  define("capture_working_memory", "Delegated proposal-only capture. Requires configured delegation and stable clientId. Checkpoint needs taskId or project_note; optional runEvidence. Never accepts progress.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
       runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
       outcome: z.string().min(1).max(8000).refine(value => value.trim().length > 0, "Text must not be blank"),
@@ -551,7 +581,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         clientId: delegatedClientId, sessionId: input.sessionId ?? "delegated-working-memory", idempotencyKey: input.idempotencyKey,
       }));
     }, CaptureResult);
-  define("capture_work", "Atomically save evidence and a proposed agent report. Checkpoints require taskId, or explicit checkpoint.projectLevelIntent=project_note for project history. Prefer categorized blocker objects; optionally checkpoint or explicitly update accepted action progress. Verification requires runEvidence matching the inspected terminal runId, runRevision and externalJobId. Never auto-accept.",
+  define("capture_work", "Save evidence as proposed report. Checkpoint needs taskId or explicit project_note. Categorize blockers; runEvidence must match terminal run/revision/job to verify. Never accepts truth.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(),
       runEvidence: z.strictObject({ runId: z.string().uuid(), runRevision: z.number().int().min(1), externalJobId: z.string().min(1).max(200).nullable() }).optional(),
       outcome: z.string().min(1).max(8000).refine(value => value.trim().length > 0, "Text must not be blank"),
@@ -560,7 +590,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       subject: z.string().trim().min(1).max(400).default("work-capture"),
       progressUpdates: z.array(z.strictObject({ recordId: z.string().uuid(), revision: z.number().int().min(1), taskStatus: TaskStatus })).max(20).default([]),
       checkpoint: CheckpointInput.optional(), ...RequiredIdentityFields, idempotencyKey: WriteKey }), false, (input) => captureWork(deps, input, actorFor(input)), CaptureResult);
-  define("list_blockers", "Read blocker lifecycle pages for one project. Counts are exact across all states; state filters arrays and history, includeHistory=false omits history. selection.historyCount counts filtered history. Each selected array has its own next offset; skipped arrays have null next offsets. Blocker ids derive from checkpoint record/index; later checkpoints that omit a blocker do not resolve it.",
+  define("list_blockers", "Read blocker pages with exact counts and state/history paging. includeHistory=false omits history. IDs bind checkpoint/index; omission never resolves a blocker.",
     z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), state: z.enum(["active", "resolved", "all"]).default("all"), includeHistory: z.boolean().default(true), offset: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(50).default(25) }), true,
     (input) => { if (input.taskId) requireTaskScope(deps, input.projectId, input.taskId); return getBlockerState(deps, input.projectId, input); }, BlockerStateResult);
   define("resolve_blocker", "Resolve/withdraw a blocker into proposed evidence; retain its originating task. Never accepts knowledge or closes the action. Same-key retries replay; stale/cross-project references fail.",
@@ -584,7 +614,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       actionRecordId: input.actionRecordId,
     }, actorFor(input)),
     z.object({ projectId: ProjectId, blockerId: z.string(), checkpointRevision: z.number(), disposition: z.enum(["resolved", "withdrawn"]), resolutionRecordId: z.string().uuid(), reviewStatus: z.literal("proposed"), evidenceBasis: z.literal("agent_report"), actionUpdated: z.literal(false), workingMemoryVersion: z.number() }).passthrough());
-  define("propose_correction", "Propose a correction to existing knowledge; does NOT confirm it or change accepted truth. Read get_correction, then use confirm_correction when owner-authorized. Existing cross-project/evidence/precedence checks remain authoritative.",
+  define("propose_correction", "Propose without changing accepted truth. Read get_correction, then owner-authorized confirm_correction. Scope/evidence checks apply.",
     z.strictObject({ ...NoteFields, supersedesRecordIds: z.array(z.string().uuid()).min(1).max(50) }), false,
     (input) => {
       requireProject(input.projectId);
@@ -625,7 +655,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     ]},
   }};
 
-  define("get_capabilities", "Read actual application/MCP/schema versions, supported protocol versions, available tools, limits, deletion semantics and write requirements.",
+  define("get_capabilities", "Read actual application/MCP/schema versions, protocol/tool limits, deletion behavior and write requirements.",
     z.strictObject({}), true, () => ({
       version: MCP_VERSION,
       applicationVersion: runtime.applicationVersion,

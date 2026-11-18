@@ -18,8 +18,8 @@ Initial inventory: **50 items — 44 PLANNED, 6 GATED, 0 IN_PROGRESS,
 0 IMPLEMENTED, 0 VERIFIED, 0 DONE.** This line is a dated creation snapshot;
 the item rows and later dated updates are authoritative as work proceeds.
 
-Current inventory after Batch 6 source qualification: **50 items —
-24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+Historical source-branch snapshot for ME-06 / ME-08 (before combining ME-13): **50 items —
+22 PLANNED, 6 GATED, 17 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
 ME-24 and ME-25 retain their bounded verified scopes. ME-27 is now
 IN_PROGRESS; ME-45 and ME-48 remain IN_PROGRESS. The broader attribution,
 prospective comparable outcome evaluation, longitudinal capacity assessment,
@@ -28,9 +28,59 @@ deployment receipts are stored privately in ContextKeep, not this tracker.
 See [Batch 5](docs/plans/2026-11-16-memory-evolution/BATCH_5.md)
 and [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md).
 
+Historical source-branch snapshot for ME-13 (before combining ME-06/08): **50 items —
+23 PLANNED, 6 GATED, 16 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-13 moves to IN_PROGRESS for the bounded project/type/recordedAt MCP
+filtering subset. Task/source/observation time scope, the candidate search
+evaluation, and final reviewed release remain open. Earlier completed
+scope is preserved.
+See [Batch 7](docs/plans/2026-11-16-memory-evolution/BATCH_7_SCOPED_SEARCH.md).
+
+Historical inventory for the combined Batch 7 source candidate (NOT production): **50 items —
+21 PLANNED, 6 GATED, 18 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.**
+ME-06, ME-08 and ME-13 are IN_PROGRESS; V-06/V-08/V-13 remain PARTIAL.
+The integration source candidate retains the 200,000-byte MCP catalogue
+limit and distinct canonical/working results. No required security gate or
+review has been waived. See
+[Batch 7 integration](docs/plans/2026-11-16-memory-evolution/BATCH_7_INTEGRATION.md).
+
+Historical source snapshot for the stacked Batch 8 ME-10 candidate:
+**50 items — 20 PLANNED, 6 GATED, 19 IN_PROGRESS, 0 IMPLEMENTED,
+4 VERIFIED, 1 DONE.** This is NOT production; ME-10 is a bounded
+source candidate with V-10 PARTIAL. ME-06, ME-08 and ME-13 remain in
+progress with their own performance/security review gates.
+See [Batch 8](docs/plans/2026-11-16-memory-evolution/BATCH_8_BUDGETED_SEARCH.md).
+
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
 contracts. It is not a production status report.
+
+**2026-11-18 consolidated source candidate.** Development agent, based on the
+stacked PR36 head `67f86dd0735b58aed98f6c72f70aaf31945e5ceb`. ME-11 and ME-12
+move PLANNED → IMPLEMENTED. ME-06, ME-08 and ME-10 remain IN_PROGRESS.
+V-06/V-08 retain a bounded fallback recall limit. V-10 retains source/excerpt
+card discovery as open work. The [integrated source result](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#consolidated-source-batch)
+records the synthetic comparison, local gates and remaining limits. Current
+inventory: **50 items — 18 PLANNED, 6 GATED, 19 IN_PROGRESS, 2 IMPLEMENTED,
+4 VERIFIED, 1 DONE.**
+
+### Consolidated release candidate
+
+[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) now targets
+`main` and includes the source from PRs #33–#35. The synthetic
+regressions cover a valid recent observation displaced by temporal slot
+reservation in both FTS and LIKE, exact identifiers next to sentence
+punctuation, and matching currentness across search and record detail.
+The item-level acceptance statuses above still apply.
+
+Qualify this candidate as one release. Check the frozen private recall
+comparison and document remaining FTS and LIKE saturation gaps. Check
+search-to-detail currentness and evidence recovery, serialized budget limits,
+catalogue and legacy-client compatibility, and restoration of the compatible
+runtime and database. Record CI and review for the integration head. Synthetic
+results can qualify the source contracts. Representative private recall,
+authenticated runtime readback, recovery, and post-release traffic observations
+each require their own evidence.
 
 ### Programme delivery order
 
@@ -208,14 +258,14 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-03](#me-03) | Define metric semantics and predeclare quality gates | IN_PROGRESS | P0 | W0 | Evaluation | ME-01, ME-02 |
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
-| [ME-06](#me-06) | Rank current observations and historical answers correctly | PLANNED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
+| [ME-06](#me-06) | Rank current observations and historical answers correctly | IN_PROGRESS | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
-| [ME-08](#me-08) | Define event, validity, capture and verification time | PLANNED | P0 | W1 | Backend | ME-01, ME-02 |
+| [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
-| [ME-10](#me-10) | Add budgeted search summaries | PLANNED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
-| [ME-11](#me-11) | Protect current context and improve budget remedies | PLANNED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
-| [ME-12](#me-12) | Implement progressive, version-aware evidence reads | PLANNED | P1 | W2 | Retrieval | ME-10, ME-11 |
-| [ME-13](#me-13) | Expose scoped filters through MCP | PLANNED | P1 | W2 | Backend | ME-02 |
+| [ME-10](#me-10) | Add budgeted search summaries | IN_PROGRESS | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
+| [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
+| [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
+| [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
 | [ME-14](#me-14) | Index detailed sources and excerpts with FTS | PLANNED | P1 | W2 | Retrieval | ME-02, ME-13 |
 | [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
 | [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
@@ -352,13 +402,30 @@ Dependencies: ME-02 · Validation: [V-05](docs/plans/2026-11-16-memory-evolution
 ### ME-06
 
 **Rank current observations and historical answers correctly**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-06)
 
 - [ ] Scope: Make current-vs-historical intent, relevant evidence and freshness influence selection/ranking. Keep canonical and working results separate; avoid both newest-always-wins and accepted-always-wins rules.
 - [ ] Acceptance: Current migration scenarios return dated relevant evidence; old accepted constraints remain visible; history queries recover prior state; no proposed report becomes accepted.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence — 2026-11-17, development agent. The working-tree
+  candidate starts from `c4b31d7663a2f70774364a08aa01ed2cba50c447`.
+  Search opts into bounded lexical overscan and local temporal selection with exact-ID priority,
+  current/historical RO/EN intent and an additive ranking explanation. Canonical,
+  working and explicit historical boundaries stay authoritative. Other internal
+  retrieval callers retain the existing scoring policy by default.
+  `apps/server/test/search-temporal.test.ts` passes the original 40 synthetic cases. The combined
+  adversarial source candidate now passes 49 temporal regressions, adding
+  malformed review-time, invalid SQL timestamp, future-priority,
+  mixed-intent and literal UUID phrase tests. The original source fails both
+  FTS/LIKE saturation reproductions; the candidate passes both. The unchanged
+  63-case held-out corpus retains Recall@5/@10 0.8627, currentness 0.5385 and
+  abstention 0.6667 before/after, with zero provider calls. Its semantic gate
+  remains PILOT_WARRANTED. V-06 is PARTIAL. The frozen private matched comparison,
+  broader recall/resource gates, reviews, CI and release qualification remain
+  pending. This entry records source tests only; deployment is unverified.
+- [ ] Consolidated source batch: a second FTS shortlist recovers a known
+  observation beyond 400 lexical candidates. LIKE fallback reproduces the
+  remaining miss and reports saturation. See [V-06](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-06).
 
 ### ME-07
 
@@ -374,13 +441,25 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
 ### ME-08
 
 **Define event, validity, capture and verification time**\
-Status: **PLANNED** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-08)
 
 - [ ] Scope: Document temporal fields and missing-time behavior. Add freshness policy by evidence class, expiry/review handling and source-change revalidation without fabricating observation dates.
 - [ ] Acceptance: Late imports do not look like new observations; future/expired/superseded/conflicting evidence stays labeled; missing volatility tags are not interpreted as proof of freshness or staleness.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence — 2026-11-17, development agent. The same bounded source
+  candidate as ME-06 defines event/effective ranking time separately from capture
+  and review time. Search rejects malformed, future, expired and inverted validity
+  times for current bonuses, preserves fractional-instant ordering and keeps
+  unknown observation time null. MCP search exposes source/effective timestamps
+  and preserves proposal authority. Missing volatility tags cause no automatic
+  expiry. Search currentness cannot certify invalid/future events as current.
+  The 40-case synthetic temporal suite and targeted 68-test search/evaluation
+  suite pass. V-08 is PARTIAL. This search policy reuses existing operational
+  claim classification; broader evidence-class/revalidation policy, cross-surface
+  qualification and release/deployment evidence remain open.
+- [ ] Consolidated source batch: SQL time comparisons select a bounded
+  shortlist. Strict event, validity and review checks still run before ranking.
+  See [V-08](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-08).
 
 ### ME-09
 
@@ -398,46 +477,68 @@ Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-ev
 ### ME-10
 
 **Add budgeted search summaries**\
-Status: **PLANNED** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-10)
 
 - [ ] Scope: Design additive summary/detail and total-budget options. Short cards retain identity, provenance, date/freshness, relevant snippet, task state and recovery; canonical/working/source evidence stay distinct.
 - [ ] Acceptance: Declared representation stays within budget or returns a specific error; omitted bodies/lists are explicit; required information survives; legacy calls remain compatible.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 8 source candidate](docs/plans/2026-11-16-memory-evolution/BATCH_8_BUDGETED_SEARCH.md)
+  adds opt-in representation=cards with a structured UTF-8 JSON
+  maxResultBytes budget, explicit omissions, one result per nonempty
+  trust scope and recoverable get_record details.
+  The legacy full result is unchanged unless a budget is explicitly
+  requested; then it fails with a specific error instead of truncating.
+  The consolidated source batch adds version-bound detail pointers to
+  record cards through ME-12. Discovery cards for sources/excerpts require
+  a separate search contract. V-10 remains PARTIAL.
 
 ### ME-11
 
 **Protect current context and improve budget remedies**\
-Status: **PLANNED** · Priority: P0 · Wave: W2 · Owner role: Backend\
+Status: **IMPLEMENTED** · Priority: P0 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-11)
 
 - [ ] Scope: Reuse packing for resume/work-context/search. Prioritize current state, next action, authority, active uncertainty and recovery over history; keep a pointer when checkpoint text is omitted.
 - [ ] Acceptance: Impossible protected cores fail clearly; legacy vs structured and oversized-result remedies differ; no arbitrary truncation or identical deterministic retry hides missing context.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The integrated source batch introduces opt-in
+  `protectCurrent` for task-scoped work context and structured resume.
+  Synthetic MCP reads preserve the full checkpoint action, authority,
+  blocker/uncertainty counts and recovery. Separate errors handle a small
+  request budget and a core beyond the response ceiling. Legacy forms pass
+  compatibility tests. V-11 remains PARTIAL pending release qualification.
+
 
 ### ME-12
 
 **Implement progressive, version-aware evidence reads**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
+Status: **IMPLEMENTED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-10, ME-11 · Validation: [V-12](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-12)
 
 - [ ] Scope: Expand only selected hits through bounded record/source reads. Include total/returned counts and recovery for truncated evidence and freshness references; detect changed revisions.
 - [ ] Acceptance: All declared omissions are recoverable; detail matches its hit/source revision or discloses change; consumers do not treat an incomplete page as complete.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: Selected search cards carry record and evidence fences.
+  The source candidate walks bounded, versioned record and source pages with
+  totals, returned counts and recovery. Synthetic tests reject stale revisions,
+  source/excerpt changes, cross-project reads and proposals without opt-in.
+  Freshness reference samples remain bounded; V-12 remains PARTIAL.
+
 
 ### ME-13
 
 **Expose scoped filters through MCP**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-02 · Validation: [V-13](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-13)
 
 - [ ] Scope: Add project/task/date/type/source filters using existing backend behavior where possible. Specify whether each date is event, valid, import or write time.
 - [ ] Acceptance: Filtering, counts, pagination and snippets respect selected scope; missing/invalid filters are explicit; current clients preserve documented defaults.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 7 scoped-filter contract](docs/plans/2026-11-16-memory-evolution/BATCH_7_SCOPED_SEARCH.md)
+  uses the already qualified HTTP backend for project scope, record type and
+  recordedAt UTC-day intervals through the MCP search_context tool.
+  Strict ISO date and inclusive-range validation, canonical/working truth
+  separation, legacy defaults and bounded completeness have synthetic
+  tests. The source-only candidate does not yet expose explicit taskId,
+  source/excerpt or event/effective time filters. These distinct scope
+  contracts remain open, and V-13 is PARTIAL until full qualification.
 
 ### ME-14
 
@@ -1076,3 +1177,13 @@ synthetic or sanitized technical evidence.
   isolated backfill/lock contracts. The tracker remains 50 items:
   24 PLANNED, 6 GATED, 15 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED, 1 DONE.
   Actual deployment state and recovery evidence are kept privately.
+
+- **2026-11-17 — Bounded ME-06 / ME-08 source candidate.** Development agent;
+  both items move PLANNED → IN_PROGRESS. Synthetic current/history selection,
+  authority, exact identifiers, temporal boundaries, saturated candidates and
+  read-only negative controls pass, with additive HTTP/MCP ranking metadata.
+  The existing held-out quality metrics are unchanged. V-06 and V-08 remain
+  PARTIAL pending the wider private evaluation and qualification gates. The
+  inventory is 22 PLANNED, 6 GATED, 17 IN_PROGRESS, 0 IMPLEMENTED, 4 VERIFIED,
+  1 DONE, totaling 50. No deployment is asserted. Dependency advisory work
+  remains a separate external blocker and audit settings are retained.
