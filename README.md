@@ -80,6 +80,21 @@ Read the [catalogue contract](docs/mcp/project-catalogue.md) and
 [Batch 4 qualification record](docs/plans/2026-11-16-memory-evolution/BATCH_4.md)
 for cache rules, periodic full controls and implementation versus release status.
 
+## Source evidence discovery
+
+MCP 2.24 adds project-scoped `search_source_evidence` for keyword and phrase
+search across source titles and excerpts. Each hit is source evidence.
+Pass its `detailArgs` to `get_source` to verify the underlying text and keep
+source evidence separate from accepted records and proposed work.
+
+Discovery uses a bounded in-process index. Continue with `nextOffset` and
+`expectedIndexVersion` from the preceding page, keeping the query and project
+fixed. If the index changed, restart from offset zero. If more hits exist
+beyond the page budget, narrow the query. For a project beyond the index size
+limit, use `list_sources` and scoped `get_source` reads. Excerpt offsets use
+UTF-16 units in the length-preserving redacted normalized text.
+The `get_source` text pager continues to use Unicode code points.
+
 ## Reliable task continuity
 
 MCP 2.23.0 / schema 19 retains explicit execution-evidence correlation and immutable

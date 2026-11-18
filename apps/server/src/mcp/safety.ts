@@ -98,6 +98,17 @@ export function sourcePageResult(value: unknown, secrets: string[]): CallToolRes
   return boundedResult({ content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean });
 }
 
+/** Preserve offset-compatible snippets after the full normalized texts were masked. */
+export function sourceDiscoveryResult(value: unknown, secrets: string[]): CallToolResult {
+  type Discovery = { results: Array<{ excerpt: { text: string } | null }> };
+  const page = value as Discovery;
+  const clean = safeValue(value, secrets) as Discovery;
+  clean.results.forEach((result, index) => {
+    if (result.excerpt) result.excerpt.text = page.results[index]!.excerpt!.text;
+  });
+  return boundedResult({ content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean });
+}
+
 export function toolError(error: unknown, secrets: string[]): CallToolResult {
   const detail = (() => {
     if (error instanceof z.ZodError) {
@@ -129,6 +140,12 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
       const nextAction =
         ["idempotency_outcome_unknown", "idempotency_result_expired", "idempotency_result_unavailable"].includes(error.code) ? "reconcile_state_before_retry"
         : error.code === "idempotency_in_progress" ? "retry_same_event_later"
+        : error.code === "credential_detected" ? "remove_credentials"
+        : error.code === "task_revision_conflict" || error.code === "task_progress_conflict" ? "resume_task_and_reconcile"
+        : error.code === "checkpoint_task_required" || error.code === "checkpoint_scope_conflict" ? "select_task_or_explicit_project_note"
+        : error.code === "task_project_mismatch" ? "select_task_in_project"
+        : error.code === "search_budget_exceeded" ? "use_cards_or_narrow_search"
+        : error.code === "search_budget_too_small" ? "increase_budget_or_narrow_search"
         : error.code === "stale_revision" ? "read_current_revision"
         : error.code === "project_catalogue_changed" ? "restart_catalogue_from_first_page"
         : error.code === "context_delta_page_expired" ? "restart_from_committed_cursors"
@@ -137,7 +154,8 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         : error.code === "source_evidence_changed" ? "restart_source_from_first_page"
         : error.code === "protected_context_budget_too_small" ? "increase_context_budget"
         : error.code === "protected_context_requires_detail_reads" ? "read_protected_records"
-        : error.code === "context_budget_unrepresentable" || error.code === "result_too_large" ? "increase_budget_or_reduce_request"
+        : error.code === "result_too_large" ? "reduce_page_or_request"
+        : error.code === "context_budget_unrepresentable" ? "increase_budget_or_reduce_request"
         : error.code === "mcp_output_schema_mismatch" ? "report_contract_error"
         : transientStatus ? "retry_same_request"
         : "fix_input_or_state";

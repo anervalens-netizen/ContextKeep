@@ -64,40 +64,36 @@ records the synthetic comparison, local gates and remaining limits. Current
 inventory: **50 items — 18 PLANNED, 6 GATED, 19 IN_PROGRESS, 2 IMPLEMENTED,
 4 VERIFIED, 1 DONE.**
 
-### Consolidated release candidate
+### Consolidated release qualification
 
-[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) now targets
-`main` and includes the source from PRs #33–#35. The synthetic
-regressions cover a valid recent observation displaced by temporal slot
-reservation in both FTS and LIKE, exact identifiers next to sentence
-punctuation, and matching currentness across search and record detail.
-The item-level acceptance statuses above still apply.
+[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) merged as
+`930f42ee4ceb0d50295231a0c2d27c00e8087868`. Its source covers corrected
+temporal ranking, project/type/recorded-day filters, budgeted record cards,
+protected task context and versioned evidence expansion. CI passed. The
+authenticated runtime and rollback receipts are recorded privately. A separately
+restored NAS recovery kit passed its checks. The installed-route checks cover
+the selected release and do not qualify all historical storage copies or clients.
 
-Qualify this candidate as one release. Check the frozen private recall
-comparison and document remaining FTS and LIKE saturation gaps. Check
-search-to-detail currentness and evidence recovery, serialized budget limits,
-catalogue and legacy-client compatibility, and restoration of the compatible
-runtime and database. Record CI and review for the integration head. Synthetic
-results can qualify the source contracts. Representative private recall,
-authenticated runtime readback, recovery, and post-release traffic observations
-each require their own evidence.
+The matched private evaluation compared the candidate and baseline against the
+same frozen snapshot. The observed improvement was in development-case
+Recall@5. Held-out quality was unchanged, so ME-07 is in progress and the wider
+retrieval acceptance requirements remain open. A scoped record-card check
+qualified the declared structured-byte boundary and verified recovery for
+selected expected results omitted at the lower budget. Source/excerpt discovery
+is separate from this record-card contract. Raw cases and operational
+measurements remain in the private evidence ledger.
 
-### Programme delivery order
+Current inventory: **50 items — 16 PLANNED, 6 GATED, 21 IN_PROGRESS,
+2 IMPLEMENTED, 4 VERIFIED, 1 DONE.** The release advances specific acceptance
+slices. The item rows retain remaining scope and verification requirements.
 
-Continue from the latest qualified scope and its evidence. This sequence guides
-remaining work; it does not restart completed batches or discard the frozen
-baseline.
+### Source evidence and operator support candidate
 
-1. Continue the open parts of ME-01 / ME-02 / ME-03 from the Batch 3 private
-   freeze and measured baseline; maintain ME-46 / ME-50.
-2. Reuse the verified effective task state (ME-05) and forward reviewer
-   attribution/identity (ME-18 / ME-19) as prerequisites for later correctness
-   work. Their broader follow-ups retain the item-specific limits below.
-3. Qualify remaining search budgets/currentness and the controlled catalogue
-   consumer in bounded batches. Use the plan's waves and dependencies, not
-   item number alone, for sequencing.
-4. Keep ME-35–ME-40 gated until their named problems, baselines and budgets justify
-   an experiment. A justified defer/stop decision is a valid experiment outcome.
+The follow-on source candidate adds bounded project source discovery and
+operator error guidance without a persistent schema change. Its programme
+inventory is **50 items — 11 PLANNED, 6 GATED, 25 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**.
+This records source implementation. Installed verification and wider traffic outcomes retain
+their individual acceptance gates.
 
 ## Batch 1 — 2026-11-16
 
@@ -259,31 +255,31 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | IN_PROGRESS | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
-| [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
+| [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | IN_PROGRESS | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
-| [ME-14](#me-14) | Index detailed sources and excerpts with FTS | PLANNED | P1 | W2 | Retrieval | ME-02, ME-13 |
-| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
-| [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
+| [ME-14](#me-14) | Index detailed sources and excerpts with FTS | IMPLEMENTED | P1 | W2 | Retrieval | ME-02, ME-13 |
+| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | IN_PROGRESS | P1 | W2 | Backend | ME-14 |
+| [ME-16](#me-16) | Preserve source representations, offsets and redaction | IN_PROGRESS | P0 | W2 | Backend | ME-12, ME-14 |
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
 | [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
 | [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
-| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | PLANNED | P1 | W1 | Integration | ME-18, ME-19 |
+| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | IN_PROGRESS | P1 | W1 | Integration | ME-18, ME-19 |
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
 | [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
 | [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
-| [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
+| [ME-26](#me-26) | Separate actionable error codes and request shapes | IN_PROGRESS | P0 | W4 | Backend | ME-01, ME-03 |
 | [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | IN_PROGRESS | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
 | [ME-29](#me-29) | Build an outcome-oriented usage readout | PLANNED | P1 | W4 | Evaluation | ME-03, ME-26, ME-27, ME-28 |
 | [ME-30](#me-30) | Pilot existing delta consumption safely | PLANNED | P1 | W4 | Integration | ME-03, ME-31 |
-| [ME-31](#me-31) | Improve task capture and client workflow discipline | PLANNED | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
+| [ME-31](#me-31) | Improve task capture and client workflow discipline | IN_PROGRESS | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
 | [ME-32](#me-32) | Use evidence-backed relations before a graph stack | PLANNED | P2 | W4 | Knowledge | ME-04, ME-23 |
 | [ME-33](#me-33) | Prototype a source-versioned project brief | PLANNED | P2 | W5 | Knowledge | ME-12, ME-23, ME-30 |
 | [ME-34](#me-34) | Track claim provenance and targeted invalidation | PLANNED | P2 | W5 | Knowledge | ME-16, ME-33 |
@@ -430,13 +426,17 @@ Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-1
 ### ME-07
 
 **Measure candidate recall and saturation**\
-Status: **PLANNED** · Priority: P1 · Wave: W1 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W1 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07)
 
 - [ ] Scope: Diagnose misses caused by bounded candidate selection; compare bounded widening or better selection before increasing cost. Preserve exact-identifier behavior and truthful saturation signals.
 - [ ] Acceptance: Recall improves on the frozen set without unbounded scans; candidateLimitReached/mayHaveMore remain accurate and include usable continuation through narrower filters, bounded expansion or paging. A detail read alone cannot recover an unreturned identity. Report latency and false positives.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The matched frozen-snapshot comparison for PR #36 observed
+  development-case Recall@5 gains and unchanged held-out quality. Saturation
+  remained visible and a bounded LIKE miss remains reproducible. Improve
+  representative recall and qualify a recovery path for identities outside the
+  returned candidate set before closing the item. Private case evidence is
+  retained separately.
 
 ### ME-08
 
@@ -489,8 +489,10 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-me
   The legacy full result is unchanged unless a budget is explicitly
   requested; then it fails with a specific error instead of truncating.
   The consolidated source batch adds version-bound detail pointers to
-  record cards through ME-12. Discovery cards for sources/excerpts require
-  a separate search contract. V-10 remains PARTIAL.
+  record cards through ME-12. The matched qualification confirmed exact UTF-8
+  accounting and also found expected records omitted at the lower budget that
+  became visible at the higher one. Discovery cards for sources/excerpts
+  require a separate search contract. V-10 remains PARTIAL.
 
 ### ME-11
 
@@ -505,7 +507,8 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-me
   Synthetic MCP reads preserve the full checkpoint action, authority,
   blocker/uncertainty counts and recovery. Separate errors handle a small
   request budget and a core beyond the response ceiling. Legacy forms pass
-  compatibility tests. V-11 remains PARTIAL pending release qualification.
+  compatibility tests. The selected release passed its runtime and rollback
+  gates. Broader client/workflow coverage remains open in V-11.
 
 
 ### ME-12
@@ -538,40 +541,37 @@ Dependencies: ME-02 · Validation: [V-13](docs/plans/2026-11-16-memory-evolution
   separation, legacy defaults and bounded completeness have synthetic
   tests. The source-only candidate does not yet expose explicit taskId,
   source/excerpt or event/effective time filters. These distinct scope
-  contracts remain open, and V-13 is PARTIAL until full qualification.
+  contracts remain open after the PR #36 release. V-13 is PARTIAL.
 
 ### ME-14
 
 **Index detailed sources and excerpts with FTS**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
+Status: **IMPLEMENTED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-13 · Validation: [V-14](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-14)
 
 - [ ] Scope: Add a separate derived FTS5 source/excerpt path and an explicit source_evidence result kind. Preserve source identity/version and avoid creating canonical records merely for indexing.
 - [ ] Acceptance: Source-only synthetic facts are discoverable; whole-question LIKE is no longer the only route; snippets have evidence labels and cannot masquerade as accepted truth.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: A project-scoped MCP query reads a separate, bounded FTS5 index of source titles and redacted normalized excerpts. Each result has evidence-only authority and version-bound detail navigation. Synthetic source-only facts are discoverable without canonical record creation.
 
 ### ME-15
 
 **Make index lifecycle incremental and reconstructible**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-14 · Validation: [V-15](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-15)
 
 - [ ] Scope: Define bounded backfill, restart/resume, index versioning, consistency checks, update/delete/redact propagation and rebuild controls. Measure write lock/WAL and storage impact.
 - [ ] Acceptance: Interrupted rebuild resumes safely; stale/redacted/deleted fragments cannot be delivered; index removal does not destroy authority; migration/recovery gate is satisfied before release.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The initial index is bounded, reconstructible and memory-only. Two project slots are kept. Local writes, external commits, or credential changes revalidate source inputs before a query can reuse an index. The source path requires no schema migration or durable backfill. Wider cache efficiency, workload coverage and installed recovery evidence remain open.
 
 ### ME-16
 
 **Preserve source representations, offsets and redaction**\
-Status: **PLANNED** · Priority: P0 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-12, ME-14 · Validation: [V-16](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-16)
 
 - [ ] Scope: Declare normalized/original representations and each offset unit. Keep code-point paging and UTF-16 excerpt compatibility explicit; verify spans after normalization and redaction.
 - [ ] Acceptance: Diacritics, emoji, combining characters and boundary pages resolve to the advertised text; redaction precedes disclosure; no offset points silently into a different representation.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The source-discovery contract labels UTF-16 offsets into redacted normalized text and supplies a version-bound get_source excerpt. Synthetic tests cover emoji, a combining character, credential masking and malformed offsets. Broader corpus and client coverage remain open.
 
 ### ME-17
 
@@ -620,13 +620,18 @@ Dependencies: ME-18 · Validation: [V-19](docs/plans/2026-11-16-memory-evolution
 ### ME-20
 
 **Project current reviews by PR, reviewer and head**\
-Status: **PLANNED** · Priority: P1 · Wave: W1 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-18, ME-19 · Validation: [V-20](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-20)
 
 - [ ] Scope: Build a current review view with explicit reviewed head, attested base or unknown, resource kind/version, status and developer disposition; make older versions expandable with source links.
 - [ ] Acceptance: Old-head or running reviews cannot satisfy current-head completion; missing/failed polls remain unknown; history and source authors remain recoverable.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The companion [PR #58](https://github.com/anervalens-
+  netizen/astancu-website/pull/58) pages saved review versions for a selected
+  repository and PR, compares their heads to an inspected revision and preserves
+  recorded source provenance. A scoped read against the native journal passed. The
+  projection reports capture-time disposition and unknown poll status separately
+  from the live gate. Source review, integration and operational handoff remain
+  distinct.
 
 ### ME-21
 
@@ -636,8 +641,11 @@ Dependencies: ME-01 · Validation: [V-21](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Use semantic change fields and coverage watermarks, last successful observation and failure status. Surface changed facts/incidents/blockers; use a bounded journal for successful no-change observations. Preserve applicable identity/no-replay contracts without waiting for the separate review-bridge implementation.
 - [ ] Acceptance: Failed fetch, partial page or missing history is not reported as no change; unchanged polls preserve coverage; omitted blocker text never resolves a blocker.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: A read-only production sample confirmed narrative no-change
+  phrases without a typed observation contract. Similar wording can coexist with
+  checkpoint information and does not prove coverage. Qualify a real producer that
+  reports succeeded, partial and failed observations with a source watermark
+  before changing context selection.
 
 ### ME-22
 
@@ -647,8 +655,11 @@ Dependencies: ME-20, ME-21 · Validation: [V-22](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Select current meaningful observations and expandable history; offer useful interval/final summaries. Any historical projection backfill is scoped, previewed and reversible.
 - [ ] Acceptance: Default context shrinks on matched workloads; every underlying version/evidence remains retrievable; equal text for distinct events is preserved; no bulk phrase/URL deletion.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The existing compact working index already avoids duplicating full
+  proposal bodies. Review versions remain available through the separate projected
+  history. Further default suppression requires typed observations and a matched
+  reduction without hiding material events or blockers. No historical record was
+  changed.
 
 ### ME-23
 
@@ -658,8 +669,10 @@ Dependencies: ME-04, ME-08, ME-22 · Validation: [V-23](docs/plans/2026-11-16-me
 
 - [ ] Scope: Define how architecture, constraints, decisions and runbooks are proposed from operational evidence. Keep transient progress separate; reuse existing review/acceptance semantics.
 - [ ] Acceptance: Synthesis retains source links and status; proposed volume is not treated as automatic approval debt; no autonomous acceptance, silent contradiction resolution or source erasure.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The existing review path continues to keep proposals separate from
+  accepted knowledge. A curator pilot still needs a concrete stable-knowledge
+  cohort and independently reviewable source references. Operational proposal
+  volume alone does not establish approval debt.
 
 ### ME-24
 
@@ -702,13 +715,12 @@ Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-ev
 ### ME-26
 
 **Separate actionable error codes and request shapes**\
-Status: **PLANNED** · Priority: P0 · Wave: W4 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W4 · Owner role: Backend\
 Dependencies: ME-01, ME-03 · Validation: [V-26](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-26)
 
 - [ ] Scope: Diagnose budget, oversized result, schema, workflow/scope, client guard and internal failures with finite codes and format/budget buckets. Provide specific client remedies.
 - [ ] Acceptance: Error causes can be measured without private payloads; deterministic failures do not retry unchanged; successful omissions remain separate; existing protection is not weakened.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The MCP dispatcher counts bounded error causes and request shapes separately from successful omissions. Action text covers deterministic task, revision, credential and budget failures. SDK failures before server dispatch and representative production usage remain open.
 
 ### ME-27
 
@@ -762,13 +774,12 @@ Dependencies: ME-03, ME-31 · Validation: [V-30](docs/plans/2026-11-16-memory-ev
 ### ME-31
 
 **Improve task capture and client workflow discipline**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Integration\
 Dependencies: ME-04, ME-11, ME-26 · Validation: [V-31](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-31)
 
 - [ ] Scope: Update guidance for task reuse, structured resume, scoped captures, explicit project notes, dated observations/volatility and evidence references. Cache identity only; reread before fenced writes.
 - [ ] Acceptance: Representative clients follow current contracts; scope/revision/idempotency errors have actionable fixes; connection metadata refresh is documented where needed.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: MCP descriptions and operator documentation specify task reuse, evidence scope, version-fenced details and recovery from invalidated pages. Representative agent use and metadata refresh remain qualification work.
 
 ### ME-32
 

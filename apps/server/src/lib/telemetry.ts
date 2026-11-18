@@ -42,6 +42,13 @@ export const mcpToolCallsTotal = new client.Counter({
   registers: [registry],
 });
 
+export const mcpToolFailureDetailsTotal = new client.Counter({
+  name: "ck_mcp_tool_failure_details_total",
+  help: "MCP tool failures by allowlisted cause and requested response shape",
+  labelNames: ["tool", "cause", "format", "budget"] as const,
+  registers: [registry],
+});
+
 export const mcpToolDurationSeconds = new client.Histogram({
   name: "ck_mcp_tool_duration_seconds",
   help: "MCP tool duration by registered tool and outcome",

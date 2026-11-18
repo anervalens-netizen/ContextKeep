@@ -27,10 +27,10 @@ import { captureWork } from "../services/capture-work.js";
 import { getBlockerState, resolveBlocker } from "../services/blockers.js";
 import { getContextDelta } from "../services/context-delta.js";
 import { ApiError } from "../lib/errors.js";
-import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay, safeValue } from "./safety.js";
+import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, sourceDiscoveryResult, legacyWriteReplay, safeValue } from "./safety.js";
 import { relationKinds } from "@contextkeep/shared";
 import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-metadata.js";
-import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
+import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolFailureDetailsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
 
 // The host caches resources by URI. Bump this when shipped UI behavior changes.
 const TASK_PANEL_RESOURCE_URI = "ui://contextkeep/tasks/v7.4.html";
@@ -88,13 +88,36 @@ function resultHasBudgetOmission(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const structured = (value as { structuredContent?: unknown }).structuredContent;
   if (!structured || typeof structured !== "object") return false;
-  const body = structured as { indicators?: { unknown?: unknown }; diagnostics?: { reasons?: unknown } };
+  const body = structured as { budget?: { truncated?: unknown }; indicators?: { unknown?: unknown }; diagnostics?: { reasons?: unknown } };
   const unknown = Array.isArray(body.indicators?.unknown) ? body.indicators!.unknown : [];
   const reasons = Array.isArray(body.diagnostics?.reasons) ? body.diagnostics!.reasons : [];
-  return unknown.includes("context_budget_omitted_optional_content") || reasons.includes("budget_omission");
+  return body.budget?.truncated === true || unknown.includes("context_budget_omitted_optional_content") || reasons.includes("budget_omission");
 }
 
-function recordToolMetrics(tool: string, startedAt: bigint, result?: unknown, thrown?: unknown): void {
+const diagnosticCodes = new Set([
+  "invalid_input", "mcp_output_schema_mismatch", "credential_detected", "result_too_large",
+  "context_budget_unrepresentable", "protected_context_budget_too_small", "protected_context_requires_detail_reads",
+  "search_budget_unstable", "search_budget_too_small", "search_budget_exceeded",
+  "task_revision_conflict", "task_progress_conflict", "checkpoint_task_required",
+  "checkpoint_scope_conflict", "task_project_mismatch", "capture_source_scope_conflict",
+  "idempotency_key_reused", "idempotency_in_progress", "idempotency_outcome_unknown", "internal_error",
+]);
+
+function failureShape(tool: string, raw: unknown) {
+  const input = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const requested = tool === "search_context" ? input.representation : tool === "resume_task" ? input.format : undefined;
+  const formats = tool === "search_context" ? ["full", "cards"] : ["structured", "both"];
+  const format = requested === undefined ? "default" :
+    typeof requested === "string" && formats.includes(requested) ? requested : "invalid";
+  const size = tool === "search_context" ? input.maxResultBytes :
+    tool === "resume_task" || tool === "get_work_context" ? input.totalContextBudgetChars : undefined;
+  const budget = size === undefined ? "default" :
+    typeof size !== "number" || !Number.isSafeInteger(size) || size < 0 ? "invalid" :
+    size <= 4096 ? "up_to_4k" : size <= 16384 ? "up_to_16k" : "over_16k";
+  return { format, budget };
+}
+
+function recordToolMetrics(tool: string, startedAt: bigint, raw: unknown, result?: unknown, thrown?: unknown): void {
   const seconds = Number(process.hrtime.bigint() - startedAt) / 1e9;
   const resultErrorCode = thrown === undefined ? toolResultErrorCode(result) : null;
   const outcome = thrown !== undefined || resultErrorCode !== null ? "error" : "success";
@@ -103,6 +126,11 @@ function recordToolMetrics(tool: string, startedAt: bigint, result?: unknown, th
     : resultErrorCode !== null
       ? metricErrorClass({ code: resultErrorCode })
       : "none";
+  if (outcome === "error") {
+    const code = toolResultErrorCode(result);
+    const cause = code && diagnosticCodes.has(code) ? code : "other";
+    mcpToolFailureDetailsTotal.inc({ tool, cause, ...failureShape(tool, raw) });
+  }
   mcpToolCallsTotal.inc({ tool, outcome, error_class: errorClass });
   mcpToolDurationSeconds.observe({ tool, outcome }, seconds);
   if (result !== undefined) {
@@ -415,7 +443,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
                 evidenceText: typeof prior.evidenceText === "string" ? prior.evidenceText.trim() : prior.evidenceText });
               if (legacy.success) {
                 const replay = legacyWriteReplay(deps, name, legacy.data as { idempotencyKey: string }, secrets);
-                if (replay) { recordToolMetrics(name, startedAt, replay); return replay; }
+                if (replay) { recordToolMetrics(name, startedAt, raw, replay); return replay; }
               }
             }
             throw error;
@@ -435,6 +463,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
           let result: unknown;
           if (readOnly) {
             result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) :
+              name === "search_source_evidence" ? sourceDiscoveryResult(await runChecked(), secrets) :
               name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) :
               toolResult(await runChecked(), secrets,
                 name === "search_context"
@@ -461,11 +490,11 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
               result = atomicWrite(deps, name, input as { idempotencyKey: string }, runChecked, secrets, exactCapture ? { legacyInput, version: "exact-v2" } : undefined);
             }
           }
-          recordToolMetrics(name, startedAt, result);
+          recordToolMetrics(name, startedAt, raw, result);
           return result;
         } catch (error) {
           const result = toolError(error, secrets);
-          recordToolMetrics(name, startedAt, result, error);
+          recordToolMetrics(name, startedAt, raw, result, error);
           return result;
         }
       },
@@ -671,7 +700,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       workingMemoryDelegation: { enabled: options.delegateWorkingMemory === true, clientId: options.defaultClientId ?? null, attribution: "explicit clientId overrides configured default; omit clientId to use the default", semantics: "proposal-only agent_report; no canonical task-progress mutation" },
       deletion: "Recoverable record deletion; evidence and audit retained. Retire projects with set_project_lifecycle. No destructive project/source purge.",
       writes: "Owner-authorized and idempotent; clientId/sessionId attribute cross-agent work; idempotencyKey is the stable eventId and must be reused unchanged on retries; revisions protect edits; synchronous mutations and replay receipts commit atomically.",
-      recommendedWorkflow: "list_projects -> get_project_dossier -> resume_task(taskId) -> get_work_context(taskId,budget) as needed -> task-scoped capture_work/report_task_progress -> readback",
+      recommendedWorkflow: "Reuse known project/task IDs. For a new task selection use list_tasks(actual_tasks); refresh resume_task(structured) before fenced writes and use get_work_context for extra evidence when needed. Capture dated evidence under taskId or explicitly select a project note. Reconcile uncertain writes with the original key and payload. Read back progress. Refresh get_capabilities after reconnect or deployment.",
       mirrorWorkflow: "material baseline -> all get_context_delta pages -> commit local cursors only after final page",
     }), CapabilitiesResult);
 

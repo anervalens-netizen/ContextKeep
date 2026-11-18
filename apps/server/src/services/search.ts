@@ -148,7 +148,7 @@ function quoteFtsToken(token: string): string {
   return `"${token.replace(/"/g, '""')}"*`;
 }
 
-function buildFtsMatchExpr(profile: SearchProfile, match: SearchMatch): string {
+export function buildFtsMatchExpr(profile: SearchProfile, match: SearchMatch): string {
   if (match === "phrase") return `"${profile.rawTokens.join(" ").replace(/"/g, '""')}"`;
   return [...new Set([...profile.tokens, ...profile.concepts])].map(quoteFtsToken).join(" OR ");
 }

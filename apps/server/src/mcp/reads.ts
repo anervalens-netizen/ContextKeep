@@ -1,3 +1,4 @@
+import { sliceUtf16Excerpt } from "../services/source-offsets.js";
 import { and, eq, inArray, sql, desc, like, or } from "drizzle-orm";
 import { projects, records, sources } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
@@ -192,12 +193,8 @@ function cachedSource(deps: ServiceDeps, sourceId: string, representation: "norm
   return prepared;
 }
 function boundedExcerpt(mask: string, start: number, end: number) {
-  const limit = Math.min(end, mask.length);
-  let cursor = start;
-  for (let count = 0; count < 4000 && cursor < limit; count++) {
-    cursor += cursor + 1 < limit && mask.codePointAt(cursor)! > 0xffff ? 2 : 1;
-  }
-  return { text: mask.slice(start, cursor), textTruncated: cursor < limit };
+  const { text, textTruncated } = sliceUtf16Excerpt(mask,start,end);
+  return { text, textTruncated };
 }
 
 function sourcePage(source: PreparedSource, offset: number, limit: number) {
