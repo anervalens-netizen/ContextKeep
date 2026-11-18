@@ -625,13 +625,14 @@ Dependencies: ME-18, ME-19 · Validation: [V-20](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Build a current review view with explicit reviewed head, attested base or unknown, resource kind/version, status and developer disposition; make older versions expandable with source links.
 - [ ] Acceptance: Old-head or running reviews cannot satisfy current-head completion; missing/failed polls remain unknown; history and source authors remain recoverable.
-- [ ] Evidence: The companion [PR #58](https://github.com/anervalens-
-  netizen/astancu-website/pull/58) pages saved review versions for a selected
-  repository and PR, compares their heads to an inspected revision and preserves
-  recorded source provenance. A scoped read against the native journal passed. The
-  projection reports capture-time disposition and unknown poll status separately
-  from the live gate. Source review, integration and operational handoff remain
-  distinct.
+- [ ] Evidence: Companion [PR #58](https://github.com/anervalens-netizen/astancu-website/pull/58)
+  merged as `a7f05d42a49433f967023f79aff60b40f0ea1fdc` with the same tree as the
+  exact reviewed head. Codex, DSH, both CI checks and the version-bound disposition
+  qualified the owner CLI slice. The grouped review closure and installed read-only
+  CLI were read back independently. Scoped pages retain old versions, original
+  event time, latest observation, source and attested base or unknown.
+  The projection exposes capture-time disposition and unknown live poll status.
+  Broader ContextKeep presentation and current-review selection remain open.
 
 ### ME-21
 
