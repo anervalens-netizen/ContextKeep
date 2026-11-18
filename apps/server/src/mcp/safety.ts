@@ -154,7 +154,8 @@ export function toolError(error: unknown, secrets: string[]): CallToolResult {
         : error.code === "source_evidence_changed" ? "restart_source_from_first_page"
         : error.code === "protected_context_budget_too_small" ? "increase_context_budget"
         : error.code === "protected_context_requires_detail_reads" ? "read_protected_records"
-        : error.code === "context_budget_unrepresentable" || error.code === "result_too_large" ? "increase_budget_or_reduce_request"
+        : error.code === "result_too_large" ? "reduce_page_or_request"
+        : error.code === "context_budget_unrepresentable" ? "increase_budget_or_reduce_request"
         : error.code === "mcp_output_schema_mismatch" ? "report_contract_error"
         : transientStatus ? "retry_same_request"
         : "fix_input_or_state";

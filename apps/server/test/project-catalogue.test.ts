@@ -423,7 +423,7 @@ describe("ME-24 compact and conditional project catalogue", () => {
     expect(Object.keys(compact.structuredContent.projects[0]).sort()).toEqual(COMPACT_KEYS);
     const full = await tool(t, "list_projects");
     expect(full.isError).toBe(true);
-    expect(full.structuredContent.error.code).toBe("result_too_large");
+    expect(full.structuredContent.error).toMatchObject({ code: "result_too_large", retryable: false, nextAction: "reduce_page_or_request" });
     const unchanged = await tool(t, "list_projects", { projection: "compact", ifVersion: compact.structuredContent.pageVersion });
     expect(unchanged.isError).not.toBe(true);
     expect(unchanged.structuredContent.notModified).toBe(true);
