@@ -256,6 +256,17 @@ describe("ME-06 bounded retrieval and authority", () => {
     expect(matches[0]?.row.id).toBe(valid);
   });
 
+  it("keeps a superseded observation behind its replacement on current queries", async () => {
+    const { add, matches } = await fixture();
+    const superseded = add({ reviewStatus: "superseded", sourceEventAt: recent });
+    const replacement = add({ sourceEventAt: null });
+    const history = ["accepted", "superseded"];
+
+    expect(matches("Beacon current deployment", history, 1)[0]?.row.id).toBe(replacement);
+    expect(matches("Beacon historical deployment", history, 1)[0]?.row.id).toBe(superseded);
+    expect(matches(superseded, history, 1)[0]?.row.id).toBe(superseded);
+  });
+
   it("ranks valid current operational evidence above lexically stronger future evidence", async () => {
     const { t, projectId, add } = await fixture();
     const valid = add({

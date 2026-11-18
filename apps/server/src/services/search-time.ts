@@ -23,7 +23,7 @@ export function searchTemporal(
   const eligibility = observationEligibility(row, nowIso);
   const invalidReviewTime = row.reviewDueAt !== null &&
     !instant.safeParse(row.reviewDueAt).success;
-  const operational = isCurrentStateClaim(row);
+  const operational = row.reviewStatus !== "superseded" && isCurrentStateClaim(row);
   const overdue =
     row.volatile === 1 || row.volatile === true
       ? invalidReviewTime || (row.reviewDueAt !== null &&

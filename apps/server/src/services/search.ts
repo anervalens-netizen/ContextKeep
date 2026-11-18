@@ -387,6 +387,7 @@ export function retrieveRecordMatches(
   const nowTime = sql`julianday(${nowIso})`;
   const extra = !temporalIntent || lexical.length < overscanLimit ? [] : current
     ? ftsQuery(and(
+        sql`${records.reviewStatus} <> 'superseded'`,
         sql`${eventTime} <= ${nowTime}`,
         sql`(${records.effectiveFrom} IS NULL OR julianday(${records.effectiveFrom}) <= ${nowTime})`,
         sql`(${records.effectiveTo} IS NULL OR julianday(${records.effectiveTo}) >= ${nowTime})`,
@@ -488,9 +489,11 @@ export function retrieveRecordMatches(
       // A safe dated current claim precedes lexically stronger uncertain or
       // future claims; exact identifiers still take precedence over timing.
       // Within each eligibility group the existing lexical order is retained.
-      const currentTier = (candidate: RetrievedRecordMatch) =>
-        candidate.temporal.currentAdjustment > 0 ? 0
-          : candidate.temporal.currentAdjustment < 0 ? 2 : 1;
+      const currentTier = (candidate: RetrievedRecordMatch) => {
+        if (candidate.row.reviewStatus === "superseded") return 3;
+        if (candidate.temporal.currentAdjustment > 0) return 0;
+        return candidate.temporal.currentAdjustment < 0 ? 2 : 1;
+      };
       const currentOrder = current ? currentTier(a) - currentTier(b) : 0;
       const eventOrder = current ? compareInstants(b.temporal.rankTime ?? "", a.temporal.rankTime ?? "") : 0;
       return recordIdOrder || identifierOrder || historyOrder || currentOrder || b.score - a.score ||
@@ -595,7 +598,7 @@ export function search(
       intent: profile.currentIntent && profile.historicalIntent ? "mixed" : profile.historicalIntent ? "historical" : profile.currentIntent ? "current" : "unspecified",
       notes: [
         "Exact record IDs lead. At most 400 lexical and 200 additional FTS temporal candidates are fetched per bucket before scoring at most 200. The additional shortlist runs only when the temporal lexical window fills; LIKE fallback uses lexical overscan only. Saturation means relevant matches can still be omitted.",
-        "Historical (including mixed) intent prioritizes matched superseded rows. For current-only queries, eligible dated operational claims precede unknown and invalid/future/expired/review-due claims after exact identifiers. Within a tier lexical score, event/validity time, BM25 and stable identity rank results. For current-only scoring, BM25 is a tie-break only, not a score bonus. Capture recency gives no current bonus.",
+        "Historical (including mixed) intent prioritizes matched superseded rows. For current-only queries, eligible dated operational claims precede unknown, invalid/future/expired/review-due, and then superseded claims after exact identifiers. Within a tier lexical score, event/validity time, BM25 and stable identity rank results. For current-only scoring, BM25 is a tie-break only, not a score bonus. Capture recency gives no current bonus.",
         "recordedAt gives capture/import time, sourceEventAt gives event time, effectiveFrom/effectiveTo delimit validity, and reviewedAt gives review time. Missing event time stays null. Temporal eligibility is ranking evidence. Invalid/future events cannot establish currentness. freshness.currentness retains review/conflict warnings. reviewStatus retains authority.",
         "Scope and includeHistorical remain authoritative. Proposed working observations require review. Saturated candidates may omit relevant rows. Narrow project, type or recorded-date filters to recover more.",
       ],
