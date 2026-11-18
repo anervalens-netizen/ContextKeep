@@ -7,6 +7,7 @@ import { createProject, updateProject, setProjectLifecycle, createRecord, review
 import { listRecords, listSources, readSource, pageResult } from "./reads.js";
 import { ApiError } from "../lib/errors.js";
 import type { ServiceDeps, ActorCtx } from "../services/import.js";
+import { searchSourceEvidence } from "../services/source-evidence-search.js";
 import { createRelation, searchRelations } from "../services/relations.js";
 
 export type DefineTool = <S extends z.ZodType>(name: string, description: string, schema: S,
@@ -126,6 +127,28 @@ export function registerManagementTools(define: DefineTool, deps: ServiceDeps, a
       recordType:RecordType.optional(),taskStatus:TaskStatus.optional(),...Page}),true,input=>listRecords(deps,input),ListRecordsResult);
   define("list_sources","List source metadata in a project, newest first. Sources are evidence, not automatically accepted truth. Limit 1–50.",
     z.strictObject({projectId:Id,...Page}),true,input=>listSources(deps,input),PagedResult);
+  define("search_source_evidence", "Find project source evidence by keywords or phrase. For get_source use detailArgs. Continuation requires indexVersion. Results carry no canonical truth.",
+    z.strictObject({
+      projectId: Id, q: z.string().trim().min(1).max(300),
+      match: z.enum(["terms", "phrase"]).default("terms"),
+      limit: z.number().int().min(1).max(10).default(5),
+      offset: z.number().int().min(0).max(1_000).default(0),
+      expectedIndexVersion: z.string().length(64).optional(),
+    }), true, input => searchSourceEvidence(deps,input,secrets),
+    z.object({
+      projectId:Id, canonicalTruth:z.literal(false), indexVersion:z.string(),
+      offsetUnit:z.literal("utf16"), representation:z.literal("normalized_redacted"),
+      indexedSources:z.number().int(), indexedExcerpts:z.number().int(), invalidExcerpts:z.number().int(),
+      results:z.array(z.object({
+        kind:z.literal("source_evidence"),sourceId:Id,title:z.string(),
+        provenance:z.string(),importedAt:z.string(),eventAt:z.string().nullable(),
+        excerpt:z.object({id:Id,startOffset:z.number().int(),endOffset:z.number().int(),deliveredEndOffset:z.number().int(),
+          text:z.string(),textTruncated:z.boolean()}).nullable(),
+        detailArgs:z.object({sourceId:Id,projectId:Id,representation:z.literal("normalized"),expectedVersion:z.string(),
+          maxChars:z.number().int().optional(),excerptOffset:z.number().int().optional(),excerptLimit:z.number().int().optional()}),
+      })).max(10),
+      mayHaveMore:z.boolean(),nextOffset:z.number().int().nullable(),
+    }));
   define("get_source","Read source evidence: normalized (default) or original, redacted before paging. Page limit 20000 Unicode code points; import limit is separate. Keep expectedVersion across text/excerpt pages. Excerpt offsets use normalized UTF-16. Sources are evidence only.",
     z.strictObject({sourceId:Id,projectId:Id.optional(),expectedVersion:z.string().length(64).optional(),representation:z.enum(["normalized", "original"]).default("normalized"),offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
       excerptOffset:z.number().int().min(0).default(0),excerptLimit:z.number().int().min(1).max(10).default(5)}),true,input=>readSource(deps,input,secrets),SourceReadResult);

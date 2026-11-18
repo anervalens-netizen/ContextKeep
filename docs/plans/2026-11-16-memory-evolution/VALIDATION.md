@@ -512,7 +512,9 @@ Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 ### V-14
 
 **ME-14 — Index detailed sources and excerpts with FTS**\
-Status: **NOT RUN**
+Status: **PARTIAL — bounded source-evidence contract exercised**
+
+- **Source result:** Synthetic term discovery, separate evidence authority, cross-project exclusion, title hits, and version-bound detail navigation passed at source.
 
 - **Setup:** Put a unique synthetic fact only in a detailed source, with no
   corresponding canonical record. Include distractors, phrase variants and
@@ -528,7 +530,9 @@ Status: **NOT RUN**
 ### V-15
 
 **ME-15 — Make index lifecycle incremental and reconstructible**\
-Status: **NOT RUN**
+Status: **PARTIAL — bounded source-evidence contract exercised**
+
+- **Source result:** The initial cache is process-local, subject to source, excerpt and text budgets. Invalidation across external commits and page version mismatch are covered; the path does not write the authoritative database.
 
 - **Setup:** Prepare a synthetic corpus and incremental inserts, edits, deletions
   and redactions. Interrupt a bounded backfill and change its index version.
@@ -543,7 +547,9 @@ Status: **NOT RUN**
 ### V-16
 
 **ME-16 — Preserve source representations, offsets and redaction**\
-Status: **NOT RUN**
+Status: **PARTIAL — bounded source-evidence contract exercised**
+
+- **Source result:** Scoped tests cover redacted UTF-16 spans, supplementary code points, combining characters and a skipped malformed span. Existing get_source text paging retains its code-point contract.
 
 - **Setup:** Use synthetic original/normalized text with diacritics, emoji,
   combining characters, credential-shaped placeholders and matches spanning page

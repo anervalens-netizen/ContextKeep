@@ -27,7 +27,7 @@ import { captureWork } from "../services/capture-work.js";
 import { getBlockerState, resolveBlocker } from "../services/blockers.js";
 import { getContextDelta } from "../services/context-delta.js";
 import { ApiError } from "../lib/errors.js";
-import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay, safeValue } from "./safety.js";
+import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, sourceDiscoveryResult, legacyWriteReplay, safeValue } from "./safety.js";
 import { relationKinds } from "@contextkeep/shared";
 import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-metadata.js";
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolFailureDetailsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
@@ -463,6 +463,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
           let result: unknown;
           if (readOnly) {
             result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) :
+              name === "search_source_evidence" ? sourceDiscoveryResult(await runChecked(), secrets) :
               name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) :
               toolResult(await runChecked(), secrets,
                 name === "search_context"

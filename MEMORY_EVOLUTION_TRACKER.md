@@ -87,6 +87,14 @@ Current inventory: **50 items — 17 PLANNED, 6 GATED, 20 IN_PROGRESS,
 2 IMPLEMENTED, 4 VERIFIED, 1 DONE.** The release advances specific acceptance
 slices. The item rows retain remaining scope and verification requirements.
 
+### Source evidence and operator support candidate
+
+The follow-on source candidate adds bounded project source discovery and
+operator error guidance without a persistent schema change. Its programme
+inventory is **50 items — 12 PLANNED, 6 GATED, 24 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**. This records source
+implementation. Installed verification and wider traffic outcomes retain
+their individual acceptance gates.
+
 ## Batch 1 — 2026-11-16
 
 Implementation notes and qualification scope: [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
@@ -254,9 +262,9 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
-| [ME-14](#me-14) | Index detailed sources and excerpts with FTS | PLANNED | P1 | W2 | Retrieval | ME-02, ME-13 |
-| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | PLANNED | P1 | W2 | Backend | ME-14 |
-| [ME-16](#me-16) | Preserve source representations, offsets and redaction | PLANNED | P0 | W2 | Backend | ME-12, ME-14 |
+| [ME-14](#me-14) | Index detailed sources and excerpts with FTS | IMPLEMENTED | P1 | W2 | Retrieval | ME-02, ME-13 |
+| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | IN_PROGRESS | P1 | W2 | Backend | ME-14 |
+| [ME-16](#me-16) | Preserve source representations, offsets and redaction | IN_PROGRESS | P0 | W2 | Backend | ME-12, ME-14 |
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
 | [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
 | [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
@@ -266,12 +274,12 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
 | [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
 | [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
-| [ME-26](#me-26) | Separate actionable error codes and request shapes | PLANNED | P0 | W4 | Backend | ME-01, ME-03 |
+| [ME-26](#me-26) | Separate actionable error codes and request shapes | IN_PROGRESS | P0 | W4 | Backend | ME-01, ME-03 |
 | [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | IN_PROGRESS | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
 | [ME-29](#me-29) | Build an outcome-oriented usage readout | PLANNED | P1 | W4 | Evaluation | ME-03, ME-26, ME-27, ME-28 |
 | [ME-30](#me-30) | Pilot existing delta consumption safely | PLANNED | P1 | W4 | Integration | ME-03, ME-31 |
-| [ME-31](#me-31) | Improve task capture and client workflow discipline | PLANNED | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
+| [ME-31](#me-31) | Improve task capture and client workflow discipline | IN_PROGRESS | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
 | [ME-32](#me-32) | Use evidence-backed relations before a graph stack | PLANNED | P2 | W4 | Knowledge | ME-04, ME-23 |
 | [ME-33](#me-33) | Prototype a source-versioned project brief | PLANNED | P2 | W5 | Knowledge | ME-12, ME-23, ME-30 |
 | [ME-34](#me-34) | Track claim provenance and targeted invalidation | PLANNED | P2 | W5 | Knowledge | ME-16, ME-33 |
@@ -538,35 +546,32 @@ Dependencies: ME-02 · Validation: [V-13](docs/plans/2026-11-16-memory-evolution
 ### ME-14
 
 **Index detailed sources and excerpts with FTS**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
+Status: **IMPLEMENTED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-13 · Validation: [V-14](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-14)
 
 - [ ] Scope: Add a separate derived FTS5 source/excerpt path and an explicit source_evidence result kind. Preserve source identity/version and avoid creating canonical records merely for indexing.
 - [ ] Acceptance: Source-only synthetic facts are discoverable; whole-question LIKE is no longer the only route; snippets have evidence labels and cannot masquerade as accepted truth.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: A project-scoped MCP query reads a separate, bounded FTS5 index of source titles and redacted normalized excerpts. Each result has evidence-only authority and version-bound detail navigation. Synthetic source-only facts are discoverable without canonical record creation.
 
 ### ME-15
 
 **Make index lifecycle incremental and reconstructible**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-14 · Validation: [V-15](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-15)
 
 - [ ] Scope: Define bounded backfill, restart/resume, index versioning, consistency checks, update/delete/redact propagation and rebuild controls. Measure write lock/WAL and storage impact.
 - [ ] Acceptance: Interrupted rebuild resumes safely; stale/redacted/deleted fragments cannot be delivered; index removal does not destroy authority; migration/recovery gate is satisfied before release.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The initial index is bounded, reconstructible and memory-only. New search snapshots re-read authoritative metadata after local writes, external commits, or changed credentials. The source path requires no schema migration or durable backfill. Wider cache efficiency, workload coverage and installed recovery evidence remain open.
 
 ### ME-16
 
 **Preserve source representations, offsets and redaction**\
-Status: **PLANNED** · Priority: P0 · Wave: W2 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-12, ME-14 · Validation: [V-16](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-16)
 
 - [ ] Scope: Declare normalized/original representations and each offset unit. Keep code-point paging and UTF-16 excerpt compatibility explicit; verify spans after normalization and redaction.
 - [ ] Acceptance: Diacritics, emoji, combining characters and boundary pages resolve to the advertised text; redaction precedes disclosure; no offset points silently into a different representation.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The source-discovery contract labels UTF-16 offsets into redacted normalized text and supplies a version-bound get_source excerpt. Synthetic tests cover emoji, a combining character, credential masking and malformed offsets. Broader corpus and client coverage remain open.
 
 ### ME-17
 
@@ -697,13 +702,12 @@ Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-ev
 ### ME-26
 
 **Separate actionable error codes and request shapes**\
-Status: **PLANNED** · Priority: P0 · Wave: W4 · Owner role: Backend\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W4 · Owner role: Backend\
 Dependencies: ME-01, ME-03 · Validation: [V-26](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-26)
 
 - [ ] Scope: Diagnose budget, oversized result, schema, workflow/scope, client guard and internal failures with finite codes and format/budget buckets. Provide specific client remedies.
 - [ ] Acceptance: Error causes can be measured without private payloads; deterministic failures do not retry unchanged; successful omissions remain separate; existing protection is not weakened.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The MCP dispatcher counts bounded error causes and request shapes separately from successful omissions. Action text covers deterministic task, revision, credential and budget failures. SDK failures before server dispatch and representative production usage remain open.
 
 ### ME-27
 
@@ -757,13 +761,12 @@ Dependencies: ME-03, ME-31 · Validation: [V-30](docs/plans/2026-11-16-memory-ev
 ### ME-31
 
 **Improve task capture and client workflow discipline**\
-Status: **PLANNED** · Priority: P1 · Wave: W4 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Integration\
 Dependencies: ME-04, ME-11, ME-26 · Validation: [V-31](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-31)
 
 - [ ] Scope: Update guidance for task reuse, structured resume, scoped captures, explicit project notes, dated observations/volatility and evidence references. Cache identity only; reread before fenced writes.
 - [ ] Acceptance: Representative clients follow current contracts; scope/revision/idempotency errors have actionable fixes; connection metadata refresh is documented where needed.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: MCP descriptions and operator documentation specify task reuse, evidence scope, version-fenced details and recovery from invalidated pages. Representative agent use and metadata refresh remain qualification work.
 
 ### ME-32
 

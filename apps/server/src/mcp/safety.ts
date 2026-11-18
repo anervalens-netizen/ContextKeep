@@ -98,6 +98,17 @@ export function sourcePageResult(value: unknown, secrets: string[]): CallToolRes
   return boundedResult({ content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean });
 }
 
+/** Preserve offset-compatible snippets after the full normalized texts were masked. */
+export function sourceDiscoveryResult(value: unknown, secrets: string[]): CallToolResult {
+  type Discovery = { results: Array<{ excerpt: { text: string } | null }> };
+  const page = value as Discovery;
+  const clean = safeValue(value, secrets) as Discovery;
+  clean.results.forEach((result, index) => {
+    if (result.excerpt) result.excerpt.text = page.results[index]!.excerpt!.text;
+  });
+  return boundedResult({ content: [{ type: "text", text: JSON.stringify(clean) }], structuredContent: clean });
+}
+
 export function toolError(error: unknown, secrets: string[]): CallToolResult {
   const detail = (() => {
     if (error instanceof z.ZodError) {
