@@ -305,6 +305,12 @@ export function searchSourceEvidence(
     );
     const results = visible.map((hit) => {
       const source = index.sources.get(hit.sourceId)!;
+      const title = sliceUtf16Excerpt(
+        source.title,
+        0,
+        source.title.length,
+        240,
+      );
       const excerpt = hit.excerptId ? index.excerpts.get(hit.excerptId)! : null;
       const span = excerpt
         ? sliceUtf16Excerpt(hit.body, 0, hit.body.length, SNIPPET_CODE_POINTS)
@@ -313,8 +319,8 @@ export function searchSourceEvidence(
       return {
         kind: "source_evidence" as const,
         sourceId: source.id,
-        title: sliceUtf16Excerpt(source.title, 0, source.title.length, 240)
-          .text,
+        title: title.text,
+        titleTruncated: title.textTruncated,
         provenance: source.provenanceBasis,
         importedAt: source.importedAt,
         eventAt: source.eventAt,

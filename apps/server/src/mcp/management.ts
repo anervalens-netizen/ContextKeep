@@ -140,7 +140,7 @@ export function registerManagementTools(define: DefineTool, deps: ServiceDeps, a
       offsetUnit:z.literal("utf16"), representation:z.literal("normalized_redacted"),
       indexedSources:z.number().int(), indexedExcerpts:z.number().int(), invalidExcerpts:z.number().int(),
       results:z.array(z.object({
-        kind:z.literal("source_evidence"),sourceId:Id,title:z.string(),
+        kind:z.literal("source_evidence"),sourceId:Id,title:z.string(),titleTruncated:z.boolean(),
         provenance:z.string(),importedAt:z.string(),eventAt:z.string().nullable(),
         excerpt:z.object({id:Id,startOffset:z.number().int(),endOffset:z.number().int(),deliveredEndOffset:z.number().int(),
           text:z.string(),textTruncated:z.boolean()}).nullable(),

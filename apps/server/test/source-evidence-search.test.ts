@@ -215,6 +215,26 @@ describe("project source evidence discovery", () => {
     ).not.toContain(sourceId);
   });
 
+  it("marks a truncated title when the matching word falls beyond its preview", async () => {
+    const { projectId, call, add } = await fixture();
+    const title = "◇".repeat(240) + " suffixbeacon";
+    const { sourceId } = add(title, "An unrelated synthetic description.");
+    const result = await call("search_source_evidence", {
+      projectId,
+      q: "suffixbeacon",
+    });
+    const hit = result.structuredContent.results[0];
+    expect(hit).toMatchObject({
+      sourceId,
+      title: "◇".repeat(240),
+      titleTruncated: true,
+      excerpt: null,
+    });
+    expect(
+      (await call("get_source", hit.detailArgs)).structuredContent.title,
+    ).toBe(title);
+  });
+
   it("labels malformed spans without emitting them or hiding valid source evidence", async () => {
     const { projectId, call, add } = await fixture();
     add("Synthetic malformed offset", "🌿 Missing span marker.", projectId, 1);

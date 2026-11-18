@@ -8,7 +8,7 @@
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.23.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.24.0. Supported protocol contract: 2026-07-28.
 Read `get_capabilities` for the installed version; a source contract is not
 deployment evidence.
 
