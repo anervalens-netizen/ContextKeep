@@ -83,7 +83,7 @@ selected expected results omitted at the lower budget. Source/excerpt discovery
 is separate from this record-card contract. Raw cases and operational
 measurements remain in the private evidence ledger.
 
-Current inventory: **50 items — 17 PLANNED, 6 GATED, 20 IN_PROGRESS,
+Current inventory: **50 items — 16 PLANNED, 6 GATED, 21 IN_PROGRESS,
 2 IMPLEMENTED, 4 VERIFIED, 1 DONE.** The release advances specific acceptance
 slices. The item rows retain remaining scope and verification requirements.
 
@@ -268,7 +268,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
 | [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
 | [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
-| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | PLANNED | P1 | W1 | Integration | ME-18, ME-19 |
+| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | IN_PROGRESS | P1 | W1 | Integration | ME-18, ME-19 |
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
@@ -620,13 +620,18 @@ Dependencies: ME-18 · Validation: [V-19](docs/plans/2026-11-16-memory-evolution
 ### ME-20
 
 **Project current reviews by PR, reviewer and head**\
-Status: **PLANNED** · Priority: P1 · Wave: W1 · Owner role: Integration\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-18, ME-19 · Validation: [V-20](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-20)
 
 - [ ] Scope: Build a current review view with explicit reviewed head, attested base or unknown, resource kind/version, status and developer disposition; make older versions expandable with source links.
 - [ ] Acceptance: Old-head or running reviews cannot satisfy current-head completion; missing/failed polls remain unknown; history and source authors remain recoverable.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The companion [PR #58](https://github.com/anervalens-
+  netizen/astancu-website/pull/58) pages saved review versions for a selected
+  repository and PR, compares their heads to an inspected revision and preserves
+  recorded source provenance. A scoped read against the native journal passed. The
+  projection reports capture-time disposition and unknown poll status separately
+  from the live gate. Source review, integration and operational handoff remain
+  distinct.
 
 ### ME-21
 
@@ -636,8 +641,11 @@ Dependencies: ME-01 · Validation: [V-21](docs/plans/2026-11-16-memory-evolution
 
 - [ ] Scope: Use semantic change fields and coverage watermarks, last successful observation and failure status. Surface changed facts/incidents/blockers; use a bounded journal for successful no-change observations. Preserve applicable identity/no-replay contracts without waiting for the separate review-bridge implementation.
 - [ ] Acceptance: Failed fetch, partial page or missing history is not reported as no change; unchanged polls preserve coverage; omitted blocker text never resolves a blocker.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: A read-only production sample confirmed narrative no-change
+  phrases without a typed observation contract. Similar wording can coexist with
+  checkpoint information and does not prove coverage. Qualify a real producer that
+  reports succeeded, partial and failed observations with a source watermark
+  before changing context selection.
 
 ### ME-22
 
@@ -647,8 +655,11 @@ Dependencies: ME-20, ME-21 · Validation: [V-22](docs/plans/2026-11-16-memory-ev
 
 - [ ] Scope: Select current meaningful observations and expandable history; offer useful interval/final summaries. Any historical projection backfill is scoped, previewed and reversible.
 - [ ] Acceptance: Default context shrinks on matched workloads; every underlying version/evidence remains retrievable; equal text for distinct events is preserved; no bulk phrase/URL deletion.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The existing compact working index already avoids duplicating full
+  proposal bodies. Review versions remain available through the separate projected
+  history. Further default suppression requires typed observations and a matched
+  reduction without hiding material events or blockers. No historical record was
+  changed.
 
 ### ME-23
 
@@ -658,8 +669,10 @@ Dependencies: ME-04, ME-08, ME-22 · Validation: [V-23](docs/plans/2026-11-16-me
 
 - [ ] Scope: Define how architecture, constraints, decisions and runbooks are proposed from operational evidence. Keep transient progress separate; reuse existing review/acceptance semantics.
 - [ ] Acceptance: Synthesis retains source links and status; proposed volume is not treated as automatic approval debt; no autonomous acceptance, silent contradiction resolution or source erasure.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The existing review path continues to keep proposals separate from
+  accepted knowledge. A curator pilot still needs a concrete stable-knowledge
+  cohort and independently reviewable source references. Operational proposal
+  volume alone does not establish approval debt.
 
 ### ME-24
 
