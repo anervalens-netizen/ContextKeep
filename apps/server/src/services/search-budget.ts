@@ -40,6 +40,7 @@ function clip(value: unknown, limit: number): string | null {
 
 function card(record: Record<string, unknown>): Record<string, unknown> {
   const evidence = Array.isArray(record.evidence) ? record.evidence : [];
+  const evidenceTotal = typeof record.evidenceCount === "number" ? record.evidenceCount : evidence.length;
   const checkpoint =
     record.checkpoint &&
     typeof record.checkpoint === "object" &&
@@ -57,8 +58,8 @@ function card(record: Record<string, unknown>): Record<string, unknown> {
     text: clip(text, 144) ?? "",
     textOmitted: typeof text === "string" && text.length > 144,
     evidence: [],
-    evidenceOmittedCount: evidence.length,
-    evidenceOmitted: evidence.length > 0,
+    evidenceOmittedCount: evidenceTotal,
+    evidenceOmitted: evidenceTotal > 0,
     checkpoint: checkpoint
       ? {
           kind: checkpoint.kind,
@@ -71,6 +72,9 @@ function card(record: Record<string, unknown>): Record<string, unknown> {
     detailTool: "get_record",
     detailArgs: {
       recordId: record.recordId,
+      ...(record.projectId ? { projectId: record.projectId } : {}),
+      ...(record.revision ? { expectedRevision: record.revision } : {}),
+      ...(record.evidenceVersion ? { expectedEvidenceVersion: record.evidenceVersion } : {}),
       ...(record.reviewStatus === "proposed"
         ? { includeUnreviewed: true }
         : {}),

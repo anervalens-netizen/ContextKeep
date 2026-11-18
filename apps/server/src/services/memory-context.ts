@@ -1,3 +1,11 @@
+import {
+  recordEvidenceVersion,
+  recordEvidenceVersions,
+} from "./evidence-versions.js";
+import {
+  protectedWorkContext,
+  type ContextRedactor,
+} from "./protected-context.js";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type {
   ContextDiagnosticReason,
@@ -330,10 +338,18 @@ export class ContextKeepMemoryService {
       totalContextBudgetChars?: number;
       diagnostics?: boolean;
       permanentConstraintIds?: string[];
+      protectCurrent?: boolean;
     },
+    redact: ContextRedactor = (value) => value,
   ): Record<string, unknown> {
+    if (input.protectCurrent && !input.taskId)
+      throw new ApiError(
+        400,
+        "protected_context_requires_task",
+        "Supply the taskId whose current state needs protection.",
+      );
     return readWithDatabaseGeneration(this.deps.db, (generation) =>
-      this.getWorkContextSnapshot(context, input, generation),
+      this.getWorkContextSnapshot(context, input, generation, redact),
     );
   }
 
@@ -341,6 +357,7 @@ export class ContextKeepMemoryService {
     context: MemoryToolRunContext,
     input: Parameters<ContextKeepMemoryService["getWorkContext"]>[1],
     generation: string | null,
+    redact: ContextRedactor,
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, true)!;
     const project = this.deps.db
@@ -1123,6 +1140,16 @@ export class ContextKeepMemoryService {
     // registry's single shared McpWorkContextResult validator. Do not parse a
     // second time here: output validation belongs at the transport boundary
     // and the duplicate traversal is material on the 1k+1k hot-path fixture.
+    if (input.protectCurrent && input.taskId) {
+      return protectedWorkContext(
+        this.deps,
+        projectId,
+        input.taskId,
+        payload,
+        input.totalContextBudgetChars ?? 12_000,
+        redact,
+      );
+    }
     return fitWorkContext(payload, input.totalContextBudgetChars);
   }
 
@@ -1202,12 +1229,29 @@ export class ContextKeepMemoryService {
       limit?: number;
     },
     redactForMcp?: (value: unknown) => unknown,
+    secrets: string[] = [],
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
+    // Cards and their evidence fence are snapshots of the same read.
+    if (input.representation === "cards") {
+      return this.deps.sqlite.transaction(() =>
+        this.searchContextSnapshot(projectId, input, redactForMcp, secrets),
+      )();
+    }
+    return this.searchContextSnapshot(projectId, input, redactForMcp, secrets);
+  }
+
+  private searchContextSnapshot(
+    projectId: string | null,
+    input: Parameters<ContextKeepMemoryService["searchContext"]>[1],
+    redactForMcp: ((value: unknown) => unknown) | undefined,
+    secrets: string[],
+  ) {
     const limit = clamp(input.limit, 10, MAX_SEARCH_RECORDS);
     const result = search(this.deps, {
       q: input.q,
       mode: "canonical",
+      hydrateEvidence: input.representation !== "cards",
       match: input.match ?? "terms",
       scope: input.scope ?? "canonical",
       projectId,
@@ -1217,6 +1261,16 @@ export class ContextKeepMemoryService {
       includeHistorical: input.includeHistorical === true,
       limit,
     });
+    const versions =
+      input.representation === "cards"
+        ? recordEvidenceVersions(
+            this.deps,
+            [...result.records, ...result.workingRecords].map(
+              (record) => record.id,
+            ),
+            secrets,
+          )
+        : null;
     const compactSearchRecord = (
       record: (typeof result.records)[number],
       working: boolean,
@@ -1244,7 +1298,18 @@ export class ContextKeepMemoryService {
         supportRecordIds: [],
         possiblyRelatedRecordIds: [],
       };
+      const evidenceVersion = versions?.get(record.id);
       return {
+        ...(evidenceVersion
+          ? {
+              revision: record.revision,
+              evidenceVersion: recordEvidenceVersion(
+                evidenceVersion.version,
+                record.freshness,
+              ),
+              evidenceCount: evidenceVersion.total,
+            }
+          : {}),
         recordId: record.id,
         projectId: record.projectId,
         projectName: record.projectName,
@@ -1313,11 +1378,12 @@ export class ContextKeepMemoryService {
     // Preserve the original default search path: pre-redaction is only
     // necessary when a caller requests a constrained byte representation.
     // Unbudgeted legacy reads still use the single MCP boundary redaction.
-    const budgetRequested = input.representation === "cards" ||
-      input.maxResultBytes !== undefined;
-    const delivered = budgetRequested && redactForMcp
-      ? (redactForMcp(response) as typeof response)
-      : response;
+    const budgetRequested =
+      input.representation === "cards" || input.maxResultBytes !== undefined;
+    const delivered =
+      budgetRequested && redactForMcp
+        ? (redactForMcp(response) as typeof response)
+        : response;
     if (input.representation === "cards") {
       return packSearchCards(delivered, input.maxResultBytes ?? 12_000);
     }

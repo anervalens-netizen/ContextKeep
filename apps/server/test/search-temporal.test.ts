@@ -457,6 +457,46 @@ describe("ME-06 bounded retrieval and authority", () => {
     }
   });
 
+  it("finds the newest matching observation beyond 400 stronger lexical matches", async () => {
+    const { t, projectId, add, matches } = await fixture();
+    const wanted = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    t.app.ck.deps.sqlite.transaction(() => {
+      for (let i = 0; i < 640; i++) {
+        add({
+          id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+          text: "Beacon current deployment ".repeat(8),
+          recordedAt: recent,
+        });
+      }
+      add({
+        id: wanted,
+        sourceEventAt: recent,
+        text: "Beacon current deployment" + " background".repeat(64),
+      });
+      add({
+        sourceEventAt: "2099-01-01T00:00:00.000Z",
+        text: "Beacon current deployment",
+      });
+    })();
+    expect(
+      matches("Beacon current deployment", ["accepted"], 200)[0]?.row.id,
+    ).toBe(wanted);
+    // The legacy LIKE path has no temporal index. It exposes the same bound
+    // and does not claim completeness when it misses this very same record.
+    t.app.ck.deps.sqlite.exec("DELETE FROM ck_records_fts");
+    const fallback = search(t.app.ck.deps, {
+      q: "Beacon current deployment",
+      projectId,
+      mode: "canonical",
+      limit: 200,
+    });
+    expect(fallback.records.map((record) => record.id)).not.toContain(wanted);
+    expect(fallback.completeness.records).toMatchObject({
+      candidateLimitReached: true,
+      mayHaveMore: true,
+    });
+  });
+
   it("does not report saturation when the full lexical lane covers a smaller temporal lane", async () => {
     const { t, projectId, add } = await fixture();
     for (let i = 0; i < 25; i++) add();

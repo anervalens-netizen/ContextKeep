@@ -4,10 +4,11 @@ import { ApiError } from "../lib/errors.js";
 import { loadRecordFreshnessContext, toProjectDto, toRecordDto } from "../services/mappers.js";
 import { requireProject, requireRecord, deletionReceipt } from "../services/memory-management.js";
 import type { ServiceDeps } from "../services/import.js";
-import { sourceProjectIds, sourceProjectScope } from "../services/source-membership.js";
+import { sourceBelongsToProject, sourceProjectIds, sourceProjectScope } from "../services/source-membership.js";
 
 import { safeText } from "./safety.js";
 import { sha256 } from "../lib/hash.js";
+import { recordEvidenceVersion, recordEvidenceVersions, sourceEvidenceVersions } from "../services/evidence-versions.js";
 
 export type Page = { offset: number; limit: number };
 const next = (total: number, page: Page) => page.offset + page.limit < total ? page.offset + page.limit : null;
@@ -82,23 +83,59 @@ export function readTimeline(deps: ServiceDeps, input: Page & { projectId: strin
   const total = count(deps, where);
   return { projectId: input.projectId, total, offset: input.offset, nextOffset: next(total, input), entries };
 }
-export function readRecord(deps: ServiceDeps, input: {recordId: string; includeUnreviewed: boolean; evidenceOffset: number; evidenceLimit: number}, secrets: string[] = []) {
-  const row = requireRecord(deps, input.recordId);
-  if (!input.includeUnreviewed && !["accepted", "superseded"].includes(row.reviewStatus))
-    throw new ApiError(404, "agent_record_not_found", "Accepted or historical record not found. Use includeUnreviewed for inbox/deleted records.");
-  const evidence = deps.sqlite.prepare("SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,se.source_id AS sourceId,s.title AS sourceTitle,se.start_offset AS startOffset,se.end_offset AS endOffset FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?")
-    .all(row.id, input.evidenceLimit, input.evidenceOffset).map(raw => {
-      const { startOffset, endOffset, ...metadata } = raw as { sourceId: string; startOffset: number; endOffset: number; [key: string]: unknown };
+type RecordReadInput = {
+  recordId: string; projectId?: string; includeUnreviewed: boolean;
+  evidenceOffset: number; evidenceLimit: number;
+  expectedRevision?: number; expectedEvidenceVersion?: string;
+};
+
+export function readRecord(deps: ServiceDeps, input: RecordReadInput, secrets: string[] = []) {
+  return deps.sqlite.transaction(() => {
+    const row = requireRecord(deps, input.recordId);
+    if ((input.projectId && row.projectId !== input.projectId) ||
+        (!input.includeUnreviewed && !["accepted", "superseded"].includes(row.reviewStatus)))
+      throw new ApiError(404, "agent_record_not_found", "Record not found in the requested scope. Use includeUnreviewed for authorized inbox/deleted reads.");
+    if (input.expectedRevision !== undefined && input.expectedRevision !== row.revision)
+      throw new ApiError(409, "record_revision_changed", "Restart the selected record from evidenceOffset=0 with its current revision.", { currentRevision: row.revision });
+    const { version, total, outsideProject } = recordEvidenceVersions(deps, [row.id], secrets).get(row.id)!;
+    if (input.projectId && outsideProject)
+      throw new ApiError(409, "evidence_scope_mismatch", "Evidence is outside the requested project. Check source membership before using this record.");
+    const freshnessContext = loadRecordFreshnessContext(deps.db, [row]);
+    const { evidence: _e, ...dto } = toRecordDto(row, [], freshnessContext);
+    const evidenceVersion = recordEvidenceVersion(version, dto.freshness);
+    if (input.expectedEvidenceVersion !== undefined && input.expectedEvidenceVersion !== evidenceVersion)
+      throw new ApiError(409, "record_evidence_changed", "Restart the selected record from evidenceOffset=0 and use its new evidenceVersion.", { currentRevision: row.revision });
+
+    const rawPage = deps.sqlite.prepare(`
+      SELECT re.excerpt_id AS excerptId,re.relation,re.observed_at AS observedAt,re.artifact_ref AS artifactRef,
+             se.source_id AS sourceId,s.title AS sourceTitle,se.start_offset AS startOffset,se.end_offset AS endOffset
+      FROM record_evidence re JOIN source_excerpts se ON se.id=re.excerpt_id JOIN sources s ON s.id=se.source_id
+      WHERE re.record_id=? ORDER BY re.excerpt_id LIMIT ? OFFSET ?`
+    ).all(row.id, input.evidenceLimit, input.evidenceOffset) as Array<{
+      sourceId: string; startOffset: number; endOffset: number;
+    }>;
+    const sourceVersions = sourceEvidenceVersions(deps, rawPage.map(item => item.sourceId), secrets);
+    const evidence = rawPage.map(({ startOffset, endOffset, ...metadata }) => {
       const prepared = cachedSource(deps, metadata.sourceId, "normalized", secrets);
-      const excerpt = Array.from(prepared.normalizedMask.slice(startOffset, endOffset));
-      return { ...metadata, text: excerpt.slice(0, 4000).join(""), textTruncated: excerpt.length > 4000 };
+      return {
+        ...metadata, startOffset, endOffset, ...boundedExcerpt(prepared.normalizedMask, startOffset, endOffset),
+        recovery: { tool: "get_source", sourceId: metadata.sourceId, projectId: input.projectId,
+          expectedVersion: sourceVersions.get(metadata.sourceId)!.version },
+      };
     });
-  const total = (deps.sqlite.prepare("SELECT count(*) n FROM record_evidence WHERE record_id=?").get(row.id) as {n:number}).n;
-  const freshnessContext = loadRecordFreshnessContext(deps.db, [row]);
-  const { evidence: _e, ...dto } = toRecordDto(row, [], freshnessContext);
-  return { ...dto, recordId: row.id, projectName: row.projectId ? requireProject(deps, row.projectId).name : null,
-    evidence, evidenceTotal: total, evidenceNextOffset: input.evidenceOffset + input.evidenceLimit < total ? input.evidenceOffset + input.evidenceLimit : null,
-    deletionId: deletionReceipt(deps, row.id, row.revision)?.id ?? null, excerptLimits: { evidenceChars: 4000, evidenceCount: input.evidenceLimit }, textTruncated: false };
+    const { offset, limit } = { offset: input.evidenceOffset, limit: input.evidenceLimit };
+    const nextOffset = next(total, { offset, limit });
+    return {
+      ...dto, recordId: row.id, projectName: row.projectId ? requireProject(deps, row.projectId).name : null,
+      evidence, evidenceTotal: total, evidenceReturned: evidence.length, evidenceNextOffset: nextOffset,
+      evidenceOffset: offset, evidenceVersion,
+      evidenceRecovery: nextOffset === null ? null : {
+        tool: "get_record", ...input, evidenceOffset: nextOffset, expectedRevision: row.revision, expectedEvidenceVersion: evidenceVersion,
+      },
+      deletionId: deletionReceipt(deps, row.id, row.revision)?.id ?? null,
+      excerptLimits: { evidenceChars: 4000, evidenceCount: input.evidenceLimit }, textTruncated: false,
+    };
+  })();
 }
 export function listSources(deps: ServiceDeps, input: Page & {projectId: string}) {
   requireProject(deps, input.projectId);
@@ -154,6 +191,15 @@ function cachedSource(deps: ServiceDeps, sourceId: string, representation: "norm
   }
   return prepared;
 }
+function boundedExcerpt(mask: string, start: number, end: number) {
+  const limit = Math.min(end, mask.length);
+  let cursor = start;
+  for (let count = 0; count < 4000 && cursor < limit; count++) {
+    cursor += cursor + 1 < limit && mask.codePointAt(cursor)! > 0xffff ? 2 : 1;
+  }
+  return { text: mask.slice(start, cursor), textTruncated: cursor < limit };
+}
+
 function sourcePage(source: PreparedSource, offset: number, limit: number) {
   if (offset >= source.totalChars) return "";
   const anchor = Math.floor(offset / SOURCE_INDEX_STRIDE);
@@ -163,21 +209,39 @@ function sourcePage(source: PreparedSource, offset: number, limit: number) {
   for (let n = 0; n < limit && end < source.text.length; n++) end += source.text.codePointAt(end)! > 0xffff ? 2 : 1;
   return source.text.slice(start, end);
 }
-export function readSource(deps: ServiceDeps, input: { sourceId: string; representation?: "normalized" | "original"; offset: number; maxChars: number; excerptOffset: number; excerptLimit: number }, secrets: string[] = []) {
-  const representation = input.representation ?? "normalized";
-  const prepared = cachedSource(deps, input.sourceId, representation, secrets);
-  const { metadata, normalizedMask, totalChars } = prepared;
-  const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
-    .all(input.sourceId,input.excerptLimit,input.excerptOffset).map(raw => {
-      const item = raw as { id: string; startOffset: number; endOffset: number };
-      const excerpt = Array.from(normalizedMask.slice(item.startOffset, item.endOffset));
-      return { ...item, text: excerpt.slice(0, 4000).join(""), textTruncated: excerpt.length > 4000 };
-    });
-  const total = (deps.sqlite.prepare("SELECT count(*) n FROM source_excerpts WHERE source_id=?").get(input.sourceId) as {n:number}).n;
-  return {...metadata, projectIds:sourceProjectIds(deps,metadata.id),
-    representation, offsetUnit:"unicode_code_points", excerptOffsetUnit:"normalized_utf16",
-    excerptRepresentation:"normalized_length_preserving_redaction",
-    text:sourcePage(prepared,input.offset,input.maxChars),totalChars,
-    offset:input.offset,nextOffset:input.offset+input.maxChars<totalChars?input.offset+input.maxChars:null,
-    excerpts,excerptTotal:total,excerptNextOffset:input.excerptOffset+input.excerptLimit<total?input.excerptOffset+input.excerptLimit:null,canonicalTruth:false};
+type SourceReadInput = {
+  sourceId: string; projectId?: string; representation?: "normalized" | "original";
+  offset: number; maxChars: number; excerptOffset: number; excerptLimit: number; expectedVersion?: string;
+};
+
+export function readSource(deps: ServiceDeps, input: SourceReadInput, secrets: string[] = []) {
+  return deps.sqlite.transaction(() => {
+    if (input.projectId && !sourceBelongsToProject(deps, input.sourceId, input.projectId))
+      throw new ApiError(404, "source_not_found", "Source not found in the requested project.");
+    const snapshot = sourceEvidenceVersions(deps, [input.sourceId], secrets).get(input.sourceId);
+    if (!snapshot) throw new ApiError(404, "source_not_found", "Source not found.");
+    const { version, total } = snapshot;
+    if (input.expectedVersion !== undefined && input.expectedVersion !== version)
+      throw new ApiError(409, "source_evidence_changed", "Restart get_source with offset=0 and excerptOffset=0 to obtain the current evidenceVersion.");
+    const representation = input.representation ?? "normalized";
+    const prepared = cachedSource(deps, input.sourceId, representation, secrets);
+    const { metadata, normalizedMask, totalChars } = prepared;
+    const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
+      .all(input.sourceId,input.excerptLimit,input.excerptOffset).map(raw => {
+        const item = raw as { id: string; startOffset: number; endOffset: number };
+        return { ...item, ...boundedExcerpt(normalizedMask, item.startOffset, item.endOffset) };
+      });
+    const text = sourcePage(prepared, input.offset, input.maxChars);
+    const nextOffset = next(totalChars, { offset: input.offset, limit: input.maxChars });
+    const excerptNextOffset = next(total, { offset: input.excerptOffset, limit: input.excerptLimit });
+    const recover = { tool: "get_source", ...input, expectedVersion: version };
+    return {...metadata, projectIds: input.projectId ? [input.projectId] : sourceProjectIds(deps,metadata.id),
+      representation, offsetUnit:"unicode_code_points", excerptOffsetUnit:"normalized_utf16",
+      excerptRepresentation:"normalized_length_preserving_redaction",
+      text, totalChars, returnedChars: Math.max(0, Math.min(input.maxChars, totalChars - input.offset)),
+      offset: input.offset, nextOffset, textRecovery: nextOffset === null ? null : { ...recover, offset: nextOffset },
+      excerpts, excerptTotal: total, excerptReturned: excerpts.length, excerptOffset: input.excerptOffset,
+      excerptNextOffset, excerptRecovery: excerptNextOffset === null ? null : { ...recover, excerptOffset: excerptNextOffset },
+      evidenceVersion: version, canonicalTruth:false };
+  })();
 }

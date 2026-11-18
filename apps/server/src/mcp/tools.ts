@@ -164,6 +164,14 @@ const RecordResult = z.object({
   evidence: z.array(EvidenceResult).optional(),
 }).passthrough();
 
+const RecordReadResult = RecordResult.extend({
+  evidenceTotal: z.number().int().nonnegative(),
+  evidenceReturned: z.number().int().nonnegative(),
+  evidenceNextOffset: z.number().int().nonnegative().nullable(),
+  evidenceVersion: z.string().length(64),
+  evidenceRecovery: z.object({ tool: z.literal("get_record") }).passthrough().nullable(),
+}).passthrough();
+
 const DeltaChangeResult = z.object({
   changeId: z.string(),
   scope: z.enum(["canonical", "working"]),
@@ -351,12 +359,17 @@ export interface ContextKeepMcpOptions {
   preferencesPath?: string;
 }
 
-/** UUID format already describes the generated regex; keep runtime Zod validation exact. */
-function compactUuidSchema(value: unknown): void {
+/** Omit explicit allow-all defaults while preserving the advertised constraints.
+ * UUID format already describes the generated regex; runtime Zod stays exact.
+ */
+function compactToolSchema(value: unknown): void {
   if (!value || typeof value !== "object") return;
   const node = value as Record<string, unknown>;
   if (node.format === "uuid") delete node.pattern;
-  for (const child of Object.values(node)) compactUuidSchema(child);
+  const extras = node.additionalProperties;
+  if (extras === true || (extras && typeof extras === "object" && Object.keys(extras).length === 0))
+    delete node.additionalProperties;
+  for (const child of Object.values(node)) compactToolSchema(child);
 }
 
 export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[], options: ContextKeepMcpOptions = {}) {
@@ -383,8 +396,8 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         inputSchema: z.toJSONSchema(schema, { target: "draft-7", reused: "ref" }) as Tool["inputSchema"],
         outputSchema,
         annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly && ["delete_record", "confirm_correction", "set_project_lifecycle", "review_records", "edit_record", "update_project", "restore_record"].includes(name), idempotentHint: true, openWorldHint: false } };
-      compactUuidSchema(metadata.inputSchema);
-      compactUuidSchema(metadata.outputSchema);
+      compactToolSchema(metadata.inputSchema);
+      compactToolSchema(metadata.outputSchema);
       MCP_TOOL_METADATA_CACHE.set(name, metadata);
       mcpToolMetadataCompileCount += 1;
     }
@@ -481,9 +494,9 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("get_project", "Read a project, freshness metadata and bounded accepted context. Use get_work_context for task-scoped working memory.",
     z.strictObject({ projectId: ProjectId, limit: z.number().int().min(1).max(24).default(12) }), true,
     (input) => service.getProjectOverview(context, input), z.object({ project: z.unknown(), recentCanonicalRecords: z.array(z.unknown()), acceptedCounts: z.record(z.string(), z.number()) }).passthrough());
-  define("get_work_context", "Read bounded accepted and separate proposed context, checkpoints, handoffs and freshness. task ranks; totalContextBudgetChars caps output; diagnostics explains omissions. No inferred goals, raw sources or provider calls.",
-    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), limitPerSection: z.number().int().min(1).max(10).default(5), task: z.string().trim().min(1).max(2000).optional(), totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(), diagnostics: z.boolean().default(false), permanentConstraintIds: z.array(z.string().uuid()).max(5).optional() }), true,
-    (input) => service.getWorkContext(context, input), McpWorkContextResult);
+  define("get_work_context", "Read bounded accepted and separate proposed context, checkpoints, handoffs and freshness. task ranks; protectCurrent with taskId preserves the full current action or returns a budget remedy. No inferred goals, raw sources or provider calls.",
+    z.strictObject({ projectId: ProjectId, taskId: z.string().uuid().optional(), limitPerSection: z.number().int().min(1).max(10).default(5), task: z.string().trim().min(1).max(2000).optional(), totalContextBudgetChars: z.number().int().min(2000).max(60000).optional(), diagnostics: z.boolean().default(false), protectCurrent: z.boolean().optional(), permanentConstraintIds: z.array(z.string().uuid()).max(5).optional() }), true,
+    (input) => service.getWorkContext(context, input, value => safeValue(value, secrets) as typeof value), McpWorkContextResult);
   define("get_context_delta", "Read revision-bound canonical/working delta with stable page cursor. Missing, expired or ahead history returns resetRequired and full snapshot, not empty.",
     z.strictObject({
       projectId: ProjectId,
@@ -513,10 +526,10 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         { path: ["recordedTo"], message: "recordedFrom must be on or before recordedTo" },
       ), true,
     (input) => service.searchContext(context, input,
-      (value) => safeValue(value, secrets)), McpSearchResultDto);
-  define("get_record", "Read one record with paged evidence. Accepted-only by default; includeUnreviewed explicitly opts into proposed reports. Preserve provenance and review status.",
-    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
-    input => readRecord(deps, input, secrets), RecordResult);
+      (value) => safeValue(value, secrets), secrets), McpSearchResultDto);
+  define("get_record", "Read one record and a bounded evidence page. Use expectedRevision and expectedEvidenceVersion from the selected card or previous page. Proposals require includeUnreviewed.",
+    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), projectId: ProjectId.optional(), expectedRevision: z.number().int().min(1).optional(), expectedEvidenceVersion: z.string().length(64).optional(), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
+    input => readRecord(deps, input, secrets), RecordReadResult);
   define("create_handoff", "When the user asks for a handoff, persist a canonical evidence-based handoff snapshot. This writes an export, not new accepted knowledge.",
     z.strictObject({ projectId: ProjectId, objective: z.string().max(2000).nullable().default(null),
       contextBudgetChars: z.number().int().min(2000).max(60000).default(20000), ...IdentityFields, idempotencyKey: WriteKey }), false,

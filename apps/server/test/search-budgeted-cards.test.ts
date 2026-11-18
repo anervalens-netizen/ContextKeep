@@ -438,3 +438,247 @@ describe("ME10 budgeted MCP search cards", () => {
     ).toBeLessThanOrEqual(6500);
   });
 });
+
+describe("V-12 progressive evidence reads", () => {
+  it("fences chosen card, record pages and source pages across independent evidence changes", async () => {
+    const { t, projectId, ids } = await fixture();
+    const { sqlite } = t.app.ck.deps;
+    const recordId = ids.accepted[0]!;
+    const sourceId = randomUUID();
+    const unrelatedProjectId = randomUUID();
+    const captured = "2026-11-01T00:00:00.000Z";
+    const text = "Synthetic trace with multiple evidence segments.";
+    sqlite
+      .prepare(
+        "INSERT INTO projects(id,name,created_at,updated_at) VALUES(?,?,?,?)",
+      )
+      .run(unrelatedProjectId, "Unrelated fixture", captured, captured);
+    sqlite
+      .prepare(
+        `INSERT INTO sources (id,kind,title,content_hash,normalized_hash,imported_at,provenance_basis,project_id,original_text,normalized_text)
+      VALUES (?,'manual','Synthetic trace',?,?,?,?,?,?,?)`,
+      )
+      .run(
+        sourceId,
+        "fixture-content",
+        "fixture-normalized",
+        captured,
+        "document",
+        projectId,
+        text,
+        text,
+      );
+    const addExcerpt = (start: number) => {
+      const excerptId = randomUUID();
+      sqlite
+        .prepare("INSERT INTO source_excerpts VALUES(?,?,?,?,?,?)")
+        .run(
+          excerptId,
+          sourceId,
+          start,
+          start + 5,
+          text.slice(start, start + 5),
+          "fixture-excerpt",
+        );
+      return excerptId;
+    };
+    const excerptIds = [0, 5, 10, 15, 20].map(addExcerpt);
+    for (const id of excerptIds)
+      sqlite
+        .prepare(
+          "INSERT INTO record_evidence(record_id,excerpt_id,relation) VALUES(?,?,'supports')",
+        )
+        .run(recordId, id);
+
+    const details = async (
+      name: string,
+      args: Record<string, unknown>,
+      expectedError?: string,
+    ) => {
+      const response = await t.app.inject({
+        method: "POST",
+        url: "/mcp",
+        headers: {
+          authorization: "Bearer " + token,
+          accept: "application/json, text/event-stream",
+        },
+        payload: {
+          jsonrpc: "2.0",
+          id: randomUUID(),
+          method: "tools/call",
+          params: { name, arguments: args },
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      const result = response.json().result;
+      if (expectedError) {
+        expect(result.isError).toBe(true);
+        expect(result.structuredContent.error).toMatchObject({
+          code: expectedError,
+          retryable: false,
+        });
+      } else expect(result.isError, JSON.stringify(result)).not.toBe(true);
+      return result.structuredContent;
+    };
+    const pageArgs = ({ tool: _tool, ...args }: Record<string, unknown>) =>
+      args;
+    const cardPage = await call(t, {
+      projectId,
+      representation: "cards",
+      maxResultBytes: 32_768,
+      limit: 10,
+    });
+    const card = (
+      cardPage.structuredContent.records as Array<Record<string, unknown>>
+    ).find((row) => row.recordId === recordId)!;
+    expect(card.evidenceOmittedCount).toBe(5);
+    const args = card.detailArgs as Record<string, unknown>;
+    expect(args).toMatchObject({
+      recordId,
+      projectId,
+      expectedRevision: 1,
+      expectedEvidenceVersion: card.evidenceVersion,
+    });
+    await details(
+      "get_record",
+      { ...args, projectId: unrelatedProjectId },
+      "agent_record_not_found",
+    );
+    await details(
+      "get_record",
+      { recordId: ids.working[0], expectedRevision: 1 },
+      "agent_record_not_found",
+    );
+    const first = await details("get_record", { ...args, evidenceLimit: 2 });
+    expect(first).toMatchObject({
+      evidenceTotal: 5,
+      evidenceReturned: 2,
+      evidenceNextOffset: 2,
+      evidenceVersion: card.evidenceVersion,
+    });
+    const second = await details(
+      "get_record",
+      pageArgs(first.evidenceRecovery),
+    );
+    const third = await details(
+      "get_record",
+      pageArgs(second.evidenceRecovery),
+    );
+    expect(third).toMatchObject({
+      evidenceTotal: 5,
+      evidenceReturned: 1,
+      evidenceNextOffset: null,
+      evidenceRecovery: null,
+    });
+    expect(
+      [...first.evidence, ...second.evidence, ...third.evidence].map(
+        (item) => item.excerptId,
+      ),
+    ).toEqual([...excerptIds].sort());
+
+    const sourceArgs = pageArgs(first.evidence[0].recovery);
+    await details(
+      "get_source",
+      { ...sourceArgs, projectId: unrelatedProjectId },
+      "source_not_found",
+    );
+    const source = await details("get_source", {
+      ...sourceArgs,
+      excerptLimit: 2,
+      maxChars: 8,
+    });
+    expect(source).toMatchObject({
+      canonicalTruth: false,
+      excerptTotal: 5,
+      excerptReturned: 2,
+      excerptNextOffset: 2,
+      returnedChars: 8,
+      nextOffset: 8,
+    });
+    const sourceText = await details(
+      "get_source",
+      pageArgs(source.textRecovery),
+    );
+    const sourceExcerpts = await details(
+      "get_source",
+      pageArgs(source.excerptRecovery),
+    );
+    expect(sourceText).toMatchObject({
+      offset: 8,
+      evidenceVersion: source.evidenceVersion,
+    });
+    expect(sourceExcerpts).toMatchObject({
+      excerptOffset: 2,
+      excerptReturned: 2,
+      evidenceVersion: source.evidenceVersion,
+    });
+    const finalExcerpts = await details(
+      "get_source",
+      pageArgs(sourceExcerpts.excerptRecovery),
+    );
+    expect(finalExcerpts).toMatchObject({
+      excerptTotal: 5,
+      excerptReturned: 1,
+      excerptNextOffset: null,
+      excerptRecovery: null,
+    });
+    expect(
+      [
+        ...source.excerpts,
+        ...sourceExcerpts.excerpts,
+        ...finalExcerpts.excerpts,
+      ].map((excerpt) => excerpt.id),
+    ).toEqual(excerptIds);
+    let textPage = sourceText;
+    let recovered = source.text + sourceText.text;
+    while (textPage.textRecovery) {
+      textPage = await details("get_source", pageArgs(textPage.textRecovery));
+      expect(textPage.evidenceVersion).toBe(source.evidenceVersion);
+      recovered += textPage.text;
+    }
+    expect(recovered).toBe(text);
+    addExcerpt(25);
+    await details(
+      "get_source",
+      pageArgs(source.excerptRecovery),
+      "source_evidence_changed",
+    );
+
+    // Change only a supporting source, leaving the hit's own revision fixed.
+    sqlite
+      .prepare(
+        "UPDATE sources SET normalized_text=?, normalized_hash=? WHERE id=?",
+      )
+      .run(text + " Revised.", "fixture-normalized-v2", sourceId);
+    await details(
+      "get_record",
+      pageArgs(first.evidenceRecovery),
+      "record_evidence_changed",
+    );
+    await details("get_record", args, "record_evidence_changed");
+    sqlite
+      .prepare("UPDATE records SET revision=revision+1 WHERE id=?")
+      .run(recordId);
+    await details("get_record", args, "record_revision_changed");
+    const fresh = await details("get_record", { recordId });
+    expect(fresh).toMatchObject({
+      reviewStatus: "accepted",
+      revision: 2,
+      evidenceTotal: 5,
+    });
+    sqlite
+      .prepare("UPDATE sources SET project_id=? WHERE id=?")
+      .run(unrelatedProjectId, sourceId);
+    await details(
+      "get_record",
+      { recordId, projectId },
+      "evidence_scope_mismatch",
+    );
+    expect(
+      sqlite
+        .prepare("SELECT review_status FROM records WHERE id=?")
+        .pluck()
+        .get(ids.working[0]),
+    ).toBe("proposed");
+  });
+});

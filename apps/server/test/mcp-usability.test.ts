@@ -230,3 +230,193 @@ describe("bounded operational resume", () => {
       expect(schema.safeParse({}).success).toBe(false);
   });
 });
+
+describe("V-11 protected task context", () => {
+  it("preserves a full blocked checkpoint action, recovery and true counts in both protected reads", async () => {
+    const { app, projectId } = await setup();
+    const task = await call(app, "create_task", {
+      projectId,
+      title: "Synthetic recovery",
+      objective: "Historical objective",
+      ...identity(),
+    });
+    await call(app, "report_task_progress", {
+      projectId,
+      taskId: task.taskId,
+      taskRevision: task.task.revision,
+      expectedProgressRecordId: null,
+      status: "blocked",
+      summary: "Awaiting evidence",
+      nextAction: "Review the receipt",
+      ownerAction: null,
+      evidenceText: "Synthetic evidence",
+      ...identity(),
+    });
+    const nextAction =
+      "Inspect the synthetic receipt and reconcile every item. ".repeat(28) +
+      "Final action.";
+    const capture = await call(app, "capture_work", {
+      projectId,
+      taskId: task.taskId,
+      ...identity(),
+      outcome: "Historical checkpoint prose. ".repeat(100),
+      evidenceText: "Synthetic checkpoint evidence.",
+      checkpoint: {
+        nextAction,
+        blockers: Array.from({ length: 7 }, (_unused, index) => ({
+          text: `Synthetic blocker ${index}`,
+          category: "blocking",
+        })),
+      },
+    });
+    for (let index = 0; index < 6; index++) {
+      await call(app, "reserve_run", {
+        projectId,
+        taskId: task.taskId,
+        operationKey: `synthetic-protected-run-${index}`,
+        inputHash: "b".repeat(64),
+        device: "fixture",
+        identity: "owner",
+        criteria: ["Inspect synthetic evidence"],
+        ...identity(),
+      });
+    }
+    const args = { projectId, taskId: task.taskId, protectCurrent: true };
+    for (const name of ["get_work_context", "resume_task"]) {
+      const denied = await call(
+        app,
+        name,
+        { ...args, totalContextBudgetChars: 2000 },
+        true,
+      );
+      expect(denied.error).toMatchObject({
+        code: "protected_context_budget_too_small",
+        retryable: false,
+        nextAction: "increase_context_budget",
+      });
+      const suggested = Number(
+        /at least (\d+)/.exec(denied.error.message)?.[1],
+      );
+      expect(suggested).toBeGreaterThan(2000);
+      const exact = await call(app, name, {
+        ...args,
+        totalContextBudgetChars: suggested,
+      });
+      expect(JSON.stringify(exact).length).toBeLessThanOrEqual(suggested);
+      const context = await call(app, name, {
+        ...args,
+        totalContextBudgetChars: 10_000,
+      });
+      expect(JSON.stringify(context).length).toBeLessThanOrEqual(10_000);
+      const current = context.resumeCapsule ?? context.dossier;
+      expect(current).toMatchObject({
+        projectId,
+        taskId: task.taskId,
+        taskReviewStatus: "proposed",
+        state: "blocked",
+        nextAction,
+        nextActionSource: {
+          recordId: capture.outcome.recordId,
+          reviewStatus: "proposed",
+          provenance: "agent_report",
+        },
+        blockers: {
+          activeCount: 7,
+          returned: 5,
+          omitted: 2,
+          nextOffset: 5,
+          recovery: { tool: "list_blockers", offset: 5 },
+        },
+        unresolvedExecutions: {
+          total: 6,
+          returned: 5,
+          omitted: 1,
+          nextOffset: 5,
+          recovery: {
+            tool: "resume_task",
+            unresolvedOffset: 5,
+            protectCurrent: true,
+          },
+        },
+      });
+      expect(current.actionRecovery).toMatchObject({
+        tool: "get_record",
+        recordId: capture.outcome.recordId,
+      });
+      expect(current.checkpoint ?? context.latestCheckpoint).toMatchObject({
+        detailOmitted: true,
+        recordId: capture.outcome.recordId,
+      });
+      expect(JSON.stringify(context)).not.toContain(
+        "Historical checkpoint prose.",
+      );
+      expect(JSON.stringify(context).split(nextAction)).toHaveLength(2);
+      expect(context.resumeText).toBeUndefined();
+      if (context.workingMemory) {
+        expect(context.recentWork).toBeUndefined();
+        expect(context.workingMemory.total).toBe(
+          context.workingMemory.returned + context.workingMemory.omitted,
+        );
+      }
+    }
+    const legacy = await call(app, "resume_task", {
+      projectId,
+      taskId: task.taskId,
+      depth: "compact",
+    });
+    expect(legacy.resumeText).toContain("Current task state");
+    expect(legacy.protectCurrent).toBeUndefined();
+    const legacyContext = await call(app, "get_work_context", {
+      projectId,
+      taskId: task.taskId,
+    });
+    expect(legacyContext.protectCurrent).toBeUndefined();
+    expect(legacyContext.recentWork).toBeDefined();
+  });
+
+  it("directs a protected core above the budget ceiling to individual recovery reads", async () => {
+    const { app, projectId } = await setup();
+    const task = await call(app, "create_task", {
+      projectId,
+      title: "Synthetic large imported action",
+      objective: "Inspect synthetic evidence",
+      ...identity(),
+    });
+    const progress = await call(app, "report_task_progress", {
+      projectId,
+      taskId: task.taskId,
+      taskRevision: task.task.revision,
+      expectedProgressRecordId: null,
+      status: "blocked",
+      summary: "Synthetic import",
+      nextAction: "Inspect the imported action",
+      ownerAction: null,
+      evidenceText: "Synthetic evidence",
+      ...identity(),
+    });
+    app.app.ck.deps.sqlite
+      .prepare(
+        "UPDATE records SET value_json=json_set(value_json,'$.nextAction',?) WHERE id=?",
+      )
+      .run("界".repeat(61_000), progress.recordId);
+    for (const name of ["get_work_context", "resume_task"]) {
+      const response = await call(
+        app,
+        name,
+        {
+          projectId,
+          taskId: task.taskId,
+          protectCurrent: true,
+          totalContextBudgetChars: 60_000,
+        },
+        true,
+      );
+      expect(response.error).toMatchObject({
+        code: "protected_context_requires_detail_reads",
+        retryable: false,
+        nextAction: "read_protected_records",
+      });
+      expect(response.error.message).toContain("get_record");
+    }
+  });
+});

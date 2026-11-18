@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { retrieveRecordMatches } from "../src/services/search.js";
 import type { BriefDto } from "@contextkeep/shared";
 import {
   expectStatus,
@@ -636,3 +637,71 @@ describe("FTS5 dedicated performance qualification", () => {
     }
   }, 180_000);
 });
+
+it("keeps saturated current retrieval within the 150 ms search budget on 10k records", async () => {
+  const t = await makeTestApp({ seed: true });
+  try {
+    const { sqlite, db } = t.app.ck.deps;
+    const { id: projectId } = sqlite
+      .prepare("SELECT id FROM projects ORDER BY id LIMIT 1")
+      .get() as { id: string };
+    const old = "2025-01-01T00:00:00.000Z";
+    const recent = "2026-04-30T00:00:00.000Z";
+    const latestId = deterministicRecordId(10_000);
+    const insert = sqlite.prepare(`
+      INSERT INTO records (id, project_id, type, subject, text, review_status, evidence_basis,
+        record_dedup_hash, recorded_at, source_event_at, created_at, updated_at)
+      VALUES (?, ?, 'fact', 'Meridian deployment', ?, 'accepted', 'document', ?, ?, ?, ?, ?)
+    `);
+    sqlite.transaction(() => {
+      for (let i = 1; i <= 10_000; i++) {
+        const id = deterministicRecordId(i);
+        const text =
+          i === 10_000
+            ? "Meridian current deployment" + " background".repeat(64)
+            : i <= 8_000
+              ? "Meridian current deployment ".repeat(8)
+              : "Synthetic log about archival inventory";
+        insert.run(
+          id,
+          projectId,
+          text,
+          id,
+          old,
+          id === latestId ? recent : old,
+          old,
+          old,
+        );
+      }
+    })();
+    const timings: number[] = [];
+    const completeness = { candidateLimitReached: false, mayHaveMore: false };
+    let top: string | undefined;
+    for (let i = -WARMUP_SAMPLES; i < MEASURED_SAMPLES; i++) {
+      const start = performance.now();
+      const result = retrieveRecordMatches(db, {
+        q: "Meridian current deployment",
+        projectId,
+        statuses: ["accepted"],
+        limit: 50,
+        nowIso: "2026-05-01T00:00:00.000Z",
+        temporalRanking: true,
+        hydrateEvidence: false,
+        completeness,
+      });
+      if (i >= 0) timings.push(performance.now() - start);
+      top = result[0]?.row.id;
+    }
+    console.log(
+      `[perf] saturated temporal p50 = ${[...timings].sort((a, b) => a - b)[19]!.toFixed(2)} ms, p95 = ${p95(timings).toFixed(2)} ms, newest = ${top === latestId}`,
+    );
+    expect(top).toBe(latestId);
+    expect(completeness).toEqual({
+      candidateLimitReached: true,
+      mayHaveMore: true,
+    });
+    expect(p95(timings)).toBeLessThanOrEqual(150);
+  } finally {
+    await t.cleanup();
+  }
+}, 180_000);

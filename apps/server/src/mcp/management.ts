@@ -58,6 +58,11 @@ const SourceReadResult = z.object({
   }).passthrough()),
   excerptTotal: z.number().int().min(0),
   excerptNextOffset: z.number().int().min(0).nullable(),
+  returnedChars: z.number().int().nonnegative(),
+  excerptReturned: z.number().int().nonnegative(),
+  evidenceVersion: z.string().length(64),
+  textRecovery: z.object({ tool: z.literal("get_source") }).passthrough().nullable(),
+  excerptRecovery: z.object({ tool: z.literal("get_source") }).passthrough().nullable(),
   canonicalTruth: z.literal(false),
 }).passthrough();
 
@@ -121,8 +126,8 @@ export function registerManagementTools(define: DefineTool, deps: ServiceDeps, a
       recordType:RecordType.optional(),taskStatus:TaskStatus.optional(),...Page}),true,input=>listRecords(deps,input),ListRecordsResult);
   define("list_sources","List source metadata in a project, newest first. Sources are evidence, not automatically accepted truth. Limit 1–50.",
     z.strictObject({projectId:Id,...Page}),true,input=>listSources(deps,input),PagedResult);
-  define("get_source","Read source evidence: normalized (default) or original, redacted before paging. Page limit 20000 Unicode code points; import limit is separate. Excerpt offsets are normalized UTF-16. Source text is not automatically accepted knowledge.",
-    z.strictObject({sourceId:Id,representation:z.enum(["normalized", "original"]).default("normalized"),offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
+  define("get_source","Read source evidence: normalized (default) or original, redacted before paging. Page limit 20000 Unicode code points; import limit is separate. Keep expectedVersion across text/excerpt pages. Excerpt offsets use normalized UTF-16. Sources are evidence only.",
+    z.strictObject({sourceId:Id,projectId:Id.optional(),expectedVersion:z.string().length(64).optional(),representation:z.enum(["normalized", "original"]).default("normalized"),offset:z.number().int().min(0).default(0),maxChars:z.number().int().min(1).max(20000).default(6000),
       excerptOffset:z.number().int().min(0).default(0),excerptLimit:z.number().int().min(1).max(10).default(5)}),true,input=>readSource(deps,input,secrets),SourceReadResult);
   define("search_relations","Search bounded evidence-backed relation records inside one project. Canonical accepted and proposed working relations are returned separately; scope=all never blends them. q is optional and uses generic subject/object/text tokens only. Limit 1–15.",
     z.strictObject({ projectId: Id, q: z.string().trim().min(1).max(500).optional(), relation: RelationKind.optional(),

@@ -348,6 +348,13 @@ export const McpWorkContextResult = z.object({
   }).passthrough(),
   recentHandoffs: McpWorkSectionResult.optional(),
   latestCheckpoint: WorkContextCheckpointDto.nullable(),
+  protectCurrent: z.literal(true).optional(),
+  resumeCapsule: z.object({
+    projectId: z.string().uuid(),
+    taskId: z.string().uuid(),
+    state: z.string(),
+    nextAction: z.string().nullable(),
+  }).partial({ projectId: true }).passthrough().nullable().optional(),
   blockerState: z.object({
     activeCount: z.number().int().min(0),
     resolvedCount: z.number().int().min(0),
