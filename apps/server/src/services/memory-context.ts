@@ -19,6 +19,7 @@ import {
   type RetrievedRecordMatch,
 } from "./search.js";
 import { searchRelations } from "./relations.js";
+import { enforceSearchResultBytes, packSearchCards } from "./search-budget.js";
 import { synthesize } from "./synthesis.js";
 import { requireTaskScope } from "./task-scope.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
@@ -1177,6 +1178,8 @@ export class ContextKeepMemoryService {
     input: {
       q: string;
       compact?: boolean;
+      representation?: "full" | "cards";
+      maxResultBytes?: number;
       projectId?: string;
       includeHistorical?: boolean;
       match?: "terms" | "phrase";
@@ -1271,7 +1274,7 @@ export class ContextKeepMemoryService {
     const workingRecords = result.workingRecords.map((record) =>
       compactSearchRecord(record, true),
     );
-    return {
+    const response = {
       ranking: result.ranking,
       completeness: result.completeness,
       query: result.query,
@@ -1291,6 +1294,13 @@ export class ContextKeepMemoryService {
       },
       limit,
     };
+    if (input.representation === "cards") {
+      return packSearchCards(response, input.maxResultBytes ?? 12_000);
+    }
+    if (input.maxResultBytes !== undefined) {
+      enforceSearchResultBytes(response, input.maxResultBytes);
+    }
+    return response;
   }
 
   synthesizeContext(

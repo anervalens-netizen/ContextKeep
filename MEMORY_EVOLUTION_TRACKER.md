@@ -44,6 +44,13 @@ limit and distinct canonical/working results. No required security gate or
 review has been waived. See
 [Batch 7 integration](docs/plans/2026-11-16-memory-evolution/BATCH_7_INTEGRATION.md).
 
+Historical source snapshot for the stacked Batch 8 ME-10 candidate:
+**50 items — 20 PLANNED, 6 GATED, 19 IN_PROGRESS, 0 IMPLEMENTED,
+4 VERIFIED, 1 DONE.** This is NOT production; ME-10 is a bounded
+source candidate with V-10 PARTIAL. ME-06, ME-08 and ME-13 remain in
+progress with their own performance/security review gates.
+See [Batch 8](docs/plans/2026-11-16-memory-evolution/BATCH_8_BUDGETED_SEARCH.md).
+
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
 contracts. It is not a production status report.
@@ -228,7 +235,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
-| [ME-10](#me-10) | Add budgeted search summaries | PLANNED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
+| [ME-10](#me-10) | Add budgeted search summaries | IN_PROGRESS | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | PLANNED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | PLANNED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
@@ -437,13 +444,20 @@ Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-ev
 ### ME-10
 
 **Add budgeted search summaries**\
-Status: **PLANNED** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-10)
 
 - [ ] Scope: Design additive summary/detail and total-budget options. Short cards retain identity, provenance, date/freshness, relevant snippet, task state and recovery; canonical/working/source evidence stay distinct.
 - [ ] Acceptance: Declared representation stays within budget or returns a specific error; omitted bodies/lists are explicit; required information survives; legacy calls remain compatible.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: [Batch 8 source candidate](docs/plans/2026-11-16-memory-evolution/BATCH_8_BUDGETED_SEARCH.md)
+  adds opt-in representation=cards with a structured UTF-8 JSON
+  maxResultBytes budget, explicit omissions, one result per nonempty
+  trust scope and recoverable get_record details.
+  The legacy full result is unchanged unless a budget is explicitly
+  requested; then it fails with a specific error instead of truncating.
+  Source/excerpt results, version-bound progressive reads and shared
+  resume/work-context budget packing remain separate ME-10/ME-11/ME-12
+  gates. V-10 is PARTIAL; this candidate is not deployed.
 
 ### ME-11
 

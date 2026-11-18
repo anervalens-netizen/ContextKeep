@@ -350,8 +350,17 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
 ### V-10
 
 **ME-10 — Add budgeted search summaries**\
-Status: **NOT RUN**
+Status: **PARTIAL — canonical/working MCP cards tested in source**
 
+- **Source evaluation:** Optional MCP cards under a JSON UTF-8
+  maxResultBytes budget; malformed/impossible budgets refuse and legacy
+  full results do not truncate silently. Synthetic accepted/working
+  cards preserve first ranked identity, authority, date and provenance
+  with explicit omissions and detail recovery. Candidate saturation
+  remains separate from output packing. Transport framing is not part
+  of the byte budget. Source/excerpt-kind cards, version-aware evidence
+  reads and cross-tool core protection remain unqualified.
+  See [Batch 8](BATCH_8_BUDGETED_SEARCH.md).
 - **Setup:** Seed long records, checkpoints, evidence lists and freshness
   references across canonical, working and source-evidence results.
 - **Action:** Request summary/detail modes at several declared budgets, including
