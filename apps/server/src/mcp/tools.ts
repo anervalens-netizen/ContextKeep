@@ -27,7 +27,7 @@ import { captureWork } from "../services/capture-work.js";
 import { getBlockerState, resolveBlocker } from "../services/blockers.js";
 import { getContextDelta } from "../services/context-delta.js";
 import { ApiError } from "../lib/errors.js";
-import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay } from "./safety.js";
+import { durableWrite, atomicWrite, rejectCredentials, toolError, toolResult, sourcePageResult, legacyWriteReplay, safeValue } from "./safety.js";
 import { relationKinds } from "@contextkeep/shared";
 import { MCP_CONTRACT_VERSION, MCP_VERSION, runtimeMetadata } from "./runtime-metadata.js";
 import { mcpToolBudgetOmissionsTotal, mcpToolCallsTotal, mcpToolDurationSeconds, mcpToolResultBytes } from "../lib/telemetry.js";
@@ -422,7 +422,12 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
           let result: unknown;
           if (readOnly) {
             result = name === "get_source" ? sourcePageResult(await runChecked(), secrets) :
-              name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) : toolResult(await runChecked(), secrets);
+              name === "open_task_panel" ? panelToolResult(await runChecked(), secrets) :
+              toolResult(await runChecked(), secrets,
+                name === "search_context"
+                  ? (input as { maxResultBytes?: number; representation?: string }).maxResultBytes ??
+                    ((input as { representation?: string }).representation === "cards" ? 12_000 : undefined)
+                  : undefined);
           } else {
             rejectCredentials(input, secrets);
             if (name === "settings.update") {
@@ -507,7 +512,8 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
         ({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo,
         { path: ["recordedTo"], message: "recordedFrom must be on or before recordedTo" },
       ), true,
-    (input) => service.searchContext(context, input), McpSearchResultDto);
+    (input) => service.searchContext(context, input,
+      (value) => safeValue(value, secrets)), McpSearchResultDto);
   define("get_record", "Read one record with paged evidence. Accepted-only by default; includeUnreviewed explicitly opts into proposed reports. Preserve provenance and review status.",
     z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
     input => readRecord(deps, input, secrets), RecordResult);

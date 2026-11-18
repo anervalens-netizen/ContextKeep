@@ -353,12 +353,14 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
 Status: **PARTIAL — canonical/working MCP cards tested in source**
 
 - **Source evaluation:** Optional MCP cards under a JSON UTF-8
-  maxResultBytes budget; malformed/impossible budgets refuse and legacy
-  full results do not truncate silently. Synthetic accepted/working
+  maxResultBytes budget after redaction; impossible budgets refuse and
+  legacy full results do not truncate silently. Synthetic accepted/working
   cards preserve first ranked identity, authority, date and provenance
-  with explicit omissions and detail recovery. Candidate saturation
-  remains separate from output packing. Transport framing is not part
-  of the byte budget. Source/excerpt-kind cards, version-aware evidence
+  with explicit omissions and detail recovery. The exact 10,000-byte
+  digit transition, credential replacement growth and surrogate-safe
+  clipping have negative controls. Candidate saturation remains separate
+  from output packing. Transport framing is not part of the byte budget.
+  Source/excerpt-kind cards, version-aware evidence
   reads and cross-tool core protection remain unqualified.
   See [Batch 8](BATCH_8_BUDGETED_SEARCH.md).
 - **Setup:** Seed long records, checkpoints, evidence lists and freshness

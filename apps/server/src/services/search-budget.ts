@@ -22,7 +22,20 @@ interface BoundedSearch {
 
 function clip(value: unknown, limit: number): string | null {
   if (typeof value !== "string") return null;
-  return value.length <= limit ? value : value.slice(0, limit) + "…";
+  // Never leave a lone high surrogate when the UTF-16 boundary bisects
+  // a supplementary character. The final JSON budget is measured later.
+  if (value.length <= limit) return value;
+  let end = limit;
+  if (
+    end > 0 &&
+    value.charCodeAt(end - 1) >= 0xd800 &&
+    value.charCodeAt(end - 1) <= 0xdbff &&
+    value.charCodeAt(end) >= 0xdc00 &&
+    value.charCodeAt(end) <= 0xdfff
+  ) {
+    end -= 1;
+  }
+  return value.slice(0, end) + "…";
 }
 
 function card(record: Record<string, unknown>): Record<string, unknown> {
@@ -102,10 +115,19 @@ export function packSearchCards(
   };
   const budget = packed.budget as Record<string, string | number | boolean>;
   const serializedSize = (): number => {
-    // This byte contract is for structuredContent, not MCP JSON-RPC framing.
-    const size = Buffer.byteLength(JSON.stringify(packed), "utf8");
-    budget.actualBytes = size;
-    return Buffer.byteLength(JSON.stringify(packed), "utf8");
+    // The reported byte count is part of structuredContent itself. When its
+    // decimal width grows (9999 -> 10000), a single measurement undercounts.
+    // Iterate to the exact fixed point before accepting a byte budget.
+    for (let pass = 0; pass < 6; pass++) {
+      const bytes = Buffer.byteLength(JSON.stringify(packed), "utf8");
+      if (budget.actualBytes === bytes) return bytes;
+      budget.actualBytes = bytes;
+    }
+    throw new ApiError(
+      422,
+      "search_budget_unstable",
+      "Could not establish an exact serialized search byte budget.",
+    );
   };
   while (serializedSize() > maxResultBytes) {
     const canRemoveAccepted =
@@ -138,8 +160,8 @@ export function packSearchCards(
     packed.completeness.workingRecords.mayHaveMore ||=
       (budget.omittedWorking as number) > 0;
   }
-  serializedSize();
-  if ((budget.actualBytes as number) > maxResultBytes) {
+  const finalBytes = serializedSize();
+  if (finalBytes > maxResultBytes) {
     throw new ApiError(
       422,
       "search_budget_too_small",

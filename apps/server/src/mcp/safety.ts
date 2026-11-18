@@ -48,8 +48,24 @@ export function rejectCredentials(input: unknown, secrets: string[]): void {
   }
 }
 
-export function toolResult(value: unknown, secrets: string[]): CallToolResult {
+export function toolResult(value: unknown, secrets: string[], maxStructuredBytes?: number): CallToolResult {
   const clean = safeValue(value, secrets) as Record<string, unknown>;
+  // The final, credential-redacted result must satisfy any requested byte
+  // budget. The service packs before the protocol boundary, so this guard
+  // fails closed if a future redaction rule expands it unexpectedly.
+  if (maxStructuredBytes !== undefined) {
+    const actual = Buffer.byteLength(JSON.stringify(clean), "utf8");
+    if (actual > maxStructuredBytes) {
+      throw new ApiError(422, "search_budget_exceeded",
+        "Redacted search content exceeds maxResultBytes. Increase the budget or narrow the query.");
+    }
+    const budget = clean.budget;
+    if (budget && typeof budget === "object" && !Array.isArray(budget) &&
+        (budget as { actualBytes?: unknown }).actualBytes !== actual) {
+      throw new ApiError(422, "search_budget_unstable",
+        "Search byte count changed during redaction. Increase the budget or narrow the query.");
+    }
+  }
   const text = JSON.stringify(clean);
   const result: CallToolResult = { content: [{ type: "text", text }], structuredContent: clean };
   // This is the complete MCP result object, including both protocol content

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { McpSearchResultDto } from "@contextkeep/shared";
+import { packSearchCards } from "../src/services/search-budget.js";
 import { projects, records } from "../src/db/schema.js";
 import { makeTestApp, type TestApp } from "./helpers.js";
 
@@ -101,6 +102,104 @@ async function detail(t: TestApp, args: Record<string, unknown>) {
 }
 
 describe("ME10 budgeted MCP search cards", () => {
+  it("measures byte digit boundaries as a fixed point and never returns oversized protected content", () => {
+    const source = {
+      query: "fixture",
+      scope: "canonical",
+      records: [
+        {
+          recordId: randomUUID(),
+          projectId: null,
+          subject: "A",
+          type: "fact",
+          text: "fixture",
+          evidence: [],
+          checkpoint: null,
+          reviewStatus: "accepted",
+          provenance: "document",
+          recordedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ],
+      workingRecords: [],
+      completeness: {
+        records: {
+          returned: 1,
+          limit: 1,
+          mayHaveMore: false,
+          candidateLimitReached: false,
+        },
+        workingRecords: {
+          returned: 0,
+          limit: 1,
+          mayHaveMore: false,
+          candidateLimitReached: false,
+        },
+      },
+    };
+    // A one-pass byte measurement can undercount at the 9999 -> 10000
+    // decimal-width transition because the count itself is serialized.
+    const reference = packSearchCards(source, 32_768);
+    const withZeroCounter = structuredClone(reference);
+    withZeroCounter.budget = {
+      ...(reference.budget as Record<string, unknown>),
+      actualBytes: 0,
+      requestedBytes: 10_000,
+    };
+    const initialBytes = Buffer.byteLength(
+      JSON.stringify(withZeroCounter),
+      "utf8",
+    );
+    const padding = 9_997 - initialBytes;
+    expect(padding).toBeGreaterThan(0);
+    source.records[0]!.subject += "X".repeat(padding);
+    expect(() => packSearchCards(source, 10_000)).toThrowError(
+      expect.objectContaining({ code: "search_budget_too_small" }),
+    );
+    const accepted = packSearchCards(source, 10_002);
+    const actual = Buffer.byteLength(JSON.stringify(accepted), "utf8");
+    expect(accepted.budget).toHaveProperty("actualBytes", actual);
+    expect(actual).toBeLessThanOrEqual(10_002);
+  });
+
+  it("never clips supplementary Unicode characters into an unpaired surrogate", () => {
+    const source = {
+      query: "unicode",
+      scope: "canonical",
+      records: [
+        {
+          recordId: randomUUID(),
+          projectId: null,
+          subject: "unicode fixture",
+          type: "fact",
+          text: "x".repeat(143) + "😀" + "tail",
+          evidence: [],
+          checkpoint: null,
+          reviewStatus: "accepted",
+          provenance: "document",
+          recordedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ],
+      workingRecords: [],
+      completeness: {
+        records: {
+          returned: 1,
+          limit: 1,
+          mayHaveMore: false,
+          candidateLimitReached: false,
+        },
+        workingRecords: {
+          returned: 0,
+          limit: 1,
+          mayHaveMore: false,
+          candidateLimitReached: false,
+        },
+      },
+    };
+    const value = packSearchCards(source, 12_000);
+    expect(value.records[0]?.text).toBe("x".repeat(143) + "…");
+    expect(JSON.stringify(value)).not.toContain("\\ud83d");
+  });
+
   it("retains canonical/working core, UTF-8 byte budget, completeness and detail pointers", async () => {
     const { t, projectId } = await fixture();
     const before = t.app.ck.deps.sqlite
@@ -255,6 +354,67 @@ describe("ME10 budgeted MCP search cards", () => {
     expect(
       (proposedRead.structuredContent.text as string).length,
     ).toBeGreaterThan(144);
+  });
+
+  it("applies the exact post-redaction UTF-8 byte budget to delivered MCP cards", async () => {
+    const { t, projectId } = await fixture();
+    const baseline = await call(t, {
+      projectId,
+      scope: "all",
+      compact: true,
+      limit: 15,
+    });
+    expect(baseline.isError).not.toBe(true);
+    const target = (
+      baseline.structuredContent.records as Array<{ recordId: string }>
+    )[0]!.recordId;
+    t.app.ck.deps.sqlite
+      .prepare("UPDATE records SET subject=? WHERE id=?")
+      .run(
+        "compactbeacon compactbeacon compactbeacon API_KEY=abcdef synthetic secret label",
+        target,
+      );
+    const budgets = [3_200, 6_500, 10_000, 12_000, 32_768];
+    let successful = 0;
+    let redactedRowsSeen = 0;
+    for (const maxResultBytes of budgets) {
+      const result = await call(t, {
+        projectId,
+        representation: "cards",
+        scope: "all",
+        maxResultBytes,
+        limit: 15,
+      });
+      if (result.isError) {
+        expect(result.structuredContent).toHaveProperty(
+          "error.code",
+          "search_budget_too_small",
+        );
+        continue;
+      }
+      successful++;
+      const bytes = Buffer.byteLength(
+        JSON.stringify(result.structuredContent),
+        "utf8",
+      );
+      expect(bytes).toBeLessThanOrEqual(maxResultBytes);
+      expect(result.structuredContent).toHaveProperty(
+        "budget.actualBytes",
+        bytes,
+      );
+      expect(JSON.stringify(result.structuredContent)).not.toContain(
+        "API_KEY=abcdef",
+      );
+      const acceptedRow = (
+        result.structuredContent.records as Array<{ subject: string }>
+      ).find((row) => row.subject.includes("API_KEY="));
+      if (acceptedRow) {
+        expect(acceptedRow.subject).toContain("REDACTED_CREDENTIAL");
+        redactedRowsSeen++;
+      }
+    }
+    expect(successful).toBeGreaterThan(0);
+    expect(redactedRowsSeen).toBeGreaterThan(0);
   });
 
   it("preserves the working-only response boundary with a one-sided byte budget", async () => {

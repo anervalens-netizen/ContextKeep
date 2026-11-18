@@ -14,12 +14,18 @@ versus unreviewed working trust separation.
 - representation=cards uses a structured response of 2,048–32,768 bytes
   (default 12,000). It preserves record ID, project, type, subject, truth
   status, provenance, recorded/event/effective/review timestamps, freshness,
-  task state and checkpoint task/next action. Long text is clipped to
-  144 UTF-16 units. Evidence bodies are omitted with explicit flags and
-  counts of retrieved items omitted by the card view.
-- maxResultBytes measures actual UTF-8 JSON bytes in structuredContent,
-  not SDK/provider tokens or an implementation-specific JSON-RPC envelope.
-  The response declares the budget requested and actual bytes.
+  task state and checkpoint task/next action. Long text is clipped at
+  **at most 144 UTF-16 units without splitting a surrogate pair**.
+  Evidence bodies are omitted with flags and counts of items included in
+  the already bounded evidence preview (not the total database evidence);
+  the detail read provides the authoritative evidenceTotal.
+- maxResultBytes measures exact UTF-8 JSON bytes of the **final
+  credential-redacted structuredContent**, including the byte-count field
+  itself, not SDK/provider tokens or a JSON-RPC envelope. The MCP read
+  applies credential-safe redaction before budget packing and checks the
+  final delivered bytes again at the output boundary. A decimal digit
+  transition in the self-reported size can never undercount the result.
+  The response declares the requested and actual byte count.
 - The packer removes trailing results from separate canonical/working
   lists but keeps the first ranked hit from each originally nonempty
   trust scope. It reports missing trailing rows separately from the
@@ -34,8 +40,11 @@ versus unreviewed working trust separation.
 ## Evidence and open gates
 
 Synthetic MCP integration tests cover accepted/proposed separation,
-Unicode UTF-8 serialization, ordering, mandatory core, overflow errors,
-working-only output, legacy responses and no business-state mutation.
+Unicode UTF-8 serialization and surrogate boundaries, the 9,999-to-10,000
+digit-length boundary, output after credential redaction, ordering, mandatory
+core, overflow errors, working-only output, legacy responses and no
+business-state mutation. A separate bounded fuzz check covered 792
+synthetic distribution/budget combinations with no self-report mismatch.
 The existing HTTP/MCP search scope/date and temporal tests are unchanged.
 No private deployment observations appear in this public note.
 

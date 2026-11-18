@@ -1,5 +1,9 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import type { ContextDiagnosticReason, EvidenceDto, RecordType } from "@contextkeep/shared";
+import type {
+  ContextDiagnosticReason,
+  EvidenceDto,
+  RecordType,
+} from "@contextkeep/shared";
 import { handoffs, projects, records } from "../db/schema.js";
 import { workspaceBindings } from "../db/workspace-schema.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
@@ -1069,9 +1073,17 @@ export class ContextKeepMemoryService {
             taskId: input.taskId,
             state: continuity.state,
             stateSource: continuity.stateSource,
-            stateProvenance: continuity.stateSource === "reported_progress" && continuity.progress
-              ? { reviewStatus: continuity.progress.reviewStatus, evidenceBasis: continuity.progress.evidenceBasis }
-              : { reviewStatus: continuity.task.reviewStatus, evidenceBasis: continuity.task.evidenceBasis },
+            stateProvenance:
+              continuity.stateSource === "reported_progress" &&
+              continuity.progress
+                ? {
+                    reviewStatus: continuity.progress.reviewStatus,
+                    evidenceBasis: continuity.progress.evidenceBasis,
+                  }
+                : {
+                    reviewStatus: continuity.task.reviewStatus,
+                    evidenceBasis: continuity.task.evidenceBasis,
+                  },
             nextAction: continuity.nextAction,
             followUp: continuity.followUp,
             ownerAction: continuity.progress?.ownerAction ?? null,
@@ -1189,6 +1201,7 @@ export class ContextKeepMemoryService {
       recordedTo?: string;
       limit?: number;
     },
+    redactForMcp?: (value: unknown) => unknown,
   ): Record<string, unknown> {
     const projectId = this.projectId(context, input.projectId, false);
     const limit = clamp(input.limit, 10, MAX_SEARCH_RECORDS);
@@ -1294,13 +1307,24 @@ export class ContextKeepMemoryService {
       },
       limit,
     };
+    // A credential-safe MCP response can be longer than the raw database
+    // projection. Budget the exact redacted representation that the caller
+    // will receive, not the value before toolResult applies safeValue.
+    // Preserve the original default search path: pre-redaction is only
+    // necessary when a caller requests a constrained byte representation.
+    // Unbudgeted legacy reads still use the single MCP boundary redaction.
+    const budgetRequested = input.representation === "cards" ||
+      input.maxResultBytes !== undefined;
+    const delivered = budgetRequested && redactForMcp
+      ? (redactForMcp(response) as typeof response)
+      : response;
     if (input.representation === "cards") {
-      return packSearchCards(response, input.maxResultBytes ?? 12_000);
+      return packSearchCards(delivered, input.maxResultBytes ?? 12_000);
     }
     if (input.maxResultBytes !== undefined) {
-      enforceSearchResultBytes(response, input.maxResultBytes);
+      enforceSearchResultBytes(delivered, input.maxResultBytes);
     }
-    return response;
+    return delivered;
   }
 
   synthesizeContext(
