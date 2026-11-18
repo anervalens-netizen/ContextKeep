@@ -221,6 +221,39 @@ describe("ME-06 bounded retrieval and authority", () => {
     });
   });
 
+  it("marks malformed volatile review schedules as requiring verification while preserving valid event time", async () => {
+    const { t, projectId, add } = await fixture();
+    const id = add({
+      sourceEventAt: recent, volatile: 1,
+      reviewDueAt: "not-a-valid-review-date",
+      text: "Beacon current deployment",
+    });
+    const result = search(t.app.ck.deps, {
+      q: "Beacon current deployment", projectId, limit: 5,
+    });
+    const item = result.records.find((r) => r.id === id);
+    expect(item?.temporal).toMatchObject({
+      eligibility: "dated", rankTime: recent, currentAdjustment: -24,
+    });
+    expect(item?.freshness).toMatchObject({
+      currentness: "review_due", requiresReview: true,
+    });
+  });
+
+  it("does not score partial textual identifiers as exact identity matches", async () => {
+    const { t, projectId, add } = await fixture();
+    const valid = add({text: "Beacon current deployment PR35"});
+    const partial = add({text: "Beacon current deployment PR350"});
+    const matches = retrieveRecordMatches(t.app.ck.deps.db, {
+      q: "Beacon current deployment PR35", projectId,
+      statuses: ["accepted"], limit: 10, temporalRanking: true,
+      hydrateEvidence: false,
+    });
+    expect(matches.find((m) => m.row.id === valid)?.exactIdentifier).toBe(true);
+    expect(matches.find((m) => m.row.id === partial)?.exactIdentifier).toBe(false);
+    expect(matches[0]?.row.id).toBe(valid);
+  });
+
   it("ranks valid current operational evidence above lexically stronger future evidence", async () => {
     const { t, projectId, add } = await fixture();
     const valid = add({

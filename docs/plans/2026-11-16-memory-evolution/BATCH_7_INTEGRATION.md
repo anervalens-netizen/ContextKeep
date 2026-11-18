@@ -12,8 +12,9 @@ Scope: ME-06, ME-08 and ME-13 IN_PROGRESS. V-06/V-08/V-13 PARTIAL.
   recordedAt, not sourceEventAt or effective time. Canonical accepted and
   proposed working results remain distinct arrays.
 - [ME-06/ME-08 temporal retrieval](../../../apps/server/src/services/search-time.ts)
-  adds explicit temporal eligibility metadata and bounded dual lexical/
-  temporal candidate lanes for current/historical queries. Source event,
+  adds explicit temporal eligibility metadata and a bounded lexical
+  overscan with local temporal candidate selection for current/historical
+  queries. Source event,
   effective validity, capture and review time stay distinct. Invalid/future/
   expired evidence is marked, not promoted to healthy current knowledge.
   Exact identifier priority and default internal synthesis behavior remain.
@@ -31,8 +32,8 @@ valid current operational observation; mixed past/present intent collapsed
 to historical; and exact UUID lookups in phrase mode were unrecoverable.
 
 The combined candidate adds regressions for those cases. Review schedule
-validity is separate from event/validity eligibility. The SQL temporal lane
-requires explicit seconds and bounded hour/minute/second fields. Valid
+validity is separate from event/validity eligibility. Read-time event
+validation requires explicit seconds and bounded hours/minutes/seconds. Valid
 dated current operational observations precede future/expired/invalid ones
 after exact IDs, with lexical score still ordering within each tier. Mixed
 tense is recognized without converting purely historical questions to
@@ -44,15 +45,35 @@ textual identifier mentions remain valid. A negative synthetic test failed
 before and passed after the correction. Exact UUID phrase lookups still use
 a strictly bounded exact-identity recovery path.
 
-The extra temporal FTS/LIKE lane is now skipped when the lexical candidate
-window is complete, and historical queries do not perform a superseded
-selection when that status is excluded. This prevents unnecessary second
-queries. However, broad saturated temporal searches can still require a
-second sorted scan; an isolated reviewer measured roughly 1.9 times the
-unmodified source latency on a 12,000-row synthetic corpus. This remains
-a quantified ME-06/ME-07 performance and resource gate, NOT proof of a
-production improvement. Indexed temporal retrieval or an explicitly
-evaluated bounded recall/latency tradeoff may be needed before release.
+The former second full-match FTS/LIKE temporal sort is replaced by a
+**single lexical query** with an overscan bounded at 400 rows, followed by
+local temporal selection and at most 200 scored candidates per scope.
+The existing project/status/type/date authority filters apply before the
+bounded query. Completeness marks saturation even when a relevant newer
+observation may lie beyond the candidate window.
+
+A reproducible synthetic A/B fixture in
+apps/server/test/temporal-saturated-benchmark.test.ts uses 12,000 rows,
+4 warmups and 18 measured calls per query, executed separately against
+pre-temporal main, the former combined candidate and the one-pass candidate
+on the same host. Mean milliseconds observed:
+
+| Query | Pre-temporal main | Former combined | One-pass candidate |
+| --- | ---: | ---: | ---: |
+| Current | 27.69 | 68.61 | 31.78 |
+| Historical | 27.30 | 55.07 | 28.81 |
+| Neutral | 25.07 | 24.80 | 25.16 |
+
+These are synthetic source-level results, NOT production latency, provider
+cost or a frozen private corpus. The one-pass candidate restores performance
+near the original baseline but sacrifices the old unbounded-depth temporal
+lane's ability to discover the newest qualifying document far beyond the
+lexical overscan. An adversarial saturated corpus may require narrower
+project/type/date constraints or a separately indexed temporal path to
+preserve complete current-state recall. Therefore V-06/V-08 and the
+performance/recall acceptance gate remain PARTIAL: a latency benchmark
+alone cannot qualify this candidate for release. The independent high
+picomatch advisory still blocks the required CI dependency audit.
 
 These are source contracts only. They do not establish deployed behavior
 or replace a frozen private retrieval benchmark, representative latency

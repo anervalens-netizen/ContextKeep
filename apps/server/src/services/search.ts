@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql, type SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { SearchTemporalDto, EvidenceDto, RecordDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
 import { projects, recordEvidence, records, sourceExcerpts, sources } from "../db/schema.js";
@@ -188,8 +188,17 @@ function isExactIdentifierMatch(row: RecordRow, profile: SearchProfile): boolean
   // Full record ID equality and textual identifier mentions remain eligible.
   const haystack = fold(rowSearchText(row));
   const recordId = fold(row.id);
+  const isIdentifierPart = (char: string | undefined) =>
+    char !== undefined && /[\p{L}\p{N}._-]/u.test(char);
+  const containsWholeIdentifier = (text: string, token: string) => {
+    for (let offset = text.indexOf(token); offset >= 0; offset = text.indexOf(token, offset + 1)) {
+      if (!isIdentifierPart(text[offset - 1]) &&
+          !isIdentifierPart(text[offset + token.length])) return true;
+    }
+    return false;
+  };
   return profile.identifiers.some((identifier) =>
-    identifier === recordId || haystack.includes(identifier));
+    identifier === recordId || containsWholeIdentifier(haystack, identifier));
 }
 
 function searchScore(
@@ -337,33 +346,27 @@ export function retrieveRecordMatches(
     (current || (profile.historicalIntent && args.statuses.includes("superseded")));
   const budget = Math.min(MAX_CANDIDATES, Math.max(args.limit * 8, 40));
   const laneLimit = temporalIntent ? Math.floor(budget / 2) : budget;
+  // Bounded overscan avoids a second global temporal ORDER BY. The explicit
+  // candidate-limit signal records incompleteness beyond the retrieval window.
+  const overscanLimit = temporalIntent
+    ? Math.min(MAX_CANDIDATES * 2, Math.max(budget * 2, 256))
+    : budget;
+  const selectOverscan = <T extends { row: typeof records.$inferSelect }>(pool: T[]): T[] =>
+    !temporalIntent ? [] : pool.slice(budget)
+      .filter(({ row }) => current
+        ? searchTemporal(row, nowIso).currentAdjustment > 0
+        : row.reviewStatus === "superseded")
+      .sort((a, b) => current
+        ? compareInstants(
+          searchTemporal(b.row, nowIso).rankTime ?? "",
+          searchTemporal(a.row, nowIso).rankTime ?? "",
+        ) : a.row.id.localeCompare(b.row.id))
+      .slice(0, laneLimit);
   const identifierOrder = temporalRanking && profile.identifiers.length
-    ? sql`CASE WHEN ${or(...profile.identifiers.map((identifier) => {
-        const pattern = `%${escapeLike(identifier)}%`;
-        return or(eq(records.id, identifier), sql`${records.text} LIKE ${pattern} ESCAPE '\\'`, sql`${records.subject} LIKE ${pattern} ESCAPE '\\'`);
-      }))} THEN 0 ELSE 1 END`
+    ? sql`CASE WHEN ${or(...profile.identifiers.map((identifier) => eq(records.id, identifier)))} THEN 0 ELSE 1 END`
     : sql`0 + 0`;
-  // The temporal lane reserves space before BM25 truncation. Unknown capture
-  // dates cannot outrank dated events here. Final validation is stricter.
-  const eventTime = sql`julianday(COALESCE(${records.sourceEventAt}, ${records.effectiveFrom}))`;
-  const validTime = (column: SQLWrapper) => sql`(
-    ${column} GLOB '????-??-??T??:??:??*'
-    AND (${column} GLOB '*Z' OR ${column} GLOB '*[+-]??:??')
-    AND substr(${column}, 12, 2) GLOB '[0-2][0-9]'
-    AND CAST(substr(${column}, 12, 2) AS INTEGER) < 24
-    AND substr(${column}, 15, 2) GLOB '[0-5][0-9]'
-    AND substr(${column}, 18, 2) GLOB '[0-5][0-9]'
-    AND date(substr(${column}, 1, 10), '+0 days') = substr(${column}, 1, 10)
-    AND julianday(${column}) IS NOT NULL
-  )`;
-  const validEvent = sql`${eventTime} <= julianday(${nowIso})
-    AND (${records.sourceEventAt} IS NULL OR ${validTime(records.sourceEventAt)})
-    AND (${records.effectiveFrom} IS NULL OR (${validTime(records.effectiveFrom)} AND julianday(${records.effectiveFrom}) <= julianday(${nowIso})))
-    AND (${records.effectiveTo} IS NULL OR (${validTime(records.effectiveTo)} AND julianday(${records.effectiveTo}) > julianday(${nowIso})))`;
-  const temporalOrder = current
-    ? sql`CASE WHEN ${records.type} = 'fact' AND ${validEvent} THEN ${eventTime} ELSE 0 END DESC`
-    : sql`CASE WHEN ${records.reviewStatus} = 'superseded' THEN 0 ELSE 1 END`;
-
+  // Exact record IDs lead; bounded lexical overscan is ranked in memory
+  // by strict event time. Deeper hits are explicitly marked as incomplete.
   const ftsQuery = () => db
     .select({
       row: records,
@@ -378,10 +381,8 @@ export function retrieveRecordMatches(
     .from(records)
     .innerJoin(sql`ck_records_fts`, sql`ck_records_fts.record_id = ${records.id}`)
     .where(and(...filters, ...recordedDateConditions(args)));
-  const lexical = ftsQuery().orderBy(identifierOrder, sql`bm25(ck_records_fts)`, records.id).limit(budget).all();
-  const temporal = temporalIntent && lexical.length >= budget
-    ? ftsQuery().orderBy(identifierOrder, temporalOrder, sql`bm25(ck_records_fts)`, records.id).limit(laneLimit).all()
-    : [];
+  const lexical = ftsQuery().orderBy(identifierOrder, sql`bm25(ck_records_fts)`, records.id).limit(overscanLimit).all();
+  const temporal = selectOverscan(lexical);
   let saturated = lexical.length >= budget;
   let candidates = [...new Map([...temporal, ...lexical].map((candidate) => [candidate.row.id, candidate])).values()]
     .sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
@@ -427,10 +428,8 @@ export function retrieveRecordMatches(
       })
       .from(records)
       .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition));
-    const lexicalFallback = fallbackQuery().orderBy(identifierOrder, desc(records.recordedAt), records.id).limit(budget).all();
-    const temporalFallback = temporalIntent && lexicalFallback.length >= budget
-      ? fallbackQuery().orderBy(identifierOrder, temporalOrder, records.id).limit(laneLimit).all()
-      : [];
+    const lexicalFallback = fallbackQuery().orderBy(identifierOrder, desc(records.recordedAt), records.id).limit(overscanLimit).all();
+    const temporalFallback = selectOverscan(lexicalFallback);
     saturated = lexicalFallback.length >= budget;
     candidates = [...new Map([...temporalFallback, ...lexicalFallback].map((candidate) => [candidate.row.id, candidate])).values()]
       .sort((a, b) => temporalRanking ? Number(isExactIdentifierMatch(b.row, profile)) - Number(isExactIdentifierMatch(a.row, profile)) : 0)
@@ -589,7 +588,7 @@ export function search(
       policy: "bounded-temporal-v1",
       intent: profile.currentIntent && profile.historicalIntent ? "mixed" : profile.historicalIntent ? "historical" : profile.currentIntent ? "current" : "unspecified",
       notes: [
-        "Exact record IDs lead, followed by identifier mentions. Temporal intent reserves up to half the candidate budget for event/validity time or superseded history alongside a full lexical lane. At most 300 lexical/temporal rows plus query-bounded exact record ID lookups are fetched. At most 200 distinct candidates are scored per bucket.",
+        "Exact record IDs lead, followed by identifier mentions. Temporal intent reserves up to half the candidate budget for event/validity time or superseded history selected from one larger lexical candidate window. At most 400 lexical candidates plus query-bounded exact record ID lookups are fetched. Up to half the result budget can be reserved for valid dated or superseded matches from the bounded overscan, and at most 200 distinct candidates are scored per bucket. Candidate saturation discloses that deeper temporal facts may be omitted.",
         "Historical (including mixed) intent prioritizes matched superseded rows. For current-only queries, eligible dated operational claims precede unknown and invalid/future/expired/review-due claims after exact identifiers. Within a tier lexical score, event/validity time, BM25 and stable identity rank results. For current-only scoring, BM25 is a tie-break only, not a score bonus. Capture recency gives no current bonus.",
         "recordedAt gives capture/import time, sourceEventAt gives event time, effectiveFrom/effectiveTo delimit validity, and reviewedAt gives review time. Missing event time stays null. Temporal eligibility is ranking evidence. Invalid/future events cannot establish currentness. freshness.currentness retains review/conflict warnings. reviewStatus retains authority.",
         "Scope and includeHistorical remain authoritative. Proposed working observations require review. Saturated candidates may omit relevant rows. Narrow project, type or recorded-date filters to recover more.",

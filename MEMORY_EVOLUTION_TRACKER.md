@@ -375,7 +375,7 @@ Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-1
 - [ ] Acceptance: Current migration scenarios return dated relevant evidence; old accepted constraints remain visible; history queries recover prior state; no proposed report becomes accepted.
 - [ ] Evidence — 2026-11-17, development agent. The working-tree
   candidate starts from `c4b31d7663a2f70774364a08aa01ed2cba50c447`.
-  Search opts into bounded lexical/temporal lanes with exact-ID priority,
+  Search opts into bounded lexical overscan and local temporal selection with exact-ID priority,
   current/historical RO/EN intent and an additive ranking explanation. Canonical,
   working and explicit historical boundaries stay authoritative. Other internal
   retrieval callers retain the existing scoring policy by default.
