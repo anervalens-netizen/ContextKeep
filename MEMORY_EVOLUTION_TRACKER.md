@@ -64,40 +64,28 @@ records the synthetic comparison, local gates and remaining limits. Current
 inventory: **50 items — 18 PLANNED, 6 GATED, 19 IN_PROGRESS, 2 IMPLEMENTED,
 4 VERIFIED, 1 DONE.**
 
-### Consolidated release candidate
+### Consolidated release qualification
 
-[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) now targets
-`main` and includes the source from PRs #33–#35. The synthetic
-regressions cover a valid recent observation displaced by temporal slot
-reservation in both FTS and LIKE, exact identifiers next to sentence
-punctuation, and matching currentness across search and record detail.
-The item-level acceptance statuses above still apply.
+[PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) merged as
+`930f42ee4ceb0d50295231a0c2d27c00e8087868`. Its source covers corrected
+temporal ranking, project/type/recorded-day filters, budgeted record cards,
+protected task context and versioned evidence expansion. CI passed. The
+authenticated runtime and rollback receipts are recorded privately. A separately
+restored NAS recovery kit passed its checks. The installed-route checks cover
+the selected release and do not qualify all historical storage copies or clients.
 
-Qualify this candidate as one release. Check the frozen private recall
-comparison and document remaining FTS and LIKE saturation gaps. Check
-search-to-detail currentness and evidence recovery, serialized budget limits,
-catalogue and legacy-client compatibility, and restoration of the compatible
-runtime and database. Record CI and review for the integration head. Synthetic
-results can qualify the source contracts. Representative private recall,
-authenticated runtime readback, recovery, and post-release traffic observations
-each require their own evidence.
+The matched private evaluation compared the candidate and baseline against the
+same frozen snapshot. The observed improvement was in development-case
+Recall@5. Held-out quality was unchanged, so ME-07 is in progress and the wider
+retrieval acceptance requirements remain open. A scoped record-card check
+qualified the declared structured-byte boundary and verified recovery for
+selected expected results omitted at the lower budget. Source/excerpt discovery
+is separate from this record-card contract. Raw cases and operational
+measurements remain in the private evidence ledger.
 
-### Programme delivery order
-
-Continue from the latest qualified scope and its evidence. This sequence guides
-remaining work; it does not restart completed batches or discard the frozen
-baseline.
-
-1. Continue the open parts of ME-01 / ME-02 / ME-03 from the Batch 3 private
-   freeze and measured baseline; maintain ME-46 / ME-50.
-2. Reuse the verified effective task state (ME-05) and forward reviewer
-   attribution/identity (ME-18 / ME-19) as prerequisites for later correctness
-   work. Their broader follow-ups retain the item-specific limits below.
-3. Qualify remaining search budgets/currentness and the controlled catalogue
-   consumer in bounded batches. Use the plan's waves and dependencies, not
-   item number alone, for sequencing.
-4. Keep ME-35–ME-40 gated until their named problems, baselines and budgets justify
-   an experiment. A justified defer/stop decision is a valid experiment outcome.
+Current inventory: **50 items — 17 PLANNED, 6 GATED, 20 IN_PROGRESS,
+2 IMPLEMENTED, 4 VERIFIED, 1 DONE.** The release advances specific acceptance
+slices. The item rows retain remaining scope and verification requirements.
 
 ## Batch 1 — 2026-11-16
 
@@ -259,7 +247,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | IN_PROGRESS | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
-| [ME-07](#me-07) | Measure candidate recall and saturation | PLANNED | P1 | W1 | Retrieval | ME-02, ME-03 |
+| [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | IN_PROGRESS | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
@@ -430,13 +418,17 @@ Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-1
 ### ME-07
 
 **Measure candidate recall and saturation**\
-Status: **PLANNED** · Priority: P1 · Wave: W1 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W1 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07)
 
 - [ ] Scope: Diagnose misses caused by bounded candidate selection; compare bounded widening or better selection before increasing cost. Preserve exact-identifier behavior and truthful saturation signals.
 - [ ] Acceptance: Recall improves on the frozen set without unbounded scans; candidateLimitReached/mayHaveMore remain accurate and include usable continuation through narrower filters, bounded expansion or paging. A detail read alone cannot recover an unreturned identity. Report latency and false positives.
-- [ ] Evidence: pending. Add exact PR/commit, acceptance result and applicable release
-  or experiment disposition; retain private details in ContextKeep.
+- [ ] Evidence: The matched frozen-snapshot comparison for PR #36 observed
+  development-case Recall@5 gains and unchanged held-out quality. Saturation
+  remained visible and a bounded LIKE miss remains reproducible. Improve
+  representative recall and qualify a recovery path for identities outside the
+  returned candidate set before closing the item. Private case evidence is
+  retained separately.
 
 ### ME-08
 
@@ -489,8 +481,10 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-me
   The legacy full result is unchanged unless a budget is explicitly
   requested; then it fails with a specific error instead of truncating.
   The consolidated source batch adds version-bound detail pointers to
-  record cards through ME-12. Discovery cards for sources/excerpts require
-  a separate search contract. V-10 remains PARTIAL.
+  record cards through ME-12. The matched qualification confirmed exact UTF-8
+  accounting and also found expected records omitted at the lower budget that
+  became visible at the higher one. Discovery cards for sources/excerpts
+  require a separate search contract. V-10 remains PARTIAL.
 
 ### ME-11
 
@@ -505,7 +499,8 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-me
   Synthetic MCP reads preserve the full checkpoint action, authority,
   blocker/uncertainty counts and recovery. Separate errors handle a small
   request budget and a core beyond the response ceiling. Legacy forms pass
-  compatibility tests. V-11 remains PARTIAL pending release qualification.
+  compatibility tests. The selected release passed its runtime and rollback
+  gates. Broader client/workflow coverage remains open in V-11.
 
 
 ### ME-12
@@ -538,7 +533,7 @@ Dependencies: ME-02 · Validation: [V-13](docs/plans/2026-11-16-memory-evolution
   separation, legacy defaults and bounded completeness have synthetic
   tests. The source-only candidate does not yet expose explicit taskId,
   source/excerpt or event/effective time filters. These distinct scope
-  contracts remain open, and V-13 is PARTIAL until full qualification.
+  contracts remain open after the PR #36 release. V-13 is PARTIAL.
 
 ### ME-14
 
