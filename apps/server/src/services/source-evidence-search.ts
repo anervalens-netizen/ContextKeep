@@ -5,6 +5,7 @@ import { sha256 } from "../lib/hash.js";
 import { sources } from "../db/schema.js";
 import { sourceEvidenceVersions } from "./evidence-versions.js";
 import type { ServiceDeps } from "./import.js";
+import { foldMemoryText } from "./memory-freshness.js";
 import { safeText } from "./redaction.js";
 import { buildFtsMatchExpr, buildSearchProfile } from "./search.js";
 import { sourceProjectScope } from "./source-membership.js";
@@ -243,6 +244,10 @@ export function searchSourceEvidence(
     )
       throw new ApiError(404, "project_not_found", "Project not found.");
     const profile = buildSearchProfile(input.q);
+    // Phrase matching preserves short IDs and digits excluded by keyword search.
+    if (input.match === "phrase")
+      profile.rawTokens =
+        foldMemoryText(input.q).match(/[\p{L}\p{N}]+/gu) ?? [];
     if (!(input.match === "terms" ? profile.tokens : profile.rawTokens).length)
       throw new ApiError(
         422,

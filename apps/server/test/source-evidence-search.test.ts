@@ -215,6 +215,22 @@ describe("project source evidence discovery", () => {
     ).not.toContain(sourceId);
   });
 
+  it("keeps single-character words and digits in exact source phrases", async () => {
+    const { projectId, call, add } = await fixture();
+    const expected = add("Synthetic run marker", "Release 2 is ready.");
+    add("Synthetic distractor", "Release is ready.");
+    const result = await call("search_source_evidence", {
+      projectId,
+      q: "Release 2 is ready",
+      match: "phrase",
+    });
+    expect(
+      result.structuredContent.results.map(
+        (hit: { sourceId: string }) => hit.sourceId,
+      ),
+    ).toEqual([expected.sourceId]);
+  });
+
   it("marks a truncated title when the matching word falls beyond its preview", async () => {
     const { projectId, call, add } = await fixture();
     const title = "◇".repeat(240) + " suffixbeacon";
