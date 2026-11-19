@@ -9,7 +9,7 @@ import { foldMemoryText } from "./memory-freshness.js";
 import { safeText } from "./redaction.js";
 import { buildFtsMatchExpr, buildSearchProfile } from "./search.js";
 import { sourceProjectScope } from "./source-membership.js";
-import { sliceUtf16Excerpt } from "./source-offsets.js";
+import { isUtf16ExcerptSpan, sliceUtf16Excerpt } from "./source-offsets.js";
 
 const SOURCE_LIMIT = 2_000;
 const EXCERPT_LIMIT = 6_000;
@@ -188,15 +188,7 @@ function buildIndex(
             ordinal: ordinal++,
           };
           // Damaged legacy spans cannot alias unrelated text or split a surrogate pair.
-          const cutsSurrogate = (offset: number) =>
-            (mask.charCodeAt(offset) & 0xfc00) === 0xdc00;
-          if (
-            start < 0 ||
-            end <= start ||
-            end > mask.length ||
-            cutsSurrogate(start) ||
-            cutsSurrogate(end)
-          ) {
+          if (!isUtf16ExcerptSpan(mask, start, end)) {
             invalidExcerpts++;
             continue;
           }

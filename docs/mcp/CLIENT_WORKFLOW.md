@@ -59,3 +59,14 @@ For source evidence without a known source identity, start with a project-scoped
 Keep source excerpts, accepted records and proposed progress separate. If a
 page version changed, restart the read before continuing. Refresh the tool list
 after upgrading an existing connection to MCP 2.24.0.
+
+For linked records, use `search_context` with `projectId` and either
+`taskId` or `sourceId`. A task filter includes the task and its linked
+records. A source filter requires a stored evidence link. When both are set,
+a record must satisfy both. These filters work with canonical, working and
+combined scope and apply to record lists and ranked results. They suppress
+independent project and source suggestions.
+
+An excerpt with `unavailableReason: "invalid_normalized_utf16_span"` has no
+usable normalized excerpt text. Other excerpts and the source page remain
+available. Verify evidence using a valid excerpt or a direct source page.

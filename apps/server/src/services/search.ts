@@ -5,7 +5,9 @@ import { projects, recordEvidence, records, sourceExcerpts, sources } from "../d
 import { escapeLike } from "../lib/like.js";
 import { attachProjectNames, loadEvidenceFor, toProjectDto, toSourceDto } from "./mappers.js";
 import type { ServiceDeps } from "./import.js";
-import { sourceProjectScope } from "./source-membership.js";
+import { ApiError } from "../lib/errors.js";
+import { requireTaskScope } from "./task-scope.js";
+import { sourceBelongsToProject, sourceProjectScope } from "./source-membership.js";
 import { parseWorkingCheckpoint } from "./checkpoint.js";
 import { foldMemoryText } from "./memory-freshness.js";
 import { compareInstants } from "./instant.js";
@@ -63,14 +65,24 @@ const BROAD_SYNTHESIS_CONCEPTS = new Set([
 
 type RecordRow = typeof records.$inferSelect;
 
-interface RecordedDateFilters {
+interface RecordFilters {
+  taskId?: string;
+  sourceId?: string;
   recordedFrom?: string;
   recordedTo?: string;
 }
 
 /** Validated date-only bounds; SQLite date() compares UTC calendar days. */
-function recordedDateConditions(args: RecordedDateFilters) {
+function recordFilterConditions(args: RecordFilters) {
   return [
+    args.taskId ? sql`(${records.id} = ${args.taskId} OR EXISTS (
+      SELECT 1 FROM workflow_task_records link
+      WHERE link.task_id = ${args.taskId} AND link.record_id = ${records.id}
+    ))` : undefined,
+    args.sourceId ? sql`EXISTS (
+      SELECT 1 FROM record_evidence re JOIN source_excerpts se ON se.id = re.excerpt_id
+      WHERE re.record_id = ${records.id} AND se.source_id = ${args.sourceId}
+    )` : undefined,
     args.recordedFrom ? sql`date(${records.recordedAt}) >= ${args.recordedFrom}` : undefined,
     args.recordedTo ? sql`date(${records.recordedAt}) <= ${args.recordedTo}` : undefined,
   ];
@@ -311,7 +323,7 @@ export function isMeaningfulSynthesisMatch(
  */
 export function retrieveRecordMatches(
   db: Db,
-  args: RecordedDateFilters & {
+  args: RecordFilters & {
     q: string;
     projectId?: string | null;
     type?: string | null;
@@ -378,7 +390,7 @@ export function retrieveRecordMatches(
     })
     .from(records)
     .innerJoin(sql`ck_records_fts`, sql`ck_records_fts.record_id = ${records.id}`)
-    .where(and(...filters, ...recordedDateConditions(args), laneFilter));
+    .where(and(...filters, ...recordFilterConditions(args), laneFilter));
   const lexical = ftsQuery().orderBy(identifierOrder, sql`bm25(ck_records_fts)`, records.id).limit(overscanLimit).all();
   // When the lexical window fills, let the FTS index supply a second shortlist.
   // SQLite's date comparisons are only selection hints. Strict time, relevance
@@ -441,7 +453,7 @@ export function retrieveRecordMatches(
         )`,
       })
       .from(records)
-      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordedDateConditions(args), fallbackCondition));
+      .where(and(statusFilter, projectFilter, args.type ? eq(records.type, args.type) : undefined, args.basis ? eq(records.evidenceBasis, args.basis) : undefined, ...recordFilterConditions(args), fallbackCondition));
     const lexicalFallback = fallbackQuery().orderBy(identifierOrder, desc(records.recordedAt), records.id).limit(overscanLimit).all();
     const temporalFallback = selectTemporal(lexicalFallback);
     saturated = lexicalFallback.length >= budget;
@@ -462,7 +474,7 @@ export function retrieveRecordMatches(
       args.projectId ? eq(records.projectId, args.projectId) : undefined,
       args.type ? eq(records.type, args.type) : undefined,
       args.basis ? eq(records.evidenceBasis, args.basis) : undefined,
-      ...recordedDateConditions(args),
+      ...recordFilterConditions(args),
     )).limit(recordIds.length).all();
     const combined = [...new Map([...exactRows, ...candidates].map((candidate) => [candidate.row.id, candidate])).values()];
     saturated ||= combined.length > budget;
@@ -513,9 +525,7 @@ export function retrieveRecordMatches(
   }));
 }
 
-export function search(
-  deps: ServiceDeps,
-  input: RecordedDateFilters & {
+type SearchInput = RecordFilters & {
     q: string;
     projectId?: string | null;
     type?: string | null;
@@ -526,8 +536,22 @@ export function search(
     match?: SearchMatch;
     scope?: SearchScope;
     limit?: number;
-  },
-): SearchResultDto {
+  };
+
+export function search(deps: ServiceDeps, input: SearchInput): SearchResultDto {
+  if (!input.taskId && !input.sourceId) return searchSnapshot(deps, input);
+  return deps.sqlite.transaction(() => {
+    const projectId = input.projectId;
+    if (!projectId)
+      throw new ApiError(400, "search_filter_project_required", "Task and source filters require a projectId.");
+    if (input.taskId) requireTaskScope(deps, projectId, input.taskId);
+    if (input.sourceId && !sourceBelongsToProject(deps, input.sourceId, projectId))
+      throw new ApiError(404, "source_not_found", "Source not found in the requested project.");
+    return searchSnapshot(deps, input);
+  })();
+}
+
+function searchSnapshot(deps: ServiceDeps, input: SearchInput): SearchResultDto {
   const { db } = deps;
   const startedAt = performance.now();
   const nowIso = new Date().toISOString();
@@ -538,10 +562,13 @@ export function search(
   const scope = input.scope ?? "canonical";
   const q = (input.q ?? "").trim();
   const profile = buildSearchProfile(q);
-  const recordFilters = { type: input.type, recordedFrom: input.recordedFrom, recordedTo: input.recordedTo };
+  const recordFilters = {
+    type: input.type, taskId: input.taskId, sourceId: input.sourceId,
+    recordedFrom: input.recordedFrom, recordedTo: input.recordedTo,
+  };
   // Record filters do not imply that a project's metadata or raw source text matches.
   const includeDiscovery = mode === "discovery" && scope !== "working" &&
-    !input.type && !input.recordedFrom && !input.recordedTo;
+    !input.type && !input.taskId && !input.sourceId && !input.recordedFrom && !input.recordedTo;
 
   const canonicalCompleteness = { candidateLimitReached: false, mayHaveMore: false };
   const workingCompleteness = { candidateLimitReached: false, mayHaveMore: false };
@@ -624,7 +651,7 @@ export function search(
 
 function listOnlyRecords(
   db: Db,
-  args: RecordedDateFilters & { projectId: string | null | undefined; type: string | null | undefined; basis: string | null | undefined; includeHistorical: boolean; limit: number },
+  args: RecordFilters & { projectId: string | null | undefined; type: string | null | undefined; basis: string | null | undefined; includeHistorical: boolean; limit: number },
 ): Array<typeof records.$inferSelect> {
   const allowedStatuses = args.includeHistorical ? ["accepted", "superseded"] : ["accepted"];
   const conds = [
@@ -636,7 +663,7 @@ function listOnlyRecords(
   return db
     .select()
     .from(records)
-    .where(and(...conds, ...recordedDateConditions(args)))
+    .where(and(...conds, ...recordFilterConditions(args)))
     .orderBy(desc(records.recordedAt), records.id)
     .limit(args.limit)
     .all();
@@ -644,7 +671,7 @@ function listOnlyRecords(
 
 function listOnlyWorkingRecords(
   db: Db,
-  args: RecordedDateFilters & { projectId: string | null | undefined; type?: string | null; limit: number },
+  args: RecordFilters & { projectId: string | null | undefined; type?: string | null; limit: number },
 ): Array<typeof records.$inferSelect> {
   return db
     .select()
@@ -654,7 +681,7 @@ function listOnlyWorkingRecords(
       eq(records.evidenceBasis, "agent_report"),
       args.projectId ? eq(records.projectId, args.projectId) : undefined,
       args.type ? eq(records.type, args.type) : undefined,
-      ...recordedDateConditions(args),
+      ...recordFilterConditions(args),
     ))
     .orderBy(desc(records.recordedAt), desc(records.id))
     .limit(args.limit)

@@ -1,4 +1,4 @@
-import { sliceUtf16Excerpt } from "../services/source-offsets.js";
+import { isUtf16ExcerptSpan, sliceUtf16Excerpt } from "../services/source-offsets.js";
 import { and, eq, inArray, sql, desc, like, or } from "drizzle-orm";
 import { projects, records, sources } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
@@ -193,6 +193,9 @@ function cachedSource(deps: ServiceDeps, sourceId: string, representation: "norm
   return prepared;
 }
 function boundedExcerpt(mask: string, start: number, end: number) {
+  if (!isUtf16ExcerptSpan(mask, start, end)) {
+    return { text: "", textTruncated: true, unavailableReason: "invalid_normalized_utf16_span" as const };
+  }
   const { text, textTruncated } = sliceUtf16Excerpt(mask,start,end);
   return { text, textTruncated };
 }

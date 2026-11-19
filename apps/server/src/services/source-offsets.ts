@@ -16,3 +16,18 @@ export function sliceUtf16Excerpt(
     deliveredEndOffset: cursor,
   };
 }
+
+/** A persisted excerpt must name an intact span in its declared representation. */
+export function isUtf16ExcerptSpan(text: string, start: number, end: number) {
+  const splitsPair = (offset: number) =>
+    (text.charCodeAt(offset) & 0xfc00) === 0xdc00;
+  return (
+    Number.isSafeInteger(start) &&
+    Number.isSafeInteger(end) &&
+    start >= 0 &&
+    end > start &&
+    end <= text.length &&
+    !splitsPair(start) &&
+    !splitsPair(end)
+  );
+}

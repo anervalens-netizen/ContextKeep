@@ -253,7 +253,12 @@ describe("project source evidence discovery", () => {
 
   it("labels malformed spans without emitting them or hiding valid source evidence", async () => {
     const { projectId, call, add } = await fixture();
-    add("Synthetic malformed offset", "🌿 Missing span marker.", projectId, 1);
+    const malformed = add(
+      "Synthetic malformed offset",
+      "🌿 Missing span marker.",
+      projectId,
+      1,
+    );
     const valid = add("Synthetic pointer", "A visible span marker.");
     const page = (
       await call("search_source_evidence", {
@@ -267,6 +272,13 @@ describe("project source evidence discovery", () => {
       indexedExcerpts: 1,
       results: [{ sourceId: valid.sourceId }],
     });
+    const direct = await call("get_source", {
+      projectId,
+      sourceId: malformed.sourceId,
+    });
+    expect(direct.structuredContent.excerpts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: "", textTruncated: true, unavailableReason: "invalid_normalized_utf16_span" }),
+    ]));
   });
   it("refuses a scope beyond the predeclared excerpt input bound", async () => {
     const { app, projectId, call, add } = await fixture();
