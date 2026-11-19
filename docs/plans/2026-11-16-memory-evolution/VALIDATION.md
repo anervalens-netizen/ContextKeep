@@ -474,6 +474,16 @@ passed 124 targeted tests and retained all 63 tools. The conjunction
 experiment stopped without rollout. The existing caller path remains a
 bounded evidence check, with representative recovery still open.
 
+The separate manual audit of the all-terms arm classified all 23 returned
+passages. Three were directly relevant, nine were partial, nine were
+topical leads, and two were misleading because they referred to the wrong
+endpoint. The direct passages spanned one previously diagnosed case, one
+new held-out case and one control. The newest 24 queries produced ten
+passages, comprising one newly verified direct historical passage, four
+partial passages, three topical leads and two wrong-endpoint passages.
+The manual audit leaves the frozen labels and reported comparisons intact.
+V-07 remains partial.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved
