@@ -394,7 +394,7 @@ Status: **PARTIAL**
 ### V-09
 
 **ME-09 — Qualify current-state parity across surfaces**\
-Status: **PARTIAL — task-state subset passed; broader scenario remains open**
+Status: **VERIFIED — Task state, provenance and attention across native host, HTTP, MCP and browser**
 
 Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
   behavior. Ranking, freshness, lifecycle and the remaining host/attention matrix
@@ -547,9 +547,17 @@ Status: **VERIFIED — Installed source-only discovery and version-fenced eviden
 ### V-15
 
 **ME-15 — Make index lifecycle incremental and reconstructible**\
-Status: **PARTIAL — bounded source-evidence contract exercised**
+Status: **VERIFIED — Bounded in-memory rebuild, interruption, update/delete and WAL controls**
 
 - **Source result:** The initial cache is process-local, subject to source, excerpt and text budgets. Invalidation across external commits and page version mismatch are covered; the path does not write the authoritative database.
+
+
+The source-offset follow-up closed in-memory indexes at application shutdown.
+Synthetic replacement, deletion, stale-page and cold reconstruction controls
+passed without changing authoritative data. A separate exact-build worker was stopped during FTS insertion and
+killed after a concurrent writer committed. Restart rebuilt the complete source
+with updated text and without growing the WAL. The design has no durable index
+backfill.
 
 - **Setup:** Prepare a synthetic corpus and incremental inserts, edits, deletions
   and redactions. Interrupt a bounded backfill and change its index version.
@@ -564,7 +572,7 @@ Status: **PARTIAL — bounded source-evidence contract exercised**
 ### V-16
 
 **ME-16 — Preserve source representations, offsets and redaction**\
-Status: **PARTIAL — bounded source-evidence contract exercised**
+Status: **VERIFIED — MCP, owner HTTP and browser source representations and unavailable offsets**
 
 - **Source result:** Scoped tests cover redacted UTF-16 spans, supplementary code points, combining characters and a skipped malformed span. Existing get_source text paging retains its code-point contract.
 
@@ -664,7 +672,7 @@ was not deliberately injected into production; that case is covered syntheticall
 ### V-20
 
 **ME-20 — Project current reviews by PR, reviewer and head**\
-Status: **NOT RUN**
+Status: **VERIFIED — Installed owner current-review projection with typed evidence and version fences**
 
 - **Setup:** Seed reviewers/resource kinds across synthetic heads, an attested
   base change with unchanged head, an unknown base, a running review and failed
@@ -800,7 +808,7 @@ Status: **PASS — bounded controlled consumer, not a natural-traffic outcome**
 ### V-26
 
 **ME-26 — Separate actionable error codes and request shapes**\
-Status: **NOT RUN**
+Status: **VERIFIED — Bounded application-level causes, remedies and successful omissions**
 
 - **Setup:** Trigger synthetic legacy-budget, protected-core, oversized-result,
   schema, workflow/scope, credential-guard and internal failures alongside
@@ -887,7 +895,7 @@ Status: **NOT RUN**
 ### V-31
 
 **ME-31 — Improve task capture and client workflow discipline**\
-Status: **NOT RUN**
+Status: **VERIFIED — Representative task-scoped capture, stable retries and fenced resume**
 
 - **Setup:** Prepare representative synthetic clients with known project IDs,
   existing tasks, an explicit project note, stale revisions and outdated host
@@ -1045,7 +1053,7 @@ Status: **NOT RUN**
 ### V-41
 
 **ME-41 — Maintain client and host compatibility**\
-Status: **PARTIAL — live source expansion passed, new optional search arguments await ChatGPT catalogue refresh**
+Status: **VERIFIED — Live host catalogue refresh and native scoped calls**
 
 - **Setup:** Prepare old and updated synthetic MCP/HTTP clients, cached host
   resource metadata and requests that omit all newly added fields.

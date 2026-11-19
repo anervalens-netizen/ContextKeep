@@ -97,14 +97,14 @@ their individual acceptance gates.
 
 ### 2026-11-19 evidence reconciliation
 
-Inventory after review: **50 items — 11 PLANNED, 6 GATED, 14 IN_PROGRESS, 2 IMPLEMENTED, 16 VERIFIED, 1 DONE**.
+Inventory after review: **50 items — 11 PLANNED, 6 GATED, 7 IN_PROGRESS, 2 IMPLEMENTED, 23 VERIFIED, 1 DONE**.
 
 | Outcome | Verified scope | Remaining acceptance |
 | --- | --- | --- |
 | Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. Wider volatility policy is covered by ME-08. |
-| Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Full browser parity for those lifecycle cases remains open. ME-13 task and source scope passed on the installed release. UTC date filters retain recorded-day semantics. ME-15 needs measured incremental invalidation and restart. ME-16 now labels invalid spans on MCP. Owner HTTP detail and PWA presentation remain open. |
-| Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 needs a typed current-review projection from companion review delivery and the independently verified head/base. Narrative evidence stays non-authoritative. ME-26 needs SDK rejection visibility before dispatch. ME-31 needs real-client capture, rebase and closure verification. |
-| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 has live host source discovery and exact excerpt identity, offset and version parity. ME-41 needs a refreshed ChatGPT catalogue for the newly deployed optional search parameters. ME-44 has both exact-head reviews, disposition and CI for the installed follow-up release. The earlier deferral remains in the historical evidence. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
+| Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Chromium qualified both lifecycle states with and without unresolved execution against the same HTTP/MCP dossier. ME-13 task and source scope passed on the installed release. UTC date filters retain recorded-day semantics. ME-15 needs measured incremental invalidation and restart. ME-16 qualified invalid-span handling across MCP and owner HTTP/PWA. ME-15 passed interruption, rebuild, update/delete and WAL controls for the bounded in-memory index. |
+| Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 qualified the [installed owner current-review projection](https://github.com/anervalens-netizen/astancu-website/pull/61) from typed delivery evidence and a verified head/base. A native dossier view remains optional. ME-26/31 qualified application error and omission metrics, task-scoped capture and stable revision recovery. Transport failures before dispatch are outside the metric proof. |
+| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 has live host source discovery and exact excerpt identity, offset and version parity. ME-41 authenticated catalogue refresh and native scoped calls passed. ME-44 has both exact-head reviews, disposition and CI for the installed follow-up release. The earlier deferral remains in the historical evidence. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
 | Prospective evidence | Bounded capacity, stress and restore findings are in private operational evidence. | ME-27, ME-45 and ME-48 alone depend on the 24 November matched full-window checkpoint. Compare attribution denominators, post-release outcomes and storage under the same probes/store. None depends on Windows. |
 
 The paired release comparison improved development Recall@5 on two cases.
@@ -275,29 +275,29 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | VERIFIED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
-| [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
+| [ME-09](#me-09) | Qualify current-state parity across surfaces | VERIFIED | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | VERIFIED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | VERIFIED | P1 | W2 | Backend | ME-02 |
 | [ME-14](#me-14) | Index detailed sources and excerpts with FTS | VERIFIED | P1 | W2 | Retrieval | ME-02, ME-13 |
-| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | IN_PROGRESS | P1 | W2 | Backend | ME-14 |
-| [ME-16](#me-16) | Preserve source representations, offsets and redaction | IN_PROGRESS | P0 | W2 | Backend | ME-12, ME-14 |
+| [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | VERIFIED | P1 | W2 | Backend | ME-14 |
+| [ME-16](#me-16) | Preserve source representations, offsets and redaction | VERIFIED | P0 | W2 | Backend | ME-12, ME-14 |
 | [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
 | [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
 | [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
-| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | IN_PROGRESS | P1 | W1 | Integration | ME-18, ME-19 |
+| [ME-20](#me-20) | Project current reviews by PR, reviewer and head | VERIFIED | P1 | W1 | Integration | ME-18, ME-19 |
 | [ME-21](#me-21) | Represent unchanged monitoring as structured observations | PLANNED | P1 | W3 | Integration | ME-01 |
 | [ME-22](#me-22) | Reduce repetitive default context without deleting history | PLANNED | P1 | W3 | Backend | ME-20, ME-21 |
 | [ME-23](#me-23) | Curate stable knowledge with explicit review status | PLANNED | P1 | W3 | Knowledge | ME-04, ME-08, ME-22 |
 | [ME-24](#me-24) | Add a compact and conditional project catalogue | VERIFIED | P1 | W4 | Backend | ME-03 |
 | [ME-25](#me-25) | Optimize the health consumer while preserving its check | VERIFIED | P1 | W4 | Integration | ME-03, ME-24 |
-| [ME-26](#me-26) | Separate actionable error codes and request shapes | IN_PROGRESS | P0 | W4 | Backend | ME-01, ME-03 |
+| [ME-26](#me-26) | Separate actionable error codes and request shapes | VERIFIED | P0 | W4 | Backend | ME-01, ME-03 |
 | [ME-27](#me-27) | Attribute consumers with bounded, trustworthy metadata | IN_PROGRESS | P1 | W4 | Operations | ME-03 |
 | [ME-28](#me-28) | Size telemetry retention and disclose coverage | PLANNED | P1 | W4 | Operations | ME-01, ME-27, ME-48 |
 | [ME-29](#me-29) | Build an outcome-oriented usage readout | PLANNED | P1 | W4 | Evaluation | ME-03, ME-26, ME-27, ME-28 |
 | [ME-30](#me-30) | Pilot existing delta consumption safely | PLANNED | P1 | W4 | Integration | ME-03, ME-31 |
-| [ME-31](#me-31) | Improve task capture and client workflow discipline | IN_PROGRESS | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
+| [ME-31](#me-31) | Improve task capture and client workflow discipline | VERIFIED | P1 | W4 | Integration | ME-04, ME-11, ME-26 |
 | [ME-32](#me-32) | Use evidence-backed relations before a graph stack | PLANNED | P2 | W4 | Knowledge | ME-04, ME-23 |
 | [ME-33](#me-33) | Prototype a source-versioned project brief | PLANNED | P2 | W5 | Knowledge | ME-12, ME-23, ME-30 |
 | [ME-34](#me-34) | Track claim provenance and targeted invalidation | PLANNED | P2 | W5 | Knowledge | ME-16, ME-33 |
@@ -307,7 +307,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-38](#me-38) | Test portable derived context for coding agents | GATED | P2 | W5 | Knowledge | ME-03, ME-23, ME-33, ME-49 |
 | [ME-39](#me-39) | Compare API embeddings, fusion and optional reranking | GATED | P2 | W6 | Retrieval | ME-03, ME-06, ME-14, ME-15, ME-17, ME-49 |
 | [ME-40](#me-40) | Decide whether a temporal graph is justified | GATED | P3 | W6 | Knowledge | ME-03, ME-32, ME-49 |
-| [ME-41](#me-41) | Maintain client and host compatibility | IN_PROGRESS | P1 | W7 | Integration | ME-03 |
+| [ME-41](#me-41) | Maintain client and host compatibility | VERIFIED | P1 | W7 | Integration | ME-03 |
 | [ME-42](#me-42) | Plan and qualify each staged rollout | VERIFIED | P0 | W7 | Maintainer | ME-03 |
 | [ME-43](#me-43) | Verify migration, index rebuild and recovery | VERIFIED | P0 | W7 | Operations | ME-01, ME-48 |
 | [ME-44](#me-44) | Complete exact-head reviews and release qualification | VERIFIED | P0 | W7 | Maintainer | ME-42 |
@@ -482,8 +482,10 @@ Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-ev
 ### ME-09
 
 **Qualify current-state parity across surfaces**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-09)
+
+- [x] 2026-11-19 qualification. Three authenticated host tasks matched native MCP status, provenance, next action and blocker counts. Four browser cases covered paused/retired projects with and without unresolved execution, cross-checked against the HTTP dossier. The terminal and post-closure guards remain covered.
 
 - [ ] Scope: Use the shared projection in search, HTTP, MCP, PWA and host views. Preserve explicit nulls, terminal status, classified attention and follow-up semantics.
 - [ ] Acceptance: All relevant surfaces agree on effective state and provenance; reads do not change knowledge, progress, authority or external execution; legitimate telemetry/cache/cursor bookkeeping is allowed; closed/paused/retired cases retain legitimate attention.
@@ -576,8 +578,10 @@ Dependencies: ME-02, ME-13 · Validation: [V-14](docs/plans/2026-11-16-memory-ev
 ### ME-15
 
 **Make index lifecycle incremental and reconstructible**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P1 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-14 · Validation: [V-15](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-15)
+
+- [x] 2026-11-19 qualification. An isolated exact-build test stopped a worker during FTS insertion. A separate writer committed while it was stopped, and the next read rebuilt from the complete current source. Stale/redacted evidence stayed absent, no authoritative writes were caused by queries, and the WAL did not grow during rebuild. This design has no durable backfill.
 
 - [ ] Scope: Define bounded backfill, restart/resume, index versioning, consistency checks, update/delete/redact propagation and rebuild controls. Measure write lock/WAL and storage impact.
 - [ ] Acceptance: Interrupted rebuild resumes safely; stale/redacted/deleted fragments cannot be delivered; index removal does not destroy authority; migration/recovery gate is satisfied before release.
@@ -586,8 +590,10 @@ Dependencies: ME-14 · Validation: [V-15](docs/plans/2026-11-16-memory-evolution
 ### ME-16
 
 **Preserve source representations, offsets and redaction**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-12, ME-14 · Validation: [V-16](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-16)
+
+- [x] 2026-11-19 qualification. PR #39 qualified malformed span results, owner source detail pagination, normalized UTF-16 offsets, credential-masked MCP snippets and PWA presentation. The real stored sample contained no invalid UTF-16 spans. Synthetic legacy corruption supplied negative, fractional, text and surrogate-splitting cases.
 
 - [ ] Scope: Declare normalized/original representations and each offset unit. Keep code-point paging and UTF-16 excerpt compatibility explicit; verify spans after normalization and redaction.
 - [ ] Acceptance: Diacritics, emoji, combining characters and boundary pages resolve to the advertised text; redaction precedes disclosure; no offset points silently into a different representation.
@@ -640,8 +646,10 @@ Dependencies: ME-18 · Validation: [V-19](docs/plans/2026-11-16-memory-evolution
 ### ME-20
 
 **Project current reviews by PR, reviewer and head**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W1 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P1 · Wave: W1 · Owner role: Integration\
 Dependencies: ME-18, ME-19 · Validation: [V-20](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-20)
+
+- [x] 2026-11-19 qualification. The deployed companion workflow selects the authoritative current head/base, reads typed versioned delivery history, and shows linked developer disposition. Saved record identities were read back in ContextKeep as proposed evidence. A native dossier rendition can follow a demonstrated need and typed ingress.
 
 - [ ] Scope: Build a current review view with explicit reviewed head, attested base or unknown, resource kind/version, status and developer disposition; make older versions expandable with source links.
 - [ ] Acceptance: Old-head or running reviews cannot satisfy current-head completion; missing/failed polls remain unknown; history and source authors remain recoverable.
@@ -736,8 +744,10 @@ Dependencies: ME-03, ME-24 · Validation: [V-25](docs/plans/2026-11-16-memory-ev
 ### ME-26
 
 **Separate actionable error codes and request shapes**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W4 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W4 · Owner role: Backend\
 Dependencies: ME-01, ME-03 · Validation: [V-26](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-26)
+
+- [x] 2026-11-19 qualification. Ten deterministic error or recovery paths were reproduced via JSON-RPC. Application metrics kept caller-controlled values out of labels. The structured resume omission counted on success without changing causal error metrics. Transport failures before the application dispatcher remain outside this measurement.
 
 - [ ] Scope: Diagnose budget, oversized result, schema, workflow/scope, client guard and internal failures with finite codes and format/budget buckets. Provide specific client remedies.
 - [ ] Acceptance: Error causes can be measured without private payloads; deterministic failures do not retry unchanged; successful omissions remain separate; existing protection is not weakened.
@@ -795,8 +805,10 @@ Dependencies: ME-03, ME-31 · Validation: [V-30](docs/plans/2026-11-16-memory-ev
 ### ME-31
 
 **Improve task capture and client workflow discipline**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W4 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P1 · Wave: W4 · Owner role: Integration\
 Dependencies: ME-04, ME-11, ME-26 · Validation: [V-31](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-31)
+
+- [x] 2026-11-19 qualification. The structured client selected a stable task from its project, kept a project note separate, recovered a stale revision after resume, reused an unchanged retry key and preserved one task with proposed provenance. The authenticated host catalogue refresh was qualified separately.
 
 - [ ] Scope: Update guidance for task reuse, structured resume, scoped captures, explicit project notes, dated observations/volatility and evidence references. Cache identity only; reread before fenced writes.
 - [ ] Acceptance: Representative clients follow current contracts; scope/revision/idempotency errors have actionable fixes; connection metadata refresh is documented where needed.
@@ -904,8 +916,10 @@ Dependencies: ME-03, ME-32, ME-49 · Validation: [V-40](docs/plans/2026-11-16-me
 ### ME-41
 
 **Maintain client and host compatibility**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W7 · Owner role: Integration\
+Status: **VERIFIED** · Priority: P1 · Wave: W7 · Owner role: Integration\
 Dependencies: ME-03 · Validation: [V-41](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-41)
+
+- [x] 2026-11-19 qualification. The authenticated ChatGPT catalogue displayed the updated search tool contract after refresh. Native MCP then exercised linked task and source filters on the deployed build. The tool catalogue stayed at 63 tools and within the existing size cap.
 
 - [ ] Scope: For each release's affected contracts, update public MCP/HTTP documentation, ContextKeep Workflows and relevant UI/host metadata. Prefer additive defaults and versioned resource advertisement when bundled UI changes. Do not wait for unrelated future features.
 - [ ] Acceptance: Old clients retain documented behavior; new clients discover fields/tools after required metadata refresh; no silent budget, resource URI or representation change.
@@ -989,6 +1003,16 @@ Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution
   verified filters and source detail. Matching recovery for the previous live
   version was proved before activation. The new kit was verified on NAS for
   scheduled capture. The older exception remains in historical review records.
+
+- [x] [PR #39](https://github.com/anervalens-netizen/ContextKeep/pull/39)
+  passed [Codex](https://github.com/anervalens-netizen/ContextKeep/pull/39#issuecomment-7002876043),
+  [DSH](https://github.com/anervalens-netizen/ContextKeep/pull/39#issuecomment-7003764476),
+  [disposition](https://github.com/anervalens-netizen/ContextKeep/pull/39#issuecomment-7003792558),
+  [CI](https://github.com/anervalens-netizen/ContextKeep/actions/runs/44485054717)
+  and all 12 local release stages. The reviewed tree matches the installed
+  release `532ce5348be48c95cdba0fa8f9687c2935882d80`. The prior release was exercised from its staged
+  kit against the existing compatible nightly SQLite snapshot. No extra
+  backup generation was started.
 
 ### ME-45
 
