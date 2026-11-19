@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { projects, records } from "../src/db/schema.js";
 import { runMemoryHousekeeping } from "../src/services/housekeeping.js";
@@ -12,6 +12,7 @@ const AUTHORIZE = { authorization: `Bearer ${TOKEN}`, accept: "application/json,
 const tracked: TestApp[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   for (const app of tracked.splice(0)) await app.cleanup();
 });
 
@@ -142,6 +143,8 @@ describe("A4 AI-first memory contract", () => {
   });
 
   it("returns task-ranked context with structured checkpoints, staleness and a strict total budget", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
     const t = await makeTestApp({ mcpToken: TOKEN });
     tracked.push(t);
     const project = await createProject(t, "A4 task context");
@@ -162,12 +165,16 @@ describe("A4 AI-first memory contract", () => {
       idempotencyKey: crypto.randomUUID(),
     });
 
-    const context = await call(t, "get_work_context", {
+    const contextArgs = {
       projectId: project.id,
       task: "release verification",
       totalContextBudgetChars: 6000,
       limitPerSection: 5,
-    });
+    };
+    const beforeObservation = await call(t, "get_work_context", contextArgs);
+    expect(beforeObservation.currentState.items[0]).toMatchObject({ stale: false, requiresReview: false });
+    vi.setSystemTime(new Date("2030-01-02T00:00:00.000Z"));
+    const context = await call(t, "get_work_context", contextArgs);
     expect(JSON.stringify(context).length).toBeLessThanOrEqual(6000);
     expect(context.task).toBe("release verification");
     expect(context.freshness.canonicalCursor).toBe(1);

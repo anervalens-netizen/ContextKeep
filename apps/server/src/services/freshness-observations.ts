@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
-import { instantKey } from "./instant.js";
+import { instantKey, observationWindow } from "./instant.js";
 import {
   foldMemoryText,
   isCurrentStateClaim,
@@ -38,7 +38,7 @@ export function emptyFreshnessSignals(): FreshnessPreloadSignals {
 type Observation = {
   id: string;
   at: string;
-  structuredTime: boolean;
+  window: NonNullable<ReturnType<typeof observationWindow>>;
   state: PreparedState;
 };
 type ObservationIndex = {
@@ -51,18 +51,25 @@ type ObservationIndex = {
   strings: Map<string, string>;
   bytes: number;
 };
+type CachedSignal = {
+  signal: FreshnessPreloadSignals;
+  // The half-open interval in which this verdict is valid, including when
+  // the caller's clock moves backward. The project/index version is separate.
+  from: string | null;
+  until: string | null;
+};
 type ProjectCache = {
   version: string;
   index: ObservationIndex | null;
-  signals: Map<string, FreshnessPreloadSignals>;
+  signals: Map<string, CachedSignal>;
   signalBytes: number;
 };
 // Each live DB owns a bounded LRU. Transaction handles never publish snapshots.
 const caches = new WeakMap<Db, Map<string, ProjectCache>>();
 
-function signalBytes(signal: FreshnessPreloadSignals): number {
+function signalBytes({ signal, from, until }: CachedSignal): number {
   return (
-    512 +
+    512 + 2 * ((from?.length ?? 0) + (until?.length ?? 0)) +
     [...signal.supportRecordIds, ...signal.possiblyRelatedRecordIds].reduce(
       (n, id) => n + 64 + id.length * 2,
       0,
@@ -84,7 +91,7 @@ function trim(cache: Map<string, ProjectCache>): void {
 function remember(
   entry: ProjectCache,
   key: string,
-  signal: FreshnessPreloadSignals,
+  signal: CachedSignal,
 ): void {
   const previous = entry.signals.get(key);
   if (previous) entry.signalBytes -= signalBytes(previous);
@@ -169,6 +176,8 @@ function addToIndex(
     2 *
       (observation.id.length +
         observation.at.length +
+        (observation.window.starts?.length ?? 0) +
+        (observation.window.ends?.length ?? 0) +
         state.subject.length +
         (state.predicate?.length ?? 0));
   for (const set of [
@@ -246,15 +255,27 @@ function mergeSignal(
   result.set(id, combined);
 }
 function accumulate(
-  signal: FreshnessPreloadSignals,
+  cached: CachedSignal,
   target: PreparedState,
   after: string,
   observation: Observation,
+  now: string,
 ): void {
   if (observation.at <= after) return;
   const relation = preparedStateRelationship(target, observation.state);
   if (relation === "unrelated") return;
-  if (relation === "same_entity" && observation.structuredTime) {
+  const { starts, ends } = observation.window;
+  for (const boundary of [starts, ends]) {
+    if (boundary === null) continue;
+    if (boundary <= now) {
+      if (cached.from === null || boundary > cached.from) cached.from = boundary;
+    } else if (cached.until === null || boundary < cached.until) {
+      cached.until = boundary;
+    }
+  }
+  if ((starts !== null && starts > now) || (ends !== null && ends <= now)) return;
+  const { signal } = cached;
+  if (relation === "same_entity" && starts !== null) {
     signal.supportCount++;
     rememberId(signal.supportRecordIds, observation.id);
   } else {
@@ -303,10 +324,11 @@ function* workingRows(
   }
 }
 
-/** Versioned, time-independent evidence only; verdicts always use the caller's clock. */
+/** Versioned observation index and verdicts bounded by the caller's clock. */
 export function loadFreshnessObservations(
   db: Db,
   targets: FreshnessRecord[],
+  nowIso: string,
 ): Map<string, FreshnessPreloadSignals> {
   if (!targets.some((row) => row.projectId && isCurrentStateClaim(row)))
     return new Map();
@@ -314,7 +336,7 @@ export function loadFreshnessObservations(
   // Versions and observations must come from the same read snapshot, including
   // when another connection commits while a cold index is being built.
   return readWithDatabaseGeneration(db, (generation) =>
-    loadSnapshot(db, targets, client, generation),
+    loadSnapshot(db, targets, client, generation, instantKey(nowIso)),
   );
 }
 
@@ -323,6 +345,7 @@ function loadSnapshot(
   targets: FreshnessRecord[],
   client: Database.Database | undefined,
   generation: string | null,
+  now: string,
 ): Map<string, FreshnessPreloadSignals> {
   const canCache = generation !== null;
   const result = new Map<string, FreshnessPreloadSignals>();
@@ -354,20 +377,25 @@ function loadSnapshot(
     cache.set(projectId, entry);
     const projections = rows.map((row) => {
       const key = targetKey(row);
+      const cached = entry!.signals.get(key);
+      const isValid = cached !== undefined &&
+        (cached.from === null || cached.from <= now) &&
+        (cached.until === null || now < cached.until);
       return {
         row,
         key,
-        signal: entry!.signals.get(key) ?? emptyFreshnessSignals(),
+        isValid,
+        cached: isValid ? cached : { signal: emptyFreshnessSignals(), from: null, until: null },
       };
     });
     const missing = projections
-      .filter(({ key }) => !entry!.signals.has(key))
-      .map(({ row, key, signal }) => ({
+      .filter(({ isValid }) => !isValid)
+      .map(({ row, key, cached }) => ({
         row,
         key,
         state: prepareState(row),
         after: instantKey(observationTime(row)),
-        signal,
+        cached,
       }));
     if (missing.length) {
       if (
@@ -382,7 +410,7 @@ function loadSnapshot(
       ) {
         for (const target of missing) {
           for (const observation of candidates(entry.index, target.state)) {
-            accumulate(target.signal, target.state, target.after, observation);
+            accumulate(target.cached, target.state, target.after, observation, now);
           }
         }
       } else {
@@ -426,28 +454,29 @@ function loadSnapshot(
           const at = instantKey(observationTime(row));
           if (at <= after) continue;
           if (!isCurrentStateClaim(row)) continue;
+          const window = observationWindow(row);
+          if (!window || (window.starts !== null && window.ends !== null && window.starts >= window.ends)) continue;
           const observation = {
             id: row.id,
             at,
-            structuredTime: Boolean(row.sourceEventAt || row.effectiveFrom),
+            window,
             state: prepareState(row),
           };
           for (const target of missing)
-            accumulate(target.signal, target.state, target.after, observation);
+            accumulate(target.cached, target.state, target.after, observation, now);
           if (index && !addToIndex(index, observation)) index = null;
         }
         entry.index = index;
       }
       for (const target of missing) {
-        target.signal.supportReferencesTruncated =
-          target.signal.supportCount > SAMPLE_SIZE;
-        target.signal.possiblyRelatedReferencesTruncated =
-          target.signal.possiblyRelatedCount > SAMPLE_SIZE;
-        remember(entry, target.key, target.signal);
+        const { signal } = target.cached;
+        signal.supportReferencesTruncated = signal.supportCount > SAMPLE_SIZE;
+        signal.possiblyRelatedReferencesTruncated = signal.possiblyRelatedCount > SAMPLE_SIZE;
+        remember(entry, target.key, target.cached);
       }
     }
     for (const target of projections)
-      mergeSignal(result, target.row.id, target.signal);
+      mergeSignal(result, target.row.id, target.cached.signal);
     trim(cache);
   }
   return result;

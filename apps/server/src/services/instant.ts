@@ -32,25 +32,43 @@ export function compareInstants(a: string, b: string): number {
 
 const verifiedObservationInstant = z.iso.datetime({ offset: true });
 
-export function observationEligibility(
-  { sourceEventAt, effectiveFrom, effectiveTo }: {
-    sourceEventAt: string | null;
-    effectiveFrom: string | null;
-    effectiveTo: string | null;
-  },
-  nowIso: string,
-): SearchTemporalDto["eligibility"] {
+type ObservationTimes = {
+  sourceEventAt: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+};
+
+export function observationWindow({
+  sourceEventAt,
+  effectiveFrom,
+  effectiveTo,
+}: ObservationTimes): { starts: string | null; ends: string | null } | null {
   const times = [sourceEventAt, effectiveFrom, effectiveTo];
   if (
     times.some((time) => time !== null && !verifiedObservationInstant.safeParse(time).success) ||
     (effectiveFrom !== null &&
       effectiveTo !== null &&
       compareInstants(effectiveFrom, effectiveTo) >= 0)
-  ) return "invalid";
-  if (
-    (sourceEventAt !== null && compareInstants(sourceEventAt, nowIso) > 0) ||
-    (effectiveFrom !== null && compareInstants(effectiveFrom, nowIso) > 0)
-  ) return "future";
-  if (effectiveTo !== null && compareInstants(effectiveTo, nowIso) <= 0) return "expired";
-  return sourceEventAt !== null || effectiveFrom !== null ? "dated" : "unknown";
+  ) return null;
+
+  const event = sourceEventAt === null ? null : instantKey(sourceEventAt);
+  const effective = effectiveFrom === null ? null : instantKey(effectiveFrom);
+  return {
+    starts: event !== null && effective !== null
+      ? (event > effective ? event : effective)
+      : event ?? effective,
+    ends: effectiveTo === null ? null : instantKey(effectiveTo),
+  };
+}
+
+export function observationEligibility(
+  times: ObservationTimes,
+  nowIso: string,
+): SearchTemporalDto["eligibility"] {
+  const window = observationWindow(times);
+  if (!window) return "invalid";
+  const now = instantKey(nowIso);
+  if (window.starts !== null && window.starts > now) return "future";
+  if (window.ends !== null && window.ends <= now) return "expired";
+  return window.starts === null ? "unknown" : "dated";
 }

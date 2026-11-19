@@ -409,6 +409,7 @@ export function classifyRecordFreshness(
         working.evidenceBasis !== "agent_report" ||
         working.type !== "fact" ||
         !isCurrentStateClaim(working) ||
+        !["dated", "unknown"].includes(observationEligibility(working, context.nowIso)) ||
         (row.projectId && working.projectId !== row.projectId)
       ) {
         continue;
@@ -418,8 +419,8 @@ export function classifyRecordFreshness(
       const relationship = stateRelationship(row, working);
       if (relationship === "same_entity") {
         // A capture timestamp says when ContextKeep saw a claim, not when the
-        // underlying state became true. Without structured source/effective
-        // time on both sides, treat recency as verification evidence only.
+        // underlying state became true. Capture-only recency can prompt a
+        // verification without establishing that the underlying state changed.
         if (workingTime.basis === "capture") {
           if (!possiblyRelatedRecordIds.includes(working.id)) possiblyRelatedRecordIds.push(working.id);
         } else if (!supportRecordIds.includes(working.id)) {
