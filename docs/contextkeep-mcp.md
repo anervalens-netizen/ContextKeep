@@ -21,6 +21,37 @@ mentions. Prefer search_context compact=true for agent reads when the legacy
 canonicalRecords alias is not needed. Never put private project records into
 the public repository or CI logs.
 
+## Evidence times and revalidation
+
+`sourceEventAt` describes when an observation happened. `effectiveFrom` and
+`effectiveTo` describe an inclusive start and exclusive end of validity.
+`recordedAt` is capture or import time. `reviewedAt` is the review action time
+and `reviewDueAt` is a review deadline. A missing timestamp remains unknown.
+Current search can use a valid effective start when event time is absent.
+
+- **Operational facts.** An accepted current-state claim can warrant
+  revalidation when a strictly newer, time-eligible proposal concerns the
+  same entity. A capture-only or weakly related proposal can prompt a check
+  without establishing staleness. A future, expired or malformed proposal
+  cannot support a current-state change. Proposals retain working authority.
+- **Explicitly volatile facts.** A configured review interval begins at acceptance
+  and can trigger a due review. A deadline changes review urgency. The original
+  observation and validity times are retained.
+- **Stable decisions, constraints and reference evidence.** Age and missing
+  volatility metadata alone do not invalidate these records. Honor explicit
+  validity, supersession, conflicts or correction. Documentary source excerpts
+  carry their own snapshot identity. When that identity changes, rediscover the
+  excerpt before using it as support. Attached source history and owner-reviewed
+  record authority remain traceable.
+- **Tasks and handoffs.** Use the task's effective lifecycle and execution evidence
+  as well as provenance. The capture timestamp alone cannot establish completion
+  or verification.
+
+When a newer operational report is corrected or superseded, the next read
+recomputes its contribution. A source change or review deadline is a reason to
+verify the claim. Only the existing owner review workflow changes canonical
+authority.
+
 ## Compact and conditional project catalogue
 
 `list_projects` defaults to its existing full response. Optional

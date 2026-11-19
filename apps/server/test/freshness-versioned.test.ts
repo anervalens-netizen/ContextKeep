@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { eq, sql } from "drizzle-orm";
 import { records, projects, conflicts } from "../src/db/schema.js";
@@ -19,6 +20,7 @@ import { ContextKeepMemoryService } from "../src/services/memory-context.js";
 import { makeTestApp, type TestApp } from "./helpers.js";
 
 const apps: TestApp[] = [];
+const mcpToken = randomUUID();
 const NOW = "2026-05-01T00:00:00.000Z";
 const BEFORE = "2026-01-01T00:00:00.000Z";
 const AFTER = "2026-02-01T00:00:00.000Z";
@@ -31,7 +33,7 @@ afterEach(async () => {
   while (apps.length) await apps.pop()!.cleanup();
 });
 async function fixture() {
-  const t = await makeTestApp({ adapters: "manual" });
+  const t = await makeTestApp({ adapters: "manual", mcpToken });
   apps.push(t);
   const projectId = (
     await t.post("/api/projects", { name: "Synthetic freshness fixture" })
@@ -464,7 +466,7 @@ describe("versioned freshness evidence", () => {
       workingRecords: working,
     });
     expect(expected.supportRecordIds).toEqual([id(2), id(3)]);
-    expect(expected.possiblyRelatedRecordIds).toEqual([id(4), id(8)]);
+    expect(expected.possiblyRelatedRecordIds).toEqual([id(4)]);
     expect(f.freshness()).toEqual(expected);
     const ctx = loadRecordFreshnessContext(
       f.t.app.ck.deps.db,
@@ -556,6 +558,95 @@ describe("versioned freshness evidence", () => {
       expect(context.facts).toMatchObject({
         items: [{ freshness: { currentness } }],
       });
+    }
+  });
+
+  it("revalidates proposal eligibility at exact boundaries and after a source correction", async () => {
+    const f = await fixture();
+    const starts = "2026-05-02T00:00:00.000001Z";
+    const ends = "2026-05-03T00:00:00.000001Z";
+    const proposal = f.row(2, { effectiveFrom: starts, effectiveTo: ends });
+    const proposals = [
+      proposal,
+      f.row(3, { sourceEventAt: "2026-06-01T00:00:00Z" }),
+      f.row(4, { effectiveTo: AFTER }),
+      f.row(5, { sourceEventAt: "legacy-malformed" }),
+      f.row(6, { sourceEventAt: NOW, effectiveFrom: AFTER, effectiveTo: BEFORE }),
+      f.row(7, { sourceEventAt: "2025-12-01T00:00:00Z", recordedAt: NOW }),
+      f.row(8, { sourceEventAt: null, recordedAt: NOW }),
+    ];
+    f.insert([f.canonical, ...proposals]);
+    const measure = measureSql(f.t);
+    const cases = [
+      ["2026-05-02T00:00:00.000000Z", []],
+      [starts, [proposal.id]],
+      ["2026-05-03T00:00:00.000000Z", [proposal.id]],
+      [ends, []],
+      [starts, [proposal.id]],
+    ] as const;
+    for (const [at, ids] of cases) {
+      const value = f.freshness(f.canonical, at);
+      expect(value).toEqual(classifyRecordFreshness(f.canonical, {
+        nowIso: at,
+        workingRecords: proposals,
+      }));
+      expect(value).toMatchObject({
+        authority: "canonical",
+        currentness: "needs_verification",
+        stale: ids.length > 0,
+        supportRecordIds: ids,
+        possiblyRelatedRecordIds: [id(8)],
+      });
+    }
+    expect(measure.stats.proposalScans).toBe(1);
+
+    f.t.app.ck.deps.db.update(records)
+      .set({ sourceEventAt: "2025-12-01T00:00:00Z" })
+      .where(eq(records.id, proposal.id))
+      .run();
+    f.bump();
+    expect(f.freshness(f.canonical, starts)).toMatchObject({
+      supportRecordIds: [],
+      possiblyRelatedRecordIds: [id(8)],
+      stale: false,
+    });
+    expect(measure.stats.proposalScans).toBe(2);
+    measure.stop();
+  });
+
+  it("shows the same time-bound source evidence across HTTP search, record detail and MCP", async () => {
+    const f = await fixture();
+    const proposal = f.row(2, {
+      effectiveFrom: "2026-05-02T00:00:00Z",
+      effectiveTo: "2026-05-03T00:00:00Z",
+      text: "Synthetic gateway failed",
+    });
+    f.insert([f.canonical, proposal]);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    for (const [at, ids] of [
+      [NOW, []],
+      [proposal.effectiveFrom!, [proposal.id]],
+      [proposal.effectiveTo!, []],
+    ] as const) {
+      vi.setSystemTime(new Date(at));
+      const expected = {
+        authority: "canonical",
+        currentness: ids.length ? "needs_verification" : "current",
+        supportRecordIds: ids,
+      };
+      const detail = await f.t.get(`/api/records/${f.canonical.id}`);
+      const search = await f.t.get(`/api/search?q=example-gateway&projectId=${f.projectId}`);
+      const mcp = await f.t.app.inject({
+        method: "POST", url: "/mcp",
+        headers: { authorization: "Bearer " + mcpToken, accept: "application/json, text/event-stream" },
+        payload: {
+          jsonrpc: "2.0", id: randomUUID(), method: "tools/call",
+          params: { name: "get_record", arguments: { recordId: f.canonical.id, expectedRevision: 1 } },
+        },
+      });
+      expect(detail.json().freshness).toMatchObject(expected);
+      expect(search.json().records.find(({ id }: { id: string }) => id === f.canonical.id).freshness).toMatchObject(expected);
+      expect(mcp.json().result.structuredContent.freshness).toMatchObject(expected);
     }
   });
 

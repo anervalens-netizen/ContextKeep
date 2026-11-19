@@ -296,7 +296,7 @@ export function loadRecordFreshnessContext(
     (row) => row.reviewStatus === "accepted" && row.projectId !== null,
   ) as FreshnessRecord[];
   const projectIds = [...new Set(acceptedRows.map((row) => row.projectId!))];
-  const signals = loadFreshnessObservations(db, acceptedRows);
+  const signals = loadFreshnessObservations(db, acceptedRows, nowIso);
   for (const row of acceptedRows) {
     if (!signals.has(row.id)) signals.set(row.id, emptyFreshnessSignals());
   }
