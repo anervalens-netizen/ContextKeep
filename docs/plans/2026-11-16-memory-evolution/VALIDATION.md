@@ -506,7 +506,7 @@ Status: **PARTIAL — synthetic MCP contract exercised**
 ### V-13
 
 **ME-13 — Expose scoped filters through MCP**\
-Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
+Status: **VERIFIED — Project/task/source/type and recorded-day scope qualified through HTTP and MCP**
 
 - **Source test:** Bounded MCP search_context projectId, recordType,
   recordedFrom/recordedTo inclusive UTC recordedAt filters reuse HTTP
@@ -1045,7 +1045,7 @@ Status: **NOT RUN**
 ### V-41
 
 **ME-41 — Maintain client and host compatibility**\
-Status: **VERIFIED — Legacy and additive MCP reads, including live host discovery and detail expansion**
+Status: **PARTIAL — live source expansion passed, new optional search arguments await ChatGPT catalogue refresh**
 
 - **Setup:** Prepare old and updated synthetic MCP/HTTP clients, cached host
   resource metadata and requests that omit all newly added fields.
@@ -1095,7 +1095,7 @@ Status: **VERIFIED — Isolated rollback, recovered database and scheduled off-h
 ### V-44
 
 **ME-44 — Complete exact-head reviews and release qualification**\
-Status: **NOT RUN**
+Status: **VERIFIED — PR #38 exact-head Codex Connector and DSH, disposition, CI and installed runtime**
 
 - **Setup:** Model a stable candidate with required Codex Connector and DSH
   reviews, findings, CI and a later head change that invalidates earlier evidence.
