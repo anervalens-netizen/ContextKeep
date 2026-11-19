@@ -1,3 +1,4 @@
+import { SOURCE_READ_DEFAULTS } from "../services/evidence-read-defaults.js";
 import { isUtf16ExcerptSpan, sliceUtf16Excerpt, unavailableUtf16Excerpt } from "../services/source-offsets.js";
 import { and, eq, inArray, sql, desc, like, or } from "drizzle-orm";
 import { projects, records, sources } from "../db/schema.js";
@@ -121,7 +122,7 @@ export function readRecord(deps: ServiceDeps, input: RecordReadInput, secrets: s
       return {
         ...metadata, ...boundedExcerpt(prepared.normalizedMask, startOffset, endOffset),
         recovery: { tool: "get_source", sourceId: metadata.sourceId, projectId: input.projectId,
-          expectedVersion: sourceVersions.get(metadata.sourceId)!.version },
+          ...SOURCE_READ_DEFAULTS, expectedVersion: sourceVersions.get(metadata.sourceId)!.version },
       };
     });
     const { offset, limit } = { offset: input.evidenceOffset, limit: input.evidenceLimit };

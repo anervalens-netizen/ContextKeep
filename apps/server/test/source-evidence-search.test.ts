@@ -132,6 +132,10 @@ describe("project source evidence discovery", () => {
         sourceId: own.sourceId,
         projectId,
         representation: "normalized",
+        offset: 0,
+        maxChars: 1,
+        excerptOffset: 0,
+        excerptLimit: 1,
       },
     });
     expect(hit.excerpt.text).toContain("🔵");
@@ -246,6 +250,13 @@ describe("project source evidence discovery", () => {
       title: "◇".repeat(240),
       titleTruncated: true,
       excerpt: null,
+      detailArgs: {
+        representation: "normalized",
+        offset: 0,
+        maxChars: 6000,
+        excerptOffset: 0,
+        excerptLimit: 5,
+      },
     });
     expect(
       (await call("get_source", hit.detailArgs)).structuredContent.title,

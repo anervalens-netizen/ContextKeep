@@ -1,3 +1,4 @@
+import { RECORD_READ_DEFAULTS } from "./evidence-read-defaults.js";
 import { ApiError } from "../lib/errors.js";
 
 interface BoundedSearch {
@@ -75,9 +76,8 @@ function card(record: Record<string, unknown>): Record<string, unknown> {
       ...(record.projectId ? { projectId: record.projectId } : {}),
       ...(record.revision ? { expectedRevision: record.revision } : {}),
       ...(record.evidenceVersion ? { expectedEvidenceVersion: record.evidenceVersion } : {}),
-      ...(record.reviewStatus === "proposed"
-        ? { includeUnreviewed: true }
-        : {}),
+      includeUnreviewed: record.reviewStatus === "proposed",
+      ...RECORD_READ_DEFAULTS,
     },
   };
 }

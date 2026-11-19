@@ -539,6 +539,9 @@ describe("V-12 progressive evidence reads", () => {
       projectId,
       expectedRevision: 1,
       expectedEvidenceVersion: card.evidenceVersion,
+      includeUnreviewed: false,
+      evidenceOffset: 0,
+      evidenceLimit: 3,
     });
     await details(
       "get_record",
@@ -578,6 +581,19 @@ describe("V-12 progressive evidence reads", () => {
     ).toEqual([...excerptIds].sort());
 
     const sourceArgs = pageArgs(first.evidence[0].recovery);
+    expect(sourceArgs).toMatchObject({
+      representation: "normalized",
+      offset: 0,
+      maxChars: 6000,
+      excerptOffset: 0,
+      excerptLimit: 5,
+    });
+    const initialSource = await details("get_source", sourceArgs);
+    expect(initialSource).toMatchObject({
+      canonicalTruth: false,
+      excerptReturned: 5,
+      excerptNextOffset: null,
+    });
     await details(
       "get_source",
       { ...sourceArgs, projectId: unrelatedProjectId },

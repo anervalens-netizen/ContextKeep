@@ -1,3 +1,4 @@
+import { RECORD_READ_DEFAULTS } from "./evidence-read-defaults.js";
 import { ApiError } from "../lib/errors.js";
 import {
   dualContentResultBytes,
@@ -46,7 +47,7 @@ function requireCore(value: unknown, budget: number, actionRecordId: string) {
 }
 
 function recordRecovery(recordId: string) {
-  return { tool: "get_record", recordId, includeUnreviewed: true };
+  return { tool: "get_record", recordId, includeUnreviewed: true, ...RECORD_READ_DEFAULTS };
 }
 
 function currentDossier(deps: ServiceDeps, d: Dossier) {
