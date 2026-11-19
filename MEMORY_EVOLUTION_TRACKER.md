@@ -97,12 +97,12 @@ their individual acceptance gates.
 
 ### 2026-11-19 evidence reconciliation
 
-Inventory after review: **50 items — 11 PLANNED, 6 GATED, 17 IN_PROGRESS, 2 IMPLEMENTED, 13 VERIFIED, 1 DONE**.
+Inventory after review: **50 items — 11 PLANNED, 6 GATED, 16 IN_PROGRESS, 2 IMPLEMENTED, 14 VERIFIED, 1 DONE**.
 
 | Outcome | Verified scope | Remaining acceptance |
 | --- | --- | --- |
-| Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent reproducibility and scorer review. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. ME-04 needs a revision-fenced metadata correction queue and a lifecycle negative control. |
-| Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. The paused/retired and present-blocker matrix remains open. ME-13 needs task/source scope qualification. ME-15 needs measured incremental invalidation and restart. ME-16 needs invalid-span handling and legacy source parity. |
+| Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. Wider volatility policy is covered by ME-08. |
+| Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Full browser parity for those lifecycle cases remains open. ME-13 needs task/source scope qualification. ME-15 needs measured incremental invalidation and restart. ME-16 needs invalid-span handling and legacy source parity. |
 | Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 needs native current-review presentation. ME-26 needs SDK rejection visibility before dispatch. ME-31 needs real-client capture, rebase and closure verification. |
 | Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 and ME-41 have live host source discovery and exact excerpt identity, offset and version parity. Reapply applicable gates at each release. ME-44 retains deferred DSH review and dependency disposition. ME-46 needs complete evidence-to-handoff mapping. ME-50 remains active while programme acceptance remains open. |
 | Prospective evidence | Bounded capacity, stress and restore findings are in private operational evidence. | ME-27, ME-45 and ME-48 alone depend on the 24 November matched full-window checkpoint. Compare attribution denominators, post-release outcomes and storage under the same probes/store. None depends on Windows. |
@@ -270,7 +270,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-01](#me-01) | Freeze the baseline and private evidence manifest | VERIFIED | P0 | W0 | Evaluation | — |
 | [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | IN_PROGRESS | P0 | W0 | Evaluation | ME-01 |
 | [ME-03](#me-03) | Define metric semantics and predeclare quality gates | VERIFIED | P0 | W0 | Evaluation | ME-01, ME-02 |
-| [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
+| [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | VERIFIED | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | VERIFIED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
@@ -390,7 +390,7 @@ Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-ev
 ### ME-04
 
 **Reconcile metadata and lifecycle evidence**\
-Status: **IN_PROGRESS** · Priority: P1 · Wave: W0 · Owner role: Operations\
+Status: **VERIFIED** · Priority: P1 · Wave: W0 · Owner role: Operations\
 Dependencies: ME-01 · Validation: [V-04](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-04)
 
 - [ ] Scope: Audit stale project descriptions, runtime pointers and unknown lifecycle values using current dated evidence. Define a safe metadata correction queue and volatility policy inputs.

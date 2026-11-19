@@ -267,7 +267,15 @@ complete.
 ### V-04
 
 **ME-04 — Reconcile metadata and lifecycle evidence**\
-Status: **NOT RUN**
+Status: **VERIFIED — Dated, revision-fenced description correction and lifecycle preservation**
+
+The live catalogue preserved explicit unknown lifecycle. The maintainer
+applied the verified runtime and scheduled-backup description using the
+current owner revision. Readback matched the new description while preserving
+project identity, aliases, parent and lifecycle. An independently sampled
+closed task stayed closed. Synthetic MCP regression coverage rejects a stale
+project revision. Evidence-class volatility policy is assessed separately
+under V-08.
 
 - **Setup:** Create a project description naming an old runtime, a newer dated
   observation, an unknown lifecycle and a closed task with historical follow-up.
@@ -395,9 +403,10 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
 A live read-only comparison on 19 November matched the authenticated ChatGPT
 task panel and native MCP dossier for a completed task with an explicit null
 next action and an active task with verified execution evidence and the same
-dated next action. Proposed provenance agreed in both. Neither had an active
-blocker or unresolved execution, so present-blocker and lifecycle parity stay
-open.
+dated next action. Proposed provenance agreed in both. A third case showed
+matching attention, seven active blockers and no recorded runs. Synthetic
+server coverage confirms paused/retired suppression and retained invalidated
+execution evidence. Browser parity for those lifecycle cases remains open.
 
 
 - **Setup:** Prepare open, closed, paused and retired synthetic cases, including
