@@ -201,7 +201,7 @@ exists here.
 ### V-01
 
 **ME-01 — Freeze the baseline and private evidence manifest**\
-Status: **PARTIAL — bounded private manifest and population/usage collection; broader scenario remains open**
+Status: **VERIFIED — Frozen private baseline identity, coverage and populations**
 
 Batch 3 retains exact stored populations, sampled-counter estimates, observation
 boundaries and coverage limits separately. This does not establish an exact
@@ -243,7 +243,7 @@ evaluation are separate follow-ups.
 ### V-03
 
 **ME-03 — Define metric semantics and predeclare quality gates**\
-Status: **PARTIAL — scoped metric contract and scorer controls verified; matched candidate and agent gates remain open**
+Status: **VERIFIED — Predeclared metric contract and independently checked scorer**
 
 Batch 3 predeclares exact tool contracts, eligibility, planned/scorable
 denominators, one sequential observation per case and client wall-clock timing.
@@ -300,7 +300,7 @@ Executed coverage: blocked-to-done progress, explicit terminal precedence,
 ### V-06
 
 **ME-06 — Rank current observations and historical answers correctly**\
-Status: **PARTIAL**
+Status: **VERIFIED — Bounded current, historic and authority behavior of the installed release**
 
 - **Setup:** Model a synthetic service moving between runtimes, with old accepted
   observations, newer proposed evidence and an older still-binding constraint.
@@ -406,7 +406,7 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
 ### V-10
 
 **ME-10 — Add budgeted search summaries**\
-Status: **PARTIAL — canonical/working MCP cards tested in source**
+Status: **VERIFIED — Record-card byte budget, explicit omissions and fenced detail**
 
 - **Source evaluation:** Optional MCP cards under a JSON UTF-8
   maxResultBytes budget after redaction; impossible budgets refuse and
@@ -1045,7 +1045,7 @@ Status: **NOT RUN**
 ### V-42
 
 **ME-42 — Plan and qualify each staged rollout**\
-Status: **NOT RUN**
+Status: **VERIFIED — Staged rollout and rollback gates exercised on the installed release**
 
 - **Setup:** Select a synthetic release spanning server, derived index, companion
   consumer and presentation changes, with mixed versions and a failing canary.
@@ -1061,7 +1061,7 @@ Status: **NOT RUN**
 ### V-43
 
 **ME-43 — Verify migration, index rebuild and recovery**\
-Status: **NOT RUN**
+Status: **VERIFIED — Isolated rollback, recovered database and scheduled off-host copy**
 
 - **Setup:** Use isolated synthetic data with a verified recovery point,
   compatible runtime/database pairs, limited storage reserve and interrupted
@@ -1135,7 +1135,7 @@ Status: **NOT RUN**
 ### V-47
 
 **ME-47 — Regress authority, scope, uncertainty and no-replay invariants**\
-Status: **NOT RUN**
+Status: **VERIFIED — Authority, scope, uncertainty and no-replay controls of the installed release**
 
 - **Setup:** Include synthetic malicious source instructions, cross-project
   snippets, stale fences, truncated evidence, uncertain runs and closed tasks

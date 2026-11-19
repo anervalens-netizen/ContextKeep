@@ -95,6 +95,24 @@ inventory is **50 items — 11 PLANNED, 6 GATED, 25 IN_PROGRESS, 3 IMPLEMENTED, 
 This records source implementation. Installed verification and wider traffic outcomes retain
 their individual acceptance gates.
 
+### 2026-11-19 evidence reconciliation
+
+Inventory after review: **50 items — 11 PLANNED, 6 GATED, 18 IN_PROGRESS, 3 IMPLEMENTED, 11 VERIFIED, 1 DONE**.
+
+| Outcome | Verified scope | Remaining acceptance |
+| --- | --- | --- |
+| Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent reproducibility and scorer review. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. ME-04 needs a revision-fenced metadata correction queue and a lifecycle negative control. |
+| Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 needs remaining live client parity. ME-13 needs task/source scope qualification. ME-15 needs measured incremental invalidation and restart. ME-16 needs invalid-span handling and legacy source parity. |
+| Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 needs native current-review presentation. ME-26 needs SDK rejection visibility before dispatch. ME-31 needs real-client capture, rebase and closure verification. |
+| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | Reapply applicable gates at each release. ME-41 needs real host detail-expansion parity. ME-44 retains deferred DSH review and dependency disposition. ME-46 needs complete evidence-to-handoff mapping. ME-50 remains active while programme acceptance remains open. |
+| Prospective evidence | Bounded capacity, stress and restore findings are in private operational evidence. | ME-27, ME-45 and ME-48 alone depend on the 24 November matched full-window checkpoint. Compare attribution denominators, post-release outcomes and storage under the same probes/store. None depends on Windows. |
+
+The paired release comparison improved development Recall@5 on two cases.
+Private held-out Recall@5, Recall@10 and currentness stayed unchanged. Record
+cards reduced the tested payload and preserved the first result in each
+represented authority scope. Three expected secondary records omitted at the
+lower explicit budget recovered at the higher budget.
+
 ## Batch 1 — 2026-11-16
 
 Implementation notes and qualification scope: [BATCH_1.md](docs/plans/2026-11-16-memory-evolution/BATCH_1.md).
@@ -249,16 +267,16 @@ only by an unanswered use case. These are priorities, not incident severities.
 
 | ID | Item | Status | Priority | Wave | Owner role | Prerequisites |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ME-01](#me-01) | Freeze the baseline and private evidence manifest | IN_PROGRESS | P0 | W0 | Evaluation | — |
+| [ME-01](#me-01) | Freeze the baseline and private evidence manifest | VERIFIED | P0 | W0 | Evaluation | — |
 | [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | IN_PROGRESS | P0 | W0 | Evaluation | ME-01 |
-| [ME-03](#me-03) | Define metric semantics and predeclare quality gates | IN_PROGRESS | P0 | W0 | Evaluation | ME-01, ME-02 |
+| [ME-03](#me-03) | Define metric semantics and predeclare quality gates | VERIFIED | P0 | W0 | Evaluation | ME-01, ME-02 |
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | IN_PROGRESS | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
-| [ME-06](#me-06) | Rank current observations and historical answers correctly | IN_PROGRESS | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
+| [ME-06](#me-06) | Rank current observations and historical answers correctly | VERIFIED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
 | [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | IN_PROGRESS | P0 | W1 | Backend | ME-05, ME-06 |
-| [ME-10](#me-10) | Add budgeted search summaries | IN_PROGRESS | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
+| [ME-10](#me-10) | Add budgeted search summaries | VERIFIED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | IN_PROGRESS | P1 | W2 | Backend | ME-02 |
@@ -290,12 +308,12 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-39](#me-39) | Compare API embeddings, fusion and optional reranking | GATED | P2 | W6 | Retrieval | ME-03, ME-06, ME-14, ME-15, ME-17, ME-49 |
 | [ME-40](#me-40) | Decide whether a temporal graph is justified | GATED | P3 | W6 | Knowledge | ME-03, ME-32, ME-49 |
 | [ME-41](#me-41) | Maintain client and host compatibility | IN_PROGRESS | P1 | W7 | Integration | ME-03 |
-| [ME-42](#me-42) | Plan and qualify each staged rollout | IN_PROGRESS | P0 | W7 | Maintainer | ME-03 |
-| [ME-43](#me-43) | Verify migration, index rebuild and recovery | IN_PROGRESS | P0 | W7 | Operations | ME-01, ME-48 |
+| [ME-42](#me-42) | Plan and qualify each staged rollout | VERIFIED | P0 | W7 | Maintainer | ME-03 |
+| [ME-43](#me-43) | Verify migration, index rebuild and recovery | VERIFIED | P0 | W7 | Operations | ME-01, ME-48 |
 | [ME-44](#me-44) | Complete exact-head reviews and release qualification | IN_PROGRESS | P0 | W7 | Maintainer | ME-42 |
 | [ME-45](#me-45) | Measure post-release outcomes against matched baseline | IN_PROGRESS | P1 | W7 | Evaluation | ME-03, ME-44 |
 | [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | IN_PROGRESS | P0 | W7 | Maintainer | ME-01 |
-| [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | IN_PROGRESS | P0 | W7 | Backend | ME-03 |
+| [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | VERIFIED | P0 | W7 | Backend | ME-03 |
 | [ME-48](#me-48) | Measure capacity before infrastructure changes | IN_PROGRESS | P1 | W4 | Operations | ME-01 |
 | [ME-49](#me-49) | Maintain research and pilot decision records | PLANNED | P2 | W0 | Evaluation | ME-02, ME-03 |
 | [ME-50](#me-50) | Maintain tracker coverage and programme closure | IN_PROGRESS | P0 | W7 | Maintainer | — |
@@ -305,7 +323,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 ### ME-01
 
 **Freeze the baseline and private evidence manifest**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **VERIFIED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-01)
 
 - [ ] Scope: Capture source/runtime/schema versions, exact observation windows and timezones, corpus identity, read-only query definitions and coverage gaps. Keep record/source/progress/run/handoff/relation/delta/volatility populations separate.
@@ -351,7 +369,7 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
 ### ME-03
 
 **Define metric semantics and predeclare quality gates**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **VERIFIED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: ME-01, ME-02 · Validation: [V-03](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-03)
 
 - [ ] Scope: Define Recall@5/10, currentness, answer/action correctness, provenance, abstention, reads, latency and resource/cost measures. Separate structured characters/bytes, full MCP bytes and actual inference tokens.
@@ -398,7 +416,7 @@ Dependencies: ME-02 · Validation: [V-05](docs/plans/2026-11-16-memory-evolution
 ### ME-06
 
 **Rank current observations and historical answers correctly**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
+Status: **VERIFIED** · Priority: P0 · Wave: W1 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05, ME-08 · Validation: [V-06](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-06)
 
 - [ ] Scope: Make current-vs-historical intent, relevant evidence and freshness influence selection/ranking. Keep canonical and working results separate; avoid both newest-always-wins and accepted-always-wins rules.
@@ -477,7 +495,7 @@ Dependencies: ME-05, ME-06 · Validation: [V-09](docs/plans/2026-11-16-memory-ev
 ### ME-10
 
 **Add budgeted search summaries**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
+Status: **VERIFIED** · Priority: P0 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-10)
 
 - [ ] Scope: Design additive summary/detail and total-budget options. Short cards retain identity, provenance, date/freshness, relevant snippet, task state and recovery; canonical/working/source evidence stay distinct.
@@ -897,7 +915,7 @@ Dependencies: ME-03 · Validation: [V-41](docs/plans/2026-11-16-memory-evolution
 ### ME-42
 
 **Plan and qualify each staged rollout**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **VERIFIED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: ME-03 · Validation: [V-42](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-42)
 
 - [ ] Scope: For every release, record selected item IDs, server/index/consumer order, mixed-version behavior, canary, feature controls and external repository dependencies.
@@ -909,7 +927,7 @@ Dependencies: ME-03 · Validation: [V-42](docs/plans/2026-11-16-memory-evolution
 ### ME-43
 
 **Verify migration, index rebuild and recovery**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Operations\
+Status: **VERIFIED** · Priority: P0 · Wave: W7 · Owner role: Operations\
 Dependencies: ME-01, ME-48 · Validation: [V-43](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-43)
 
 - [ ] Scope: For any affected index/schema release, verify recovery point, compatible runtime/database rollback, bounded backfill, storage reserve and scratch cleanup using established policy.
@@ -995,7 +1013,7 @@ Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution
 ### ME-47
 
 **Regress authority, scope, uncertainty and no-replay invariants**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W7 · Owner role: Backend\
 Dependencies: ME-03 · Validation: [V-47](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-47)
 
 - [ ] Scope: Apply integrated negative controls to new search/index/summary/client paths: untrusted source instructions, scope crossing, stale fences, truncated evidence, unresolved runs and closed tasks.
