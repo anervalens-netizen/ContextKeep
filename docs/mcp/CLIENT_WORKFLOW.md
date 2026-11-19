@@ -68,5 +68,5 @@ combined scope and apply to record lists and ranked results. They suppress
 independent project and source suggestions.
 
 An excerpt with `unavailableReason: "invalid_normalized_utf16_span"` has no
-usable normalized excerpt text. Other excerpts and the source page remain
+usable normalized excerpt text. Its empty span has offsets `0,0`. Other excerpts and the source page remain
 available. Verify evidence using a valid excerpt or a direct source page.

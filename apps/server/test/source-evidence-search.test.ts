@@ -252,7 +252,7 @@ describe("project source evidence discovery", () => {
   });
 
   it("labels malformed spans without emitting them or hiding valid source evidence", async () => {
-    const { projectId, call, add } = await fixture();
+    const { app, projectId, call, add } = await fixture();
     const malformed = add(
       "Synthetic malformed offset",
       "🌿 Missing span marker.",
@@ -277,8 +277,12 @@ describe("project source evidence discovery", () => {
       sourceId: malformed.sourceId,
     });
     expect(direct.structuredContent.excerpts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ text: "", textTruncated: true, unavailableReason: "invalid_normalized_utf16_span" }),
+      expect.objectContaining({ startOffset: 0, endOffset: 0, text: "", textTruncated: true, unavailableReason: "invalid_normalized_utf16_span" }),
     ]));
+    app.app.ck.deps.sqlite.prepare("UPDATE source_excerpts SET start_offset = -1 WHERE source_id = ?").run(malformed.sourceId);
+    const negative = await call("get_source", { projectId, sourceId: malformed.sourceId });
+    expect(negative.structuredContent.text).toBe("🌿 Missing span marker.");
+    expect(negative.structuredContent.excerpts).toEqual(direct.structuredContent.excerpts);
   });
   it("refuses a scope beyond the predeclared excerpt input bound", async () => {
     const { app, projectId, call, add } = await fixture();

@@ -56,6 +56,7 @@ const SourceReadResult = z.object({
     endOffset: z.number().int().min(0),
     text: z.string(),
     textTruncated: z.union([z.boolean(), z.number().int()]),
+    unavailableReason: z.literal("invalid_normalized_utf16_span").optional(),
   }).passthrough()),
   excerptTotal: z.number().int().min(0),
   excerptNextOffset: z.number().int().min(0).nullable(),
