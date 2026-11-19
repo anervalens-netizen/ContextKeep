@@ -447,6 +447,33 @@ with three in the initial prototype audit. These counts describe inspected
 control results. V-07 stays partial, and the experimental path remains
 undeployed.
 
+**2026-11-19 existing source-discovery fallback.** The caller used the
+existing project-scoped `search_source_evidence` terms and phrase modes
+with bounded version-fenced `get_source` reads. Across 59 real questions,
+ordinary search results were preserved on 57 valid inputs and the two
+over-length inputs remained rejected. The caller kept source passages
+separate from ordinary record results.
+
+Of 40 verified excerpts, one directly addressed a previously diagnosed
+case, ten offered partial evidence, 18 matched the topic only, and 11
+would mislead if promoted to answers. The newest 24 questions yielded no
+direct recovery. These adjudicated excerpt counts describe the tested
+fallback. An authenticated connector check verified the directly relevant
+excerpt using the returned version and exact normalized span.
+
+An isolated all-terms variant used the same 59 inputs, 23 eligible cases
+and 46 query rounds per arm. It surfaced 23 excerpts compared with 40 on
+the existing contract. Both arms matched three frozen expected placements.
+One partial placement was replaced by another. The newest 24 queries yielded
+no additional frozen direct placement. A separate manual review verified one
+new directly relevant historical passage outside the frozen labels. That
+passage establishes historical evidence only. Primary reads stayed identical.
+Call-plus-detail latency in this mixed-cache run was 42/264 ms p50/p95
+on the existing contract and 28/255 ms on the variant. The local candidate
+passed 124 targeted tests and retained all 63 tools. The conjunction
+experiment stopped without rollout. The existing caller path remains a
+bounded evidence check, with representative recovery still open.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved

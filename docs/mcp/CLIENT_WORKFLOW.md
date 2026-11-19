@@ -54,11 +54,31 @@ that receipt with `reconcile_uncertain_run`; never start the command again to
 repair correlation, rewrite historical hashes, or treat missing bounded history
 as proof that execution never started.
 
+## Recovering source evidence after working-search saturation
+
 For source evidence without a known source identity, start with a project-scoped
 `search_source_evidence` query. Use the hit's `detailArgs` to verify evidence.
 Keep source excerpts, accepted records and proposed progress separate. If a
 page version changed, restart the read before continuing. Refresh the tool list
 after upgrading an existing connection to MCP 2.24.0.
+
+After a working search reports candidate saturation, use this fallback only
+when the question names a concrete object within a known project. Issue up
+to two project-scoped source lookups using the literal question or focused
+wording drawn from it. Keep the search and excerpt pages bounded. For a
+plausible hit, pass the returned version-fenced `detailArgs` to `get_source`
+and check the redacted passage itself. If a connector requires an explicit
+text-page offset and `detailArgs` omits it, supply `offset: 0` and retain
+the returned `excerptOffset` and `expectedVersion`.
+
+Check that the passage identifies the actual stored data object, host or
+cache and distinguishes the source or origin from its copies. A product
+archive or a repository archive in the same topic cannot establish where
+stored messages reside. When a question has a known exact cutoff, check
+the relevant evidence timestamp at the caller. Missing, invalid or
+post-cutoff timestamps leave the as-of claim unresolved. Keep the passage
+and its provenance separate from ranked records and their review status.
+Report insufficient evidence when the text only matches the topic.
 
 For linked records, use `search_context` with `projectId` and either
 `taskId` or `sourceId`. A task filter includes the task and its linked

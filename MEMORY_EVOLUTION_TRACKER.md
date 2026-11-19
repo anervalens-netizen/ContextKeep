@@ -510,6 +510,12 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   on all 57 valid requests across the two holdouts and the control set.
   The control audit still found one misleading topical match. The opt-in
   path remains experimental. See [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
+- [ ] 2026-11-19 existing source-discovery fallback, development agent.
+  A bounded caller workflow preserved ordinary search across 57 valid
+  requests and found one directly relevant source excerpt in the previously
+  diagnosed cohort. It found no direct recovery in the newest 24 queries.
+  Topical overlap and misleading matches still require explicit verification.
+  The results and limits are recorded in [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
 
 ### ME-08
 
