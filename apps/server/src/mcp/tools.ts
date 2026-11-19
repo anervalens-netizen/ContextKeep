@@ -84,13 +84,14 @@ function toolResultErrorCode(value: unknown): string | null {
   return typeof code === "string" ? code : "tool_error";
 }
 
-function resultHasBudgetOmission(value: unknown): boolean {
+function resultHasBudgetOmission(tool: string, value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const structured = (value as { structuredContent?: unknown }).structuredContent;
   if (!structured || typeof structured !== "object") return false;
-  const body = structured as { budget?: { truncated?: unknown }; indicators?: { unknown?: unknown }; diagnostics?: { reasons?: unknown } };
+  const body = structured as { format?: unknown; truncated?: unknown; omitted?: unknown; budget?: { truncated?: unknown }; indicators?: { unknown?: unknown }; diagnostics?: { reasons?: unknown } };
   const unknown = Array.isArray(body.indicators?.unknown) ? body.indicators!.unknown : [];
   const reasons = Array.isArray(body.diagnostics?.reasons) ? body.diagnostics!.reasons : [];
+  if (tool === "resume_task" && body.format === "structured" && body.truncated === true && Array.isArray(body.omitted) && body.omitted.length > 0) return true;
   return body.budget?.truncated === true || unknown.includes("context_budget_omitted_optional_content") || reasons.includes("budget_omission");
 }
 
@@ -135,7 +136,7 @@ function recordToolMetrics(tool: string, startedAt: bigint, raw: unknown, result
   mcpToolDurationSeconds.observe({ tool, outcome }, seconds);
   if (result !== undefined) {
     mcpToolResultBytes.observe({ tool, outcome }, Buffer.byteLength(JSON.stringify(result), "utf8"));
-    if (resultHasBudgetOmission(result)) mcpToolBudgetOmissionsTotal.inc({ tool });
+    if (resultHasBudgetOmission(tool, result)) mcpToolBudgetOmissionsTotal.inc({ tool });
   }
 }
 

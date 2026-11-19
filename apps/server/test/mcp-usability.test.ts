@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeTestApp, type TestApp } from "./helpers.js";
 
+import { mcpToolBudgetOmissionsTotal } from "../src/lib/telemetry.js";
 import { compactLatestCheckpoint } from "../src/services/context-packing.js";
 import { workflowResults } from "../src/mcp/workflow-results.js";
 
@@ -137,6 +138,9 @@ describe("bounded operational resume", () => {
         criteria: ["Inspect synthetic artifact"],
         ...identity(),
       });
+    const resumeOmissions = async () =>
+      (await mcpToolBudgetOmissionsTotal.get()).values.find(row => row.labels.tool === "resume_task")?.value ?? 0;
+    const before = await resumeOmissions();
     const resumed = await call(app, "resume_task", {
       projectId,
       taskId: task.taskId,
@@ -153,6 +157,7 @@ describe("bounded operational resume", () => {
     expect(page.nextOffset).toBe(page.returned);
     expect(page.recovery.unresolvedOffset).toBe(page.nextOffset);
     expect(resumed.omitted).toContain("unresolvedExecutions.items");
+    expect(await resumeOmissions()).toBe(before + 1);
     const next = await call(app, "resume_task", {
       projectId,
       taskId: task.taskId,
