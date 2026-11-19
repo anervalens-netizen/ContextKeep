@@ -116,10 +116,12 @@ export interface SearchProfile {
 
 const fold = foldMemoryText;
 
+function tokenizeFoldedSearch(value: string): string[] {
+  return value.split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= MIN_TOKEN_LENGTH);
+}
+
 export function tokenizeSearch(value: string): string[] {
-  return fold(value)
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length >= MIN_TOKEN_LENGTH);
+  return tokenizeFoldedSearch(fold(value));
 }
 
 function operationalIdentifiers(query: string): string[] {
@@ -182,24 +184,11 @@ function rowSearchText(row: RecordRow): string {
   return `${row.subject} ${row.predicate ?? ""} ${row.text} ${checkpointSearchText(row.valueJson)}`;
 }
 
-function normalizedHaystack(row: RecordRow): string {
-  return fold(rowSearchText(row)).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
-
-function conceptsForRow(row: RecordRow): Set<string> {
-  return new Set(tokenizeSearch(rowSearchText(row)).map((token) => CONCEPT_ALIASES[token] ?? token));
-}
-
-function isPhraseMatch(row: RecordRow, profile: SearchProfile): boolean {
-  if (profile.rawTokens.length === 0) return false;
-  return normalizedHaystack(row).includes(profile.rawTokens.join(" "));
-}
-
-function isExactIdentifierMatch(row: RecordRow, profile: SearchProfile): boolean {
+function isExactIdentifierMatch(row: RecordRow, profile: SearchProfile, foldedText?: string): boolean {
   if (profile.identifiers.length === 0) return false;
   // A token embedded inside a record UUID is not an exact record identity.
   // Full record ID equality and textual identifier mentions remain eligible.
-  const haystack = fold(rowSearchText(row));
+  const haystack = foldedText ?? fold(rowSearchText(row));
   const recordId = fold(row.id);
   const isIdentifierPart = (char: string | undefined) =>
     char !== undefined && /[\p{L}\p{N}_-]/u.test(char);
@@ -227,8 +216,11 @@ function searchScore(
   temporalRanking: boolean,
 ): Omit<RetrievedRecordMatch, "row" | "evidence"> {
   const temporal = searchTemporal(row, nowIso);
-  const rawRowTokens = new Set(tokenizeSearch(rowSearchText(row)));
-  const rowConcepts = conceptsForRow(row);
+  // All lexical signals use the same normalized record and checkpoint text.
+  const text = fold(rowSearchText(row));
+  const rowTokens = tokenizeFoldedSearch(text);
+  const rawRowTokens = new Set(rowTokens);
+  const rowConcepts = new Set(rowTokens.map((token) => CONCEPT_ALIASES[token] ?? token));
   const matchedTokens = profile.tokens.filter((token) => rawRowTokens.has(token));
   const matchedConcepts = profile.concepts.filter((concept) => rowConcepts.has(concept));
   // FTS5 porter stemming can match e.g. "using" to "uses" even though the
@@ -236,8 +228,9 @@ function searchScore(
   // the first query concept matched; that old shortcut could turn an unrelated
   // stem hit into a false semantic claim.
   const ftsOnlyMatch = ftsHit && matchedConcepts.length === 0 && profile.concepts.length > 0;
-  const phraseMatch = isPhraseMatch(row, profile);
-  const exactIdentifier = isExactIdentifierMatch(row, profile);
+  const phraseMatch = profile.rawTokens.length > 0 &&
+    text.replace(/[^\p{L}\p{N}]+/gu, " ").trim().includes(profile.rawTokens.join(" "));
+  const exactIdentifier = isExactIdentifierMatch(row, profile, text);
   const subjectConcepts = new Set(tokenizeSearch(`${row.subject} ${row.predicate ?? ""}`).map((token) => CONCEPT_ALIASES[token] ?? token));
   let score = matchedConcepts.length * 18 + matchedTokens.length * 4;
   score += matchedConcepts.filter((concept) => subjectConcepts.has(concept)).length * 7;
