@@ -392,6 +392,14 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
   behavior. Ranking, freshness, lifecycle and the remaining host/attention matrix
   are not closed by this batch. See [BATCH_1.md](BATCH_1.md).
 
+A live read-only comparison on 19 November matched the authenticated ChatGPT
+task panel and native MCP dossier for a completed task with an explicit null
+next action and an active task with verified execution evidence and the same
+dated next action. Proposed provenance agreed in both. Neither had an active
+blocker or unresolved execution, so present-blocker and lifecycle parity stay
+open.
+
+
 - **Setup:** Prepare open, closed, paused and retired synthetic cases, including
   explicit null next actions, unresolved verification and post-closure follow-up.
 - **Action:** Read corresponding search, HTTP, MCP, PWA and advertised host views
@@ -512,7 +520,7 @@ Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 ### V-14
 
 **ME-14 — Index detailed sources and excerpts with FTS**\
-Status: **PARTIAL — bounded source-evidence contract exercised**
+Status: **VERIFIED — Installed source-only discovery and version-fenced evidence expansion through the advertised host**
 
 - **Source result:** Synthetic term discovery, separate evidence authority, cross-project exclusion, title hits, and version-bound detail navigation passed at source.
 
@@ -1028,7 +1036,7 @@ Status: **NOT RUN**
 ### V-41
 
 **ME-41 — Maintain client and host compatibility**\
-Status: **NOT RUN**
+Status: **VERIFIED — Legacy and additive MCP reads, including live host discovery and detail expansion**
 
 - **Setup:** Prepare old and updated synthetic MCP/HTTP clients, cached host
   resource metadata and requests that omit all newly added fields.
