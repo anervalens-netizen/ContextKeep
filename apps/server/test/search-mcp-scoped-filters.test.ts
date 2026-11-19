@@ -79,6 +79,97 @@ const ids = (rows: { recordId: string }[]) =>
   rows.map((r) => r.recordId).sort();
 
 describe("ME-13 shared MCP scoped search filters", () => {
+  it.each([false, true])(
+    "intersects task and source evidence across HTTP and MCP (LIKE %s)",
+    async (like) => {
+      const { app, projectId, otherProjectId, add } = await fixture();
+      const db = app.app.ck.deps.sqlite;
+      const taskId = add({ type: "action", taskStatus: "in_progress" });
+      const foreignTask = add({
+        projectId: otherProjectId,
+        type: "action",
+        taskStatus: "open",
+      });
+      const canonical = add();
+      const working = add({
+        reviewStatus: "proposed",
+        evidenceBasis: "agent_report",
+      });
+      const sourceOnly = add();
+      const taskOnly = add();
+      const foreign = add({ projectId: otherProjectId });
+      const sourceId = randomUUID(),
+        otherSource = randomUUID(),
+        excerpt = randomUUID();
+      const insertSource =
+        db.prepare(`INSERT INTO sources(id,kind,normalized_hash,content_hash,imported_at,provenance_basis,project_id,original_text,normalized_text)
+      VALUES (?,'manual',?, ?,?,'document',?,'synthetic','synthetic')`);
+      insertSource.run(sourceId, sourceId, sourceId, when, projectId);
+      insertSource.run(
+        otherSource,
+        otherSource,
+        otherSource,
+        when,
+        otherProjectId,
+      );
+      db.prepare("INSERT INTO source_excerpts VALUES(?,?,?,?,?,?)").run(
+        excerpt,
+        sourceId,
+        0,
+        9,
+        "synthetic",
+        excerpt,
+      );
+      for (const id of [canonical, working, taskOnly, foreign])
+        db.prepare(
+          "INSERT INTO workflow_task_records(task_id,record_id) VALUES (?,?)",
+        ).run(taskId, id);
+      for (const id of [canonical, working, sourceOnly, foreign])
+        db.prepare(
+          "INSERT INTO record_evidence(record_id,excerpt_id,relation) VALUES (?,?,'supports')",
+        ).run(id, excerpt);
+      if (like) db.exec("DELETE FROM ck_records_fts");
+
+      const filter = { projectId, taskId, sourceId, scope: "all" } as const;
+      const changes = db.prepare("SELECT total_changes() n").get();
+      const result = (await mcp(app, filter)).structuredContent;
+      expect(ids(result.records)).toEqual([canonical]);
+      expect(ids(result.workingRecords)).toEqual([working]);
+      const cards = (await mcp(app, { ...filter, representation: "cards" }))
+        .structuredContent;
+      expect(ids(cards.records)).toEqual([canonical]);
+      expect(ids(cards.workingRecords)).toEqual([working]);
+      const http = SearchResultDto.parse(
+        (
+          await app.get(
+            "/api/search?" +
+              new URLSearchParams({ q: "searchfilter", ...filter }),
+          )
+        ).json(),
+      );
+      expect(http.records.map((r) => r.id)).toEqual([canonical]);
+      expect(http.workingRecords.map((r) => r.id)).toEqual([working]);
+      expect(http.sources).toEqual([]);
+      expect(http.projects).toEqual([]);
+      expect(
+        (await mcp(app, { ...filter, q: sourceOnly })).structuredContent
+          .records,
+      ).toEqual([]);
+      expect((await mcp(app, { taskId })).structuredContent.error.code).toBe(
+        "search_filter_project_required",
+      );
+      expect(
+        (await mcp(app, { ...filter, taskId: foreignTask })).structuredContent
+          .error.code,
+      ).toBe("task_project_mismatch");
+      expect(
+        (await mcp(app, { ...filter, sourceId: otherSource })).structuredContent
+          .error.code,
+      ).toBe("source_not_found");
+      expect(db.prepare("SELECT total_changes() n").get()).toEqual(changes);
+    },
+  );
+
   it("matches HTTP on accepted and working records, inclusive UTC dates and type", async () => {
     const { app, projectId, otherProjectId, add } = await fixture();
     const accepted = [

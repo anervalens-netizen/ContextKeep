@@ -541,14 +541,14 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
   define("get_project_timeline", "Read accepted and superseded history, newest first, with confirmed supersession links. SQL pagination; limit 1–50.",
     z.strictObject({ projectId: ProjectId, ...Page }), true, input => readTimeline(deps, input), TimelineResult);
   const RecordedUtcDay = z.iso.date();
-  define("search_context", "NEVER blend canonical truth with proposed work. Retain status/provenance/taskState/dates. scope=canonical|working|all; includeHistorical adds superseded. representation=cards budgets UTF-8 JSON with omissions; get_record expands. full+maxResultBytes refuses excess; recordedFrom/To use UTC recordedAt. Limit 1–15.",
+  define("search_context", "NEVER blend canonical truth with proposed work. Retain status/provenance/taskState/dates. scope=canonical|working|all; includeHistorical adds superseded. representation=cards budgets UTF-8 JSON with omissions; get_record expands. full+maxResultBytes refuses excess; recordedFrom/To use UTC recordedAt. Task/source filters need projectId. Limit 1–15.",
     z.strictObject({ q: z.string().trim().min(1).max(500), projectId: ProjectId.optional(),
       compact: z.boolean().optional(),
       representation: z.enum(["full", "cards"]).default("full"),
       maxResultBytes: z.number().int().min(2_048).max(32_768).optional(),
       match: z.enum(["terms", "phrase"]).default("terms"),
       scope: SearchScope.default("canonical"), includeHistorical: z.boolean().default(false),
-      recordType: RecordType.optional(),
+      recordType: RecordType.optional(), taskId: z.string().uuid().optional(), sourceId: z.string().uuid().optional(),
       recordedFrom: RecordedUtcDay.optional(), recordedTo: RecordedUtcDay.optional(),
       limit: z.number().int().min(1).max(15).default(10) }).refine(
         ({ recordedFrom, recordedTo }) => !recordedFrom || !recordedTo || recordedFrom <= recordedTo,

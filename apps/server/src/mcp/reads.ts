@@ -1,4 +1,4 @@
-import { sliceUtf16Excerpt } from "../services/source-offsets.js";
+import { isUtf16ExcerptSpan, sliceUtf16Excerpt } from "../services/source-offsets.js";
 import { and, eq, inArray, sql, desc, like, or } from "drizzle-orm";
 import { projects, records, sources } from "../db/schema.js";
 import { ApiError } from "../lib/errors.js";
@@ -119,7 +119,7 @@ export function readRecord(deps: ServiceDeps, input: RecordReadInput, secrets: s
     const evidence = rawPage.map(({ startOffset, endOffset, ...metadata }) => {
       const prepared = cachedSource(deps, metadata.sourceId, "normalized", secrets);
       return {
-        ...metadata, startOffset, endOffset, ...boundedExcerpt(prepared.normalizedMask, startOffset, endOffset),
+        ...metadata, ...boundedExcerpt(prepared.normalizedMask, startOffset, endOffset),
         recovery: { tool: "get_source", sourceId: metadata.sourceId, projectId: input.projectId,
           expectedVersion: sourceVersions.get(metadata.sourceId)!.version },
       };
@@ -193,8 +193,11 @@ function cachedSource(deps: ServiceDeps, sourceId: string, representation: "norm
   return prepared;
 }
 function boundedExcerpt(mask: string, start: number, end: number) {
+  if (!isUtf16ExcerptSpan(mask, start, end)) {
+    return { startOffset: 0, endOffset: 0, text: "", textTruncated: true, unavailableReason: "invalid_normalized_utf16_span" as const };
+  }
   const { text, textTruncated } = sliceUtf16Excerpt(mask,start,end);
-  return { text, textTruncated };
+  return { startOffset: start, endOffset: end, text, textTruncated };
 }
 
 function sourcePage(source: PreparedSource, offset: number, limit: number) {
@@ -226,7 +229,7 @@ export function readSource(deps: ServiceDeps, input: SourceReadInput, secrets: s
     const excerpts = deps.sqlite.prepare("SELECT id,start_offset AS startOffset,end_offset AS endOffset FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id LIMIT ? OFFSET ?")
       .all(input.sourceId,input.excerptLimit,input.excerptOffset).map(raw => {
         const item = raw as { id: string; startOffset: number; endOffset: number };
-        return { ...item, ...boundedExcerpt(normalizedMask, item.startOffset, item.endOffset) };
+        return { id: item.id, ...boundedExcerpt(normalizedMask, item.startOffset, item.endOffset) };
       });
     const text = sourcePage(prepared, input.offset, input.maxChars);
     const nextOffset = next(totalChars, { offset: input.offset, limit: input.maxChars });

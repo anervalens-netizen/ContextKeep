@@ -652,6 +652,8 @@ export const SearchQuery = z.object({
   scope: SearchScope.default("canonical"),
   projectId: z.string().nullable().default(null),
   recordType: RecordType.optional(),
+  taskId: z.string().uuid().optional(),
+  sourceId: z.string().uuid().optional(),
   /** Inclusive UTC calendar days on recordedAt, not source/effective dates. */
   recordedFrom: z.iso.date().optional(),
   recordedTo: z.iso.date().optional(),

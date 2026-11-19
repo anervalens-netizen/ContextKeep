@@ -1224,6 +1224,8 @@ export class ContextKeepMemoryService {
       match?: "terms" | "phrase";
       scope?: "canonical" | "working" | "all";
       recordType?: RecordType;
+      taskId?: string;
+      sourceId?: string;
       recordedFrom?: string;
       recordedTo?: string;
       limit?: number;
@@ -1256,6 +1258,8 @@ export class ContextKeepMemoryService {
       scope: input.scope ?? "canonical",
       projectId,
       type: input.recordType,
+      taskId: input.taskId,
+      sourceId: input.sourceId,
       recordedFrom: input.recordedFrom,
       recordedTo: input.recordedTo,
       includeHistorical: input.includeHistorical === true,

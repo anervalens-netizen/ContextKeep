@@ -92,6 +92,8 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
         scope: q.scope,
         projectId: q.projectId,
         type: q.recordType,
+        taskId: q.taskId,
+        sourceId: q.sourceId,
         recordedFrom: q.recordedFrom,
         recordedTo: q.recordedTo,
         includeHistorical: q.includeHistorical,
