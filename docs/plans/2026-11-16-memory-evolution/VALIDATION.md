@@ -596,7 +596,7 @@ Status: **VERIFIED — Record-card byte budget, explicit omissions and fenced de
 ### V-11
 
 **ME-11 — Protect current context and improve budget remedies**\
-Status: **PARTIAL — synthetic MCP contract exercised**
+Status: **PASS — bounded installed connector and synthetic contract**
 
 - **Setup:** Create a task with a long current next action, active uncertainty,
   extensive history and a checkpoint that cannot fit every requested budget.
@@ -620,10 +620,18 @@ Status: **PARTIAL — synthetic MCP contract exercised**
   Synthetic tests cover both tools, a long blocked checkpoint, partial
   blocker/run pages and both errors.
 
+- **Installed connector, 2026-11-19.** [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41)
+  deployed as `be6b35f`. Protected resume kept state and emitted a checkpoint
+  omission pointer directly consumable by `get_record`. A tight
+  `get_work_context` request supplied a minimum that succeeded on retry.
+  The deployed tools responded through the installed connector. Recovery
+  from a compatible NAS snapshot and the matching release kit passed in
+  isolation. Legacy and oversized response cases remain covered by tests.
+
 ### V-12
 
 **ME-12 — Implement progressive, version-aware evidence reads**\
-Status: **PARTIAL — synthetic MCP contract exercised**
+Status: **PARTIAL — installed record and source paging verified**
 
 - **Setup:** Create a short search hit backed by multiple evidence pages and
   freshness references. Change one supporting source between summary and detail.
@@ -649,6 +657,14 @@ Status: **PARTIAL — synthetic MCP contract exercised**
   their existing truncation signals. Exhaustive freshness-reference paging
   remains open. Synthetic tests traverse all pages and exercise scope,
   provenance and revision churn.
+
+- **Installed connector, 2026-11-19.** [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41)
+  verified direct detail reads for accepted and proposed cards and for
+  discovery results. A representative linked record and source recovered
+  all evidence pages, complete source text and all excerpts. Stale record
+  revisions and evidence and source versions returned first-page restart
+  guidance. The synthetic 16,000-byte fixture retains eight cards.
+  Exhaustive freshness-reference paging remains open.
 
 ### V-13
 

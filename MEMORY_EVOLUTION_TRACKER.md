@@ -7,10 +7,11 @@ Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDAT
 
 ## Current inventory — 2026-11-19
 
-**50 items — 26 VERIFIED, 1 DONE, 2 IMPLEMENTED, 4 IN_PROGRESS,
+**50 items — 27 VERIFIED, 1 DONE, 1 IMPLEMENTED, 4 IN_PROGRESS,
 11 PLANNED, 6 GATED.** The [item index](#item-index) is the source for this
-count. ME-07, ME-27, ME-45 and ME-48 are in progress. ME-11 and ME-12 are
-implemented and retain their listed acceptance requirements.
+count. ME-07, ME-27, ME-45 and ME-48 are in progress. ME-11 is verified on
+the installed MCP connector. ME-12 has verified record and source paging
+and retains the freshness-reference acceptance requirement.
 
 ## Historical delivery checkpoints
 
@@ -294,7 +295,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-08](#me-08) | Define event, validity, capture and verification time | VERIFIED | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | VERIFIED | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | VERIFIED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
-| [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
+| [ME-11](#me-11) | Protect current context and improve budget remedies | VERIFIED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
 | [ME-12](#me-12) | Implement progressive, version-aware evidence reads | IMPLEMENTED | P1 | W2 | Retrieval | ME-10, ME-11 |
 | [ME-13](#me-13) | Expose scoped filters through MCP | VERIFIED | P1 | W2 | Backend | ME-02 |
 | [ME-14](#me-14) | Index detailed sources and excerpts with FTS | VERIFIED | P1 | W2 | Retrieval | ME-02, ME-13 |
@@ -600,7 +601,7 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-10](docs/plans/2026-11-16-me
 ### ME-11
 
 **Protect current context and improve budget remedies**\
-Status: **IMPLEMENTED** · Priority: P0 · Wave: W2 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W2 · Owner role: Backend\
 Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-11)
 
 - [ ] Scope: Reuse packing for resume/work-context/search. Prioritize current state, next action, authority, active uncertainty and recovery over history; keep a pointer when checkpoint text is omitted.
@@ -611,10 +612,13 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-me
   blocker/uncertainty counts and recovery. Separate errors handle a small
   request budget and a core beyond the response ceiling. Legacy forms pass
   compatibility tests. The selected release passed its runtime and rollback
-  gates. Broader client/workflow coverage remains open in V-11.
-- [ ] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41) adds
-  connector-ready recovery arguments for capture and task continuation.
-  Validate the installed connector at both tight and sufficient budgets.
+  gates.
+- [x] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41)
+  verified on the installed MCP connector at release `be6b35f`. An
+  undersized protected-context request returned a minimum budget that worked
+  on retry. Protected resume preserved state and supplied a callable pointer
+  for the omitted checkpoint. Synthetic coverage retains the response-ceiling
+  and legacy cases.
 
 
 ### ME-12
@@ -630,10 +634,13 @@ Dependencies: ME-10, ME-11 · Validation: [V-12](docs/plans/2026-11-16-memory-ev
   totals, returned counts and recovery. Synthetic tests reject stale revisions,
   source/excerpt changes, cross-project reads and proposals without opt-in.
   Freshness reference samples remain bounded; V-12 remains PARTIAL.
-- [ ] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41) makes
-  the record and source detail arguments explicit. Under byte pressure,
-  cards can shorten previews before omitting results. Complete installed
-  connector pagination and revision-fence checks before advancing V-12.
+- [x] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41)
+  verified bounded record and source pagination on the installed MCP
+  connector at release `be6b35f`. Accepted and proposed card details,
+  linked evidence, source text and excerpt pages kept their expected
+  identities and rejected stale versions. Under byte pressure, cards can
+  shorten previews before omitting results.
+- [ ] Exhaustive freshness-reference paging remains open in V-12.
 
 
 ### ME-13
