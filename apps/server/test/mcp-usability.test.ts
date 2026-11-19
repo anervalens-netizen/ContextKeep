@@ -6,6 +6,9 @@ import { mcpToolBudgetOmissionsTotal } from "../src/lib/telemetry.js";
 import { compactLatestCheckpoint } from "../src/services/context-packing.js";
 import { workflowResults } from "../src/mcp/workflow-results.js";
 
+const resumeOmissions = async () =>
+  (await mcpToolBudgetOmissionsTotal.get()).values.find(row => row.labels.tool === "resume_task")?.value ?? 0;
+
 const token = randomUUID();
 const apps: TestApp[] = [];
 const identity = () => ({
@@ -138,8 +141,6 @@ describe("bounded operational resume", () => {
         criteria: ["Inspect synthetic artifact"],
         ...identity(),
       });
-    const resumeOmissions = async () =>
-      (await mcpToolBudgetOmissionsTotal.get()).values.find(row => row.labels.tool === "resume_task")?.value ?? 0;
     const before = await resumeOmissions();
     const resumed = await call(app, "resume_task", {
       projectId,
@@ -194,6 +195,7 @@ describe("bounded operational resume", () => {
       evidenceText: "Synthetic action requires further inspection.",
       ...identity(),
     });
+    const before = await resumeOmissions();
     const resumed = await call(app, "resume_task", {
       projectId,
       taskId: task.taskId,
@@ -201,6 +203,7 @@ describe("bounded operational resume", () => {
       format: "structured",
       totalContextBudgetChars: 6000,
     });
+    expect(await resumeOmissions()).toBe(before);
     expect(resumed.truncated).toBe(true);
     expect(resumed.omitted).toContainEqual({
       field: "nextAction",
