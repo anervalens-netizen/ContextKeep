@@ -220,15 +220,24 @@ complete historical call ledger or execute every synthetic setup below.
 ### V-02
 
 **ME-02 — Extend the real-question and synthetic evaluation sets**\
-Status: **PARTIAL — private gold/split review, canonical freeze and limited live baseline independently verified; broader outcomes remain open**
+Status: **VERIFIED — private frozen retrieval/presentation baseline and distinct synthetic agent outcome**
 
 Batch 3 freezes the intended 40-case private corpus before tuning. The selected
 gold evidence and semantic episode separation passed independent review. All
 40 fixed observations were collected once, and independent checks match their
 contracts, captures, metrics and serialized sizes. Negative outcomes remain in
 the baseline; final independent verification has only a display-rounding note
-and no substantive discrepancies. New synthetic counterparts and agent outcome
-evaluation are separate follow-ups.
+and no substantive discrepancies.
+
+2026-11-19 — The development agent added seven fictional bilingual episodes
+covering all required scenario classes and a reproducible offline scoring
+contract. One fixed-context model output matched 10/14 exact answers, 14/14
+supported actions and 14/14 expected evidence identities. Both required
+abstentions passed and none of the 12 answerable cases abstained. Four exact
+answer misses were retained. This separately scored one tool-free outcome run.
+Paired translations share evidence and are reported as correlated. Natural-data
+autonomous retrieval, repeat-run stability and provider billing were outside
+the measurement.
 
 - **Setup:** Prepare synthetic RO/EN questions for current/history answers,
   source-only details, closed tasks, identifiers, paraphrases, conflicts and
@@ -348,7 +357,16 @@ Status: **VERIFIED — Bounded current, historic and authority behavior of the i
 ### V-07
 
 **ME-07 — Measure candidate recall and saturation**\
-Status: **NOT RUN**
+Status: **PARTIAL — bounded recovery exercised; representative recall remains open**
+
+2026-11-19 — A synthetic saturated query signals more candidates. Narrowing
+with an existing scope retrieves the previously unreturned identity. Exact
+ID lookup respects project boundaries. An isolated bounded lexical-lane
+experiment recovered two synthetic targets with bounded measured latency.
+An all-case paired replay against identical frozen snapshots showed
+unchanged natural held-out recall and currentness. Expected evidence
+still misses the top ten. The measured lane is excluded from the release. Reach and latency must be measured again on a fresh long-form
+holdout before widening default retrieval.
 
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
@@ -365,7 +383,7 @@ Status: **NOT RUN**
 ### V-08
 
 **ME-08 — Define event, validity, capture and verification time**\
-Status: **PARTIAL**
+Status: **VERIFIED — Time semantics, record revalidation and read parity**
 
 - **Setup:** Use a fixed clock with an old event imported later, future-effective
   evidence, an expired fact, a superseded claim and an observation lacking event
@@ -390,6 +408,19 @@ Status: **PARTIAL**
   SQLite date comparisons. Existing strict parsing, validity, current-claim
   and review checks remain authoritative for ranking. Capture time still
   cannot substitute for event or effective time.
+
+- **2026-11-19 release qualification.** [PR #40](https://github.com/anervalens-netizen/ContextKeep/pull/40)
+  documents observation, validity, capture and review by evidence class.
+  The test matrix checks a late import, future and expired proposals,
+  malformed legacy times, corrected event dates, proposal authority,
+  HTTP/MCP freshness parity, exact fractional boundaries and clock
+  reversal. The warm index avoids a new proposal scan at each time boundary.
+  Full local release, hosted CI and isolated candidate and rollback
+  restores passed. The installed release `32ea46c` returned matching
+  authoritative freshness in search and record detail for real
+  operational, historical and stable reference evidence through
+  authenticated MCP. Runtime canaries used existing records. Exact
+  boundary and source-change scenarios used synthetic data.
 
 ### V-09
 
@@ -827,6 +858,11 @@ Status: **VERIFIED — Bounded application-level causes, remedies and successful
 **ME-27 — Attribute consumers with bounded, trustworthy metadata**\
 Status: **PARTIAL — one known local executor source contract**
 
+2026-11-19 — The installed source-attributed collector is producing the
+bounded event class. The matched review is scheduled for 24 November at
+21:30 Europe/Bucharest. Confirm coverage and keep shared-bearer callers
+unclassified without an authenticated source.
+
 - **Source contract:** [Companion PR #55](https://github.com/anervalens-netizen/astancu-website/pull/55)
   implements finite local-executor classification with numeric result-size
   buckets and negative controls. A shared bearer does not identify other
@@ -1120,6 +1156,11 @@ Status: **VERIFIED — PR #38 exact-head Codex Connector and DSH, disposition, C
 **ME-45 — Measure post-release outcomes against matched baseline**\
 Status: **PARTIAL — exploratory readout, prospective matched evaluation NOT RUN**
 
+2026-11-19 — The scheduled matched readout follows the later collector's
+full seven-day interval on 24 November at 21:30 Europe/Bucharest. Retain
+release and probe epochs, comparable dayparts, periodic full controls,
+and failed or missing observations.
+
 - **Execution:** A bounded retrospective comparison examined two equal-duration
   natural windows using existing Prometheus per-tool byte/call/duration series,
   reset and scrape checks, alongside separately reconstructed owner-health
@@ -1181,7 +1222,13 @@ Status: **VERIFIED — Authority, scope, uncertainty and no-replay controls of t
 ### V-48
 
 **ME-48 — Measure capacity before infrastructure changes**\
-Status: **PARTIAL — read-only snapshot and limited historical range**
+Status: **PARTIAL — read-only sampler collecting the full window**
+
+2026-11-19 — The installed read-only timer is returning main, WAL, SHM,
+index and reserve samples. The 24 November 21:30 Europe/Bucharest
+checkpoint leaves time for the first hourly sample after the seven-day
+boundary. Confirm full-window coverage and store identity. The isolated
+workload measurements retain separate scope.
 
 - **Source contract:** [PR #31](https://github.com/anervalens-netizen/ContextKeep/pull/31)
   supplies a bounded read-only SQLite main/WAL/index/volume observer with
@@ -1221,7 +1268,13 @@ Status: **NOT RUN**
 ### V-50
 
 **ME-50 — Maintain tracker coverage and programme closure**\
-Status: **NOT RUN**
+Status: **VERIFIED — coverage, negative controls and retained handoff**
+
+2026-11-19 — Checked all 50 active tracker rows, matching detail and
+validation sections, every prerequisite, cycle detection and all 20
+finding mappings. Four synthetic faults were rejected. The authoritative
+tracker and private handoff retain open acceptance and conditional research
+work. This verifies tracking and handoff while work on the programme continues.
 
 - **Setup:** Create a synthetic tracker review containing a missing validation
   link, an invalid dependency, an unassigned started item and a premature done

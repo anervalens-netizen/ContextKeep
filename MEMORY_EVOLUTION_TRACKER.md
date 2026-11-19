@@ -101,7 +101,7 @@ Inventory after review: **50 items — 11 PLANNED, 6 GATED, 7 IN_PROGRESS, 2 IMP
 
 | Outcome | Verified scope | Remaining acceptance |
 | --- | --- | --- |
-| Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. Wider volatility policy is covered by ME-08. |
+| Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome at that checkpoint. The later remaining-work review records their qualification. |
 | Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Chromium qualified both lifecycle states with and without unresolved execution against the same HTTP/MCP dossier. ME-13 task and source scope passed on the installed release. UTC date filters retain recorded-day semantics. ME-15 needs measured incremental invalidation and restart. ME-16 qualified invalid-span handling across MCP and owner HTTP/PWA. ME-15 passed interruption, rebuild, update/delete and WAL controls for the bounded in-memory index. |
 | Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 qualified the [installed owner current-review projection](https://github.com/anervalens-netizen/astancu-website/pull/61) from typed delivery evidence and a verified head/base. A native dossier view remains optional. ME-26/31 qualified application error and omission metrics, task-scoped capture and stable revision recovery. Transport failures before dispatch are outside the metric proof. |
 | Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 has live host source discovery and exact excerpt identity, offset and version parity. ME-41 authenticated catalogue refresh and native scoped calls passed. ME-44 has both exact-head reviews, disposition and CI for the installed follow-up release. The earlier deferral remains in the historical evidence. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
@@ -112,6 +112,16 @@ Private held-out Recall@5, Recall@10 and currentness stayed unchanged. Record
 cards reduced the tested payload and preserved the first result in each
 represented authority scope. Three expected secondary records omitted at the
 lower explicit budget recovered at the higher budget.
+
+### 2026-11-19 remaining-work review
+
+The development agent owns ME-02, ME-07 and ME-08 qualification. The
+operations and evaluation agents retain ME-27, ME-45 and ME-48 follow-up
+on the predeclared same-probe, same-store cohort. The existing read-only
+review is scheduled for 24 November at 21:30 Europe/Bucharest, after seven
+complete days from the start of the later collector. Confirm actual elapsed
+coverage, cadence and release boundaries at the checkpoint. The maintainer's
+development agent owns ME-50 and the remaining-work handoff.
 
 ## Batch 1 — 2026-11-16
 
@@ -268,13 +278,13 @@ only by an unanswered use case. These are priorities, not incident severities.
 | ID | Item | Status | Priority | Wave | Owner role | Prerequisites |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ME-01](#me-01) | Freeze the baseline and private evidence manifest | VERIFIED | P0 | W0 | Evaluation | — |
-| [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | IN_PROGRESS | P0 | W0 | Evaluation | ME-01 |
+| [ME-02](#me-02) | Extend the real-question and synthetic evaluation sets | VERIFIED | P0 | W0 | Evaluation | ME-01 |
 | [ME-03](#me-03) | Define metric semantics and predeclare quality gates | VERIFIED | P0 | W0 | Evaluation | ME-01, ME-02 |
 | [ME-04](#me-04) | Reconcile metadata and lifecycle evidence | VERIFIED | P1 | W0 | Operations | ME-01 |
 | [ME-05](#me-05) | Expose effective task state in search | DONE | P0 | W1 | Backend | ME-02 |
 | [ME-06](#me-06) | Rank current observations and historical answers correctly | VERIFIED | P0 | W1 | Retrieval | ME-02, ME-03, ME-05, ME-08 |
 | [ME-07](#me-07) | Measure candidate recall and saturation | IN_PROGRESS | P1 | W1 | Retrieval | ME-02, ME-03 |
-| [ME-08](#me-08) | Define event, validity, capture and verification time | IN_PROGRESS | P0 | W1 | Backend | ME-01, ME-02 |
+| [ME-08](#me-08) | Define event, validity, capture and verification time | VERIFIED | P0 | W1 | Backend | ME-01, ME-02 |
 | [ME-09](#me-09) | Qualify current-state parity across surfaces | VERIFIED | P0 | W1 | Backend | ME-05, ME-06 |
 | [ME-10](#me-10) | Add budgeted search summaries | VERIFIED | P0 | W2 | Retrieval | ME-02, ME-03, ME-05 |
 | [ME-11](#me-11) | Protect current context and improve budget remedies | IMPLEMENTED | P0 | W2 | Backend | ME-02, ME-03, ME-05 |
@@ -316,7 +326,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | VERIFIED | P0 | W7 | Backend | ME-03 |
 | [ME-48](#me-48) | Measure capacity before infrastructure changes | IN_PROGRESS | P1 | W4 | Operations | ME-01 |
 | [ME-49](#me-49) | Maintain research and pilot decision records | PLANNED | P2 | W0 | Evaluation | ME-02, ME-03 |
-| [ME-50](#me-50) | Maintain tracker coverage and programme closure | IN_PROGRESS | P0 | W7 | Maintainer | — |
+| [ME-50](#me-50) | Maintain tracker coverage and programme closure | VERIFIED | P0 | W7 | Maintainer | — |
 
 ## Detailed work and acceptance
 
@@ -339,7 +349,7 @@ Dependencies: none · Validation: [V-01](docs/plans/2026-11-16-memory-evolution/
 ### ME-02
 
 **Extend the real-question and synthetic evaluation sets**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
+Status: **VERIFIED** · Priority: P0 · Wave: W0 · Owner role: Evaluation\
 Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-02)
 
 - [ ] Scope: Freeze 30–50 private real questions with expected record/source/task identities and time semantics. Extend existing RO/EN fixtures with synthetic equivalents; maintain a tuning/held-out split.
@@ -365,6 +375,16 @@ Dependencies: ME-01 · Validation: [V-02](docs/plans/2026-11-16-memory-evolution
   subtests against the base helper. Both required reviews and CI passed; the
   version-bound disposition and grouped review closure are evidenced under ME-44. The frozen
   private evaluator and observation results remain unchanged.
+- [x] 2026-11-19 qualification, development agent. Fourteen frozen fictional
+  RO/EN prompts span seven paired episodes across the required scenario classes.
+  In one tool-free, fixed-context agent run, 10/14 answers matched the frozen
+  exact rubric. Permitted simulated actions and support IDs matched 14/14.
+  Both required abstentions passed, with zero false abstentions on the other
+  12 cases. Four exact-answer misses were retained. The fixture and offline
+  score reproduction are under [scripts/evaluation](scripts/evaluation/README.md).
+  Retrieval and presentation retain their separate frozen-corpus measurements.
+  This is a fixed-context outcome sample, with no natural-data autonomous
+  retrieval claim or statistical independence across translations.
 
 ### ME-03
 
@@ -455,11 +475,22 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   representative recall and qualify a recovery path for identities outside the
   returned candidate set before closing the item. Private case evidence is
   retained separately.
+- [ ] 2026-11-19 qualification, development agent. A saturated synthetic
+  query reports a bounded candidate window. The scoped retry recovers the
+  previously unreturned evidence, and exact identifiers and project scope
+  remain intact. [PR #40](https://github.com/anervalens-netizen/ContextKeep/pull/40)
+  adds regression coverage. A separately measured bounded selection
+  experiment recovered both synthetic stress targets but left frozen
+  natural held-out recall and currentness unchanged. Expected evidence
+  still misses the top ten, predominantly under saturation. Case counts
+  and results are retained privately. The experiment was stopped at this scope. Qualify
+  indexed anchors for representative long-form questions on a fresh
+  holdout before proposing wider selection.
 
 ### ME-08
 
 **Define event, validity, capture and verification time**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W1 · Owner role: Backend\
+Status: **VERIFIED** · Priority: P0 · Wave: W1 · Owner role: Backend\
 Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-08)
 
 - [ ] Scope: Document temporal fields and missing-time behavior. Add freshness policy by evidence class, expiry/review handling and source-change revalidation without fabricating observation dates.
@@ -478,6 +509,21 @@ Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-ev
 - [ ] Consolidated source batch: SQL time comparisons select a bounded
   shortlist. Strict event, validity and review checks still run before ranking.
   See [V-08](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-08).
+- [x] 2026-11-19 qualification, development agent. [PR #40](https://github.com/anervalens-netizen/ContextKeep/pull/40)
+  defines the [evidence-class policy](docs/contextkeep-mcp.md#evidence-times-and-revalidation)
+  and rechecks proposal eligibility for accepted current-state records.
+  Exact activation and expiry, clock reversal, legacy malformed times,
+  corrected observation dates and HTTP/MCP freshness parity passed.
+  All 12 local release checks, hosted CI, staged candidate and rollback
+  restores passed. The installed release is
+  `32ea46cf7f73b32781102de4de7fb4033ccbe5ab`. Authenticated runtime
+  checks verified accepted operational revalidation, superseded history,
+  stable reference evidence and proposal authority. Real canaries were
+  read-only. Future, expired, corrected and malformed inputs were
+  controlled synthetic cases. The
+  [exact-head disposition](https://github.com/anervalens-netizen/ContextKeep/pull/40#issuecomment-7005913416)
+  records the owner-approved single-PR review substitution and the DSH
+  provider failure. The standard workflow remains in force.
 
 ### ME-09
 
@@ -768,6 +814,11 @@ Dependencies: ME-03 · Validation: [V-27](docs/plans/2026-11-16-memory-evolution
   The source design and synthetic regression matrix inform
   [Batch 6](docs/plans/2026-11-16-memory-evolution/BATCH_6.md);
   runtime proofs and deployment identifiers remain private. V-27 stays PARTIAL.
+- [ ] 2026-11-19 checkpoint, operations. Use the confirmed known local
+  executor event and retain other shared-bearer calls as unknown. The
+  ongoing cohort must retain attribution coverage, bounded labels,
+  cadence and missing events for the full window. Broader identity
+  classes require their own authenticated source.
 
 ### ME-28
 
@@ -1031,6 +1082,10 @@ Dependencies: ME-03, ME-44 · Validation: [V-45](docs/plans/2026-11-16-memory-ev
   The exact source queries, window/counter coverage and observations remain
   in private project memory; [V-45](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-45)
   is PARTIAL until the unmatched scenarios and limits are addressed.
+- [ ] 2026-11-19 checkpoint, evaluation. Proceed at the matched cohort
+  close. Use comparable dayparts and exact request-category denominators,
+  including periodic full controls and missing/failed samples. Record
+  release and store boundaries and exclude incompatible windows explicitly.
 
 ### ME-46
 
@@ -1078,6 +1133,11 @@ Dependencies: ME-01 · Validation: [V-48](docs/plans/2026-11-16-memory-evolution
   workload. Production observations and backup receipts are retained
   privately; V-48 remains PARTIAL and no infrastructure replacement
   follows from this source-only evidence.
+- [ ] 2026-11-19 checkpoint, operations. The hourly read-only observer
+  is collecting main, WAL, SHM, index and reserve measurements. The
+  scheduled date is only a checkpoint until seven complete days from
+  the first qualified timer event are available. Apply the isolated
+  read/write/lock workload findings separately and preserve store identity.
 
 ### ME-49
 
@@ -1093,7 +1153,7 @@ Dependencies: ME-02, ME-03 · Validation: [V-49](docs/plans/2026-11-16-memory-ev
 ### ME-50
 
 **Maintain tracker coverage and programme closure**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **VERIFIED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: none · Validation: [V-50](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-50)
 
 - [ ] Scope: Use this tracker as the only active checklist. Assign actual owners at start; update dependencies, evidence, decisions and status with work. Keep archived trackers historical.
@@ -1103,6 +1163,14 @@ Dependencies: none · Validation: [V-50](docs/plans/2026-11-16-memory-evolution/
   preparation, evaluation limits and next priorities are mapped in
   [BATCH_3.md](docs/plans/2026-11-16-memory-evolution/BATCH_3.md).
   All 50 item IDs and dependencies are retained. Programme closure remains open.
+- [x] 2026-11-19 tracker qualification, development agent. Checked all
+  50 index, detail and validation mappings, the acyclic prerequisite graph,
+  and all 20 finding-to-item mappings. Injected a missing validation link,
+  an invalid dependency, a missing owner and a premature completion claim.
+  Each control was detected. The remaining-work review records the current
+  assignees and cohort handoff. This verifies the tracker and handoff
+  requirements. Programme closure remains open while further acceptance
+  and gated decisions are pending.
 
 ## Definition of completion
 
