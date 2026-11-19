@@ -28,6 +28,8 @@ import {
   type ExcerptReadCursor,
 } from "../services/bounded-read.js";
 import { z } from "zod";
+import { ApiError } from "../lib/errors.js";
+import { ownerSourceExcerpt } from "../services/source-offsets.js";
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -48,8 +50,13 @@ const SourceExcerptQuery = z.object({
 function sourceExcerptSetFingerprint(
   sqlite: Database.Database,
   sourceId: string,
+  normalized?: { hash: string; text: string },
 ): string {
   const digest = crypto.createHash("sha256");
+  if (normalized) {
+    digest.update(JSON.stringify([normalized.hash, normalized.text.length]) + "\n", "utf8");
+    digest.update(normalized.text, "utf8");
+  }
   const rows = sqlite.prepare<
     [string],
     {
@@ -172,7 +179,7 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
     return rows.map((r) => toSourceDto(r, countBySource.get(r.id) ?? 0));
   });
 
-  app.get("/api/sources/:id", async (request, reply) => {
+  app.get("/api/sources/:id", (request, reply) => deps.sqlite.transaction(() => {
     const { id } = request.params as { id: string };
     const row = deps.db.select().from(sources).where(eq(sources.id, id)).get();
     if (!row) {
@@ -195,8 +202,11 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
       query?.cursor === undefined
         ? undefined
         : decodeExcerptCursor(query.cursor, id);
+    const cursorVersion = cursor?.version ?? 2;
     const excerptSetFingerprint = paginated
-      ? sourceExcerptSetFingerprint(deps.sqlite, id)
+      ? sourceExcerptSetFingerprint(deps.sqlite, id, cursorVersion === 2
+          ? { hash: row.normalizedHash, text: row.normalizedText }
+          : undefined)
       : undefined;
     if (cursor && cursor.normalizedHash !== excerptSetFingerprint) {
       reply.code(409);
@@ -209,13 +219,19 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
         },
       };
     }
+    const cursorExcerpt = cursor
+      ? deps.db.select({ startOffset: sourceExcerpts.startOffset }).from(sourceExcerpts)
+          .where(and(eq(sourceExcerpts.sourceId, id), eq(sourceExcerpts.id, cursor.excerptId))).get()
+      : undefined;
+    if (cursor && !cursorExcerpt)
+      throw new ApiError(400, "invalid_read_cursor", "The cursor excerpt does not belong to this source.");
     const excerptWhere = and(
       eq(sourceExcerpts.sourceId, id),
-      cursor
+      cursor && cursorExcerpt
         ? or(
-            gt(sourceExcerpts.startOffset, cursor.startOffset),
+            gt(sourceExcerpts.startOffset, cursorExcerpt.startOffset),
             and(
-              eq(sourceExcerpts.startOffset, cursor.startOffset),
+              eq(sourceExcerpts.startOffset, cursorExcerpt.startOffset),
               gt(sourceExcerpts.id, cursor.excerptId),
             ),
           )
@@ -246,14 +262,8 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
     return {
       source: toSourceDto(row, total ?? excerpts.length),
       projectIds: sourceProjectIds(deps, row.id),
-      excerpts: excerpts.map((e) => ({
-        id: e.id,
-        sourceId: e.sourceId,
-        startOffset: e.startOffset,
-        endOffset: e.endOffset,
-        text: e.exactText,
-        exactTextHash: e.exactTextHash,
-      })),
+      excerptOffsetUnit: "normalized_utf16",
+      excerpts: excerpts.map((excerpt) => ownerSourceExcerpt(row.normalizedText, excerpt)),
       ...(paginated
         ? {
             pagination: {
@@ -264,11 +274,11 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
               nextCursor:
                 hasNext && last
                   ? encodeReadCursor({
-                      version: 1,
+                      version: cursorVersion,
                       kind: "source_excerpts",
                       sourceId: id,
                       normalizedHash: excerptSetFingerprint!,
-                      startOffset: last.startOffset,
+                      ...(cursorVersion === 1 ? { startOffset: last.startOffset } : {}),
                       excerptId: last.id,
                     } satisfies ExcerptReadCursor)
                   : null,
@@ -278,7 +288,7 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
           }
         : {}),
     };
-  });
+  })());
 
   app.get("/api/audit", async (request) => {
     const q = parseWith(

@@ -70,3 +70,9 @@ independent project and source suggestions.
 An excerpt with `unavailableReason: "invalid_normalized_utf16_span"` has no
 usable normalized excerpt text. Its empty span has offsets `0,0`. Other excerpts and the source page remain
 available. Verify evidence using a valid excerpt or a direct source page.
+
+Owner HTTP source detail and search use the same invalid-span marker while
+retaining authorized text for valid stored spans. The source response labels
+excerpt offsets as normalized UTF-16. Use the opaque page cursor even when the
+last excerpt is unavailable. Its displayed empty span carries no ordering
+information.

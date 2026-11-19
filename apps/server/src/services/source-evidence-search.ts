@@ -52,6 +52,12 @@ type Input = {
 
 const cachedIndexes = new WeakMap<ServiceDeps["sqlite"], Map<string, Index>>();
 
+export function closeSourceEvidenceIndexes(sqlite: ServiceDeps["sqlite"]) {
+  const indexes = cachedIndexes.get(sqlite);
+  cachedIndexes.delete(sqlite);
+  for (const index of indexes?.values() ?? []) index.fts.close();
+}
+
 function scopeTooLarge() {
   return new ApiError(
     422,
