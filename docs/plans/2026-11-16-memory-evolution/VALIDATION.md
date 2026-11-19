@@ -1137,7 +1137,13 @@ Status: **PARTIAL — exploratory readout, prospective matched evaluation NOT RU
 ### V-46
 
 **ME-46 — Keep the private evidence ledger and handoffs complete**\
-Status: **NOT RUN**
+Status: **VERIFIED — 20 audit findings, private receipts and durable task handoff**
+
+The maintainer checked that each finding in the plan maps to existing tracker
+IDs, added version-specific evidence or the precise remaining acceptance, and
+recorded the private crosswalk in the original task. Native readback matched
+the proposed progress and separately retrieved the proposed handoff. The
+handoff starts no execution. Existing accepted task content was preserved.
 
 - **Setup:** Use a synthetic audit with findings spanning implementation,
   diagnosis, conditional pilots and unresolved external verification.

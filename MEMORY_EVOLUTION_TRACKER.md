@@ -97,14 +97,14 @@ their individual acceptance gates.
 
 ### 2026-11-19 evidence reconciliation
 
-Inventory after review: **50 items — 11 PLANNED, 6 GATED, 16 IN_PROGRESS, 2 IMPLEMENTED, 14 VERIFIED, 1 DONE**.
+Inventory after review: **50 items — 11 PLANNED, 6 GATED, 15 IN_PROGRESS, 2 IMPLEMENTED, 15 VERIFIED, 1 DONE**.
 
 | Outcome | Verified scope | Remaining acceptance |
 | --- | --- | --- |
 | Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. Wider volatility policy is covered by ME-08. |
 | Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Full browser parity for those lifecycle cases remains open. ME-13 needs task/source scope qualification. ME-15 needs measured incremental invalidation and restart. ME-16 needs invalid-span handling and legacy source parity. |
 | Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 needs native current-review presentation. ME-26 needs SDK rejection visibility before dispatch. ME-31 needs real-client capture, rebase and closure verification. |
-| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 and ME-41 have live host source discovery and exact excerpt identity, offset and version parity. Reapply applicable gates at each release. ME-44 retains deferred DSH review and dependency disposition. ME-46 needs complete evidence-to-handoff mapping. ME-50 remains active while programme acceptance remains open. |
+| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 and ME-41 have live host source discovery and exact excerpt identity, offset and version parity. Reapply applicable gates at each release. ME-44 retains deferred DSH review and dependency disposition. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
 | Prospective evidence | Bounded capacity, stress and restore findings are in private operational evidence. | ME-27, ME-45 and ME-48 alone depend on the 24 November matched full-window checkpoint. Compare attribution denominators, post-release outcomes and storage under the same probes/store. None depends on Windows. |
 
 The paired release comparison improved development Recall@5 on two cases.
@@ -312,7 +312,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-43](#me-43) | Verify migration, index rebuild and recovery | VERIFIED | P0 | W7 | Operations | ME-01, ME-48 |
 | [ME-44](#me-44) | Complete exact-head reviews and release qualification | IN_PROGRESS | P0 | W7 | Maintainer | ME-42 |
 | [ME-45](#me-45) | Measure post-release outcomes against matched baseline | IN_PROGRESS | P1 | W7 | Evaluation | ME-03, ME-44 |
-| [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | IN_PROGRESS | P0 | W7 | Maintainer | ME-01 |
+| [ME-46](#me-46) | Keep the private evidence ledger and handoffs complete | VERIFIED | P0 | W7 | Maintainer | ME-01 |
 | [ME-47](#me-47) | Regress authority, scope, uncertainty and no-replay invariants | VERIFIED | P0 | W7 | Backend | ME-03 |
 | [ME-48](#me-48) | Measure capacity before infrastructure changes | IN_PROGRESS | P1 | W4 | Operations | ME-01 |
 | [ME-49](#me-49) | Maintain research and pilot decision records | PLANNED | P2 | W0 | Evaluation | ME-02, ME-03 |
@@ -999,7 +999,7 @@ Dependencies: ME-03, ME-44 · Validation: [V-45](docs/plans/2026-11-16-memory-ev
 ### ME-46
 
 **Keep the private evidence ledger and handoffs complete**\
-Status: **IN_PROGRESS** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
+Status: **VERIFIED** · Priority: P0 · Wave: W7 · Owner role: Maintainer\
 Dependencies: ME-01 · Validation: [V-46](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-46)
 
 - [ ] Scope: Map every audit section/finding to tracker IDs, private source/version evidence and eventual commit/test/deployment references. Preserve concise task-scoped checkpoints and unresolved limits.
