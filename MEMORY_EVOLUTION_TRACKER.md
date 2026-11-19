@@ -486,6 +486,15 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   and results are retained privately. The experiment was stopped at this scope. Qualify
   indexed anchors for representative long-form questions on a fresh
   holdout before proposing wider selection.
+- [ ] 2026-11-19 fresh natural-language holdout, development agent. **STOP** for
+  the sparsely represented term shortlist. It left top-ten expected-evidence
+  placements unchanged at 3/15 in the as-of evaluation and 1/15 in the
+  retrospective evaluation. Warm p95 for answerable as-of requests rose from
+  132 to 147 ms. The experiment was stopped before deployment. Independently
+  written short queries on the installed search build reached 6/15 as-of and
+  4/15 retrospectively, with 0/4 placements on directly covered as-of questions.
+  ME-07 remains in progress. The [validation result](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07)
+  records the candidate and ranking misses and the scope of the comparison.
 
 ### ME-08
 

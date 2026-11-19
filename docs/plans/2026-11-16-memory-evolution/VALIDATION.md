@@ -368,6 +368,32 @@ unchanged natural held-out recall and currentness. Expected evidence
 still misses the top ten. The measured lane is excluded from the release. Reach and latency must be measured again on a fresh long-form
 holdout before widening default retrieval.
 
+**2026-11-19 fresh natural-language holdout.** The installed baseline
+(`32ea46c`) and the experimental shortlist for sparsely represented terms ran
+the real MCP search handler on identical isolated copies of a frozen backup,
+with questions and expected record placements fixed before scoring. The as-of
+evaluation applied an inclusive UTC recorded-day filter to the frozen backup.
+It measures date-filtered retrieval on the retained corpus. The retrospective
+evaluation uses separate labels for later evidence.
+
+| Expected evidence in the top ten | Installed baseline, original questions | Experimental shortlist, original questions | Installed baseline, independently written short queries |
+| --- | ---: | ---: | ---: |
+| As-of, all scored placements | 3/15 | 3/15 | 6/15 |
+| As-of, directly covered questions | 0/4 | 0/4 | 0/4 |
+| Retrospective, all scored placements | 1/15 | 1/15 | 4/15 |
+
+In each original-question as-of arm, seven expected placements were absent
+before scoring and five ranked below the top ten. Warm p95 for answerable
+as-of MCP calls was 132 ms on the baseline and 147 ms on the candidate,
+including serialization and excluding network time. Returned rows without
+judgments were outside the scoring scope. Precision and answering-agent
+outcomes remain unmeasured in this comparison.
+
+**Decision: STOP the shortlist experiment before deployment.** The short-query
+comparison shows that wording changes can recover some placements on the
+installed build. Direct as-of evidence remains unrecovered. Qualification of
+a recovery path for long questions remains open.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved
