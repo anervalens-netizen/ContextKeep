@@ -1,3 +1,4 @@
+import { RECORD_READ_DEFAULTS } from "../services/evidence-read-defaults.js";
 import { PanelProjectsInput, PanelTasksInput } from "./panel-schemas.js";
 function telemetryOrigins(): string[] { try {return process.env.GLITCHTIP_DSN ? [new URL(process.env.GLITCHTIP_DSN).origin] : [];} catch {return [];} }
 import { workflowResults } from "./workflow-results.js";
@@ -418,6 +419,10 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       const errorSchema = z.toJSONSchema(McpToolErrorMetadata, { target: "draft-7" }) as Record<string, unknown>;
       const { $schema: _successDraft, definitions, ...successBranch } = successSchema;
       const { $schema: _errorDraft, ...errorBranch } = errorSchema;
+      // The envelope already requires an object, so repeating that type in
+      // either branch cannot constrain the published output any further.
+      if (successBranch.type === "object") delete successBranch.type;
+      if (errorBranch.type === "object") delete errorBranch.type;
       const outputSchema = {
         $schema: "http://json-schema.org/draft-07/schema#",
         type: "object",
@@ -561,7 +566,7 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
     (input) => service.searchContext(context, input,
       (value) => safeValue(value, secrets), secrets), McpSearchResultDto);
   define("get_record", "Read one record and a bounded evidence page. Use expectedRevision and expectedEvidenceVersion from the selected card or previous page. Proposals require includeUnreviewed.",
-    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), projectId: ProjectId.optional(), expectedRevision: z.number().int().min(1).optional(), expectedEvidenceVersion: z.string().length(64).optional(), evidenceOffset: z.number().int().min(0).default(0), evidenceLimit: z.number().int().min(1).max(10).default(3) }), true,
+    z.strictObject({ recordId: z.string().uuid(), includeUnreviewed: z.boolean().default(false), projectId: ProjectId.optional(), expectedRevision: z.number().int().min(1).optional(), expectedEvidenceVersion: z.string().length(64).optional(), evidenceOffset: z.number().int().min(0).default(RECORD_READ_DEFAULTS.evidenceOffset), evidenceLimit: z.number().int().min(1).max(10).default(RECORD_READ_DEFAULTS.evidenceLimit) }), true,
     input => readRecord(deps, input, secrets), RecordReadResult);
   define("create_handoff", "When the user asks for a handoff, persist a canonical evidence-based handoff snapshot. This writes an export, not new accepted knowledge.",
     z.strictObject({ projectId: ProjectId, objective: z.string().max(2000).nullable().default(null),

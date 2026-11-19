@@ -1,3 +1,4 @@
+import { SOURCE_READ_DEFAULTS } from "./evidence-read-defaults.js";
 import Database from "better-sqlite3";
 import { sql } from "drizzle-orm";
 import { ApiError } from "../lib/errors.js";
@@ -342,7 +343,7 @@ export function searchSourceEvidence(
         detailArgs: {
           sourceId: source.id,
           projectId: input.projectId,
-          representation: "normalized" as const,
+          ...SOURCE_READ_DEFAULTS,
           expectedVersion,
           ...(excerpt
             ? { maxChars: 1, excerptOffset: excerpt.ordinal, excerptLimit: 1 }

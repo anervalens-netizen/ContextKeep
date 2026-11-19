@@ -275,6 +275,23 @@ describe("ME10 budgeted MCP search cards", () => {
     expect(after).toEqual(before);
   });
 
+  it("keeps four cards per scope at 16000 bytes with callable detail arguments", async () => {
+    const { t, projectId } = await fixture();
+    const result = await call(t, {
+      projectId,
+      scope: "all",
+      representation: "cards",
+      maxResultBytes: 16_000,
+      limit: 15,
+    });
+    expect(result.isError).not.toBe(true);
+    const parsed = McpSearchResultDto.parse(result.structuredContent);
+    expect(parsed.records).toHaveLength(4);
+    expect(parsed.workingRecords).toHaveLength(4);
+    expect(parsed.records[0]).toMatchObject({ textOmitted: true });
+    expect(Buffer.byteLength(JSON.stringify(result.structuredContent))).toBeLessThanOrEqual(16_000);
+  });
+
   it("rejects impossible budgets, does not silently truncate full results, preserves legacy mode", async () => {
     const { t, projectId } = await fixture();
     const full = await call(t, { projectId, limit: 3, compact: false });
@@ -539,6 +556,9 @@ describe("V-12 progressive evidence reads", () => {
       projectId,
       expectedRevision: 1,
       expectedEvidenceVersion: card.evidenceVersion,
+      includeUnreviewed: false,
+      evidenceOffset: 0,
+      evidenceLimit: 3,
     });
     await details(
       "get_record",
@@ -578,6 +598,19 @@ describe("V-12 progressive evidence reads", () => {
     ).toEqual([...excerptIds].sort());
 
     const sourceArgs = pageArgs(first.evidence[0].recovery);
+    expect(sourceArgs).toMatchObject({
+      representation: "normalized",
+      offset: 0,
+      maxChars: 6000,
+      excerptOffset: 0,
+      excerptLimit: 5,
+    });
+    const initialSource = await details("get_source", sourceArgs);
+    expect(initialSource).toMatchObject({
+      canonicalTruth: false,
+      excerptReturned: 5,
+      excerptNextOffset: null,
+    });
     await details(
       "get_source",
       { ...sourceArgs, projectId: unrelatedProjectId },

@@ -166,6 +166,19 @@ describe("usage hardening regressions", () => {
       ...identity(),
     });
     expect(projectNote.captureScope).toBe("project");
+    const { tool, ...readbackArgs } = projectNote.readback;
+    expect(tool).toBe("get_record");
+    expect(readbackArgs).toMatchObject({
+      recordId: projectNote.outcome.recordId,
+      includeUnreviewed: true,
+      evidenceOffset: 0,
+      evidenceLimit: 3,
+    });
+    const record = await call(t, tool, readbackArgs);
+    expect(record).toMatchObject({
+      id: projectNote.outcome.recordId,
+      reviewStatus: "proposed",
+    });
     expect(projectNote.warnings.join(" ")).toContain(
       "excluded from resume_task",
     );

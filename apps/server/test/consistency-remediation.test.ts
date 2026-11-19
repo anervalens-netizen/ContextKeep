@@ -939,6 +939,8 @@ describe("bounded follow-up capsule", () => {
           tool: "get_record",
           recordId: captured.outcome.recordId,
           includeUnreviewed: true,
+          evidenceOffset: 0,
+          evidenceLimit: 3,
         },
       },
     });
@@ -1161,6 +1163,22 @@ describe("checkpoint selection uses durable event order", () => {
     });
     expect(work.latestCheckpoint.recordId).toBe(postClosureId);
     expect(work.resumeCapsule.followUp.checkpointRecordId).toBe(postClosureId);
+
+    const boundedWork = await call(t, "get_work_context", {
+      projectId,
+      taskId,
+      totalContextBudgetChars: 4_000,
+    });
+    const { tool, ...recoveryArgs } = boundedWork.resumeCapsule.followUp.recovery;
+    expect(tool).toBe("get_record");
+    expect(recoveryArgs).toMatchObject({
+      recordId: postClosureId,
+      includeUnreviewed: true,
+      evidenceOffset: 0,
+      evidenceLimit: 3,
+    });
+    const recovered = await call(t, tool, recoveryArgs);
+    expect(recovered).toMatchObject({ id: postClosureId, reviewStatus: "proposed" });
 
     const dossier = await call(t, "get_project_dossier", {
       projectId,

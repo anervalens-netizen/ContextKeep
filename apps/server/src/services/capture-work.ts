@@ -9,6 +9,7 @@ import { writeAudit } from "./audit.js";
 import { checkpointIdentity, parseWorkingCheckpoint, type WorkingCheckpoint, type BlockerMention } from "./checkpoint.js";
 import { refreshContextCursorSnapshot } from "./context-journal.js";
 import { chunkText } from "./chunk.js";
+import { recordRecovery } from "./evidence-read-defaults.js";
 import { bumpProjectWorkingMemoryVersion } from "./content-version.js";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { createRecord, requireProject, requireRecord } from "./memory-management.js";
@@ -236,7 +237,7 @@ export function captureWork(deps: ServiceDeps, input: CaptureWorkInput, ctx: Act
         ? ["Explicit project-level checkpoint: historical project context only; excluded from resume_task. Use taskId for operational continuity."] : [],
       readback: input.taskId
         ? { tool: "resume_task", projectId: input.projectId, taskId: input.taskId }
-        : { tool: "get_record", recordId: outcomeRecord.id, includeUnreviewed: true },
+        : recordRecovery(outcomeRecord.id),
     };
   })();
 }

@@ -612,6 +612,9 @@ Dependencies: ME-02, ME-03, ME-05 · Validation: [V-11](docs/plans/2026-11-16-me
   request budget and a core beyond the response ceiling. Legacy forms pass
   compatibility tests. The selected release passed its runtime and rollback
   gates. Broader client/workflow coverage remains open in V-11.
+- [ ] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41) adds
+  connector-ready recovery arguments for capture and task continuation.
+  Validate the installed connector at both tight and sufficient budgets.
 
 
 ### ME-12
@@ -627,6 +630,10 @@ Dependencies: ME-10, ME-11 · Validation: [V-12](docs/plans/2026-11-16-memory-ev
   totals, returned counts and recovery. Synthetic tests reject stale revisions,
   source/excerpt changes, cross-project reads and proposals without opt-in.
   Freshness reference samples remain bounded; V-12 remains PARTIAL.
+- [ ] [PR #41](https://github.com/anervalens-netizen/ContextKeep/pull/41) makes
+  the record and source detail arguments explicit. Under byte pressure,
+  cards can shorten previews before omitting results. Complete installed
+  connector pagination and revision-fence checks before advancing V-12.
 
 
 ### ME-13

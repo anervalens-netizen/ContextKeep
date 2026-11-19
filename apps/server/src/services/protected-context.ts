@@ -1,3 +1,4 @@
+import { recordRecovery, RECORD_READ_DEFAULTS } from "./evidence-read-defaults.js";
 import { ApiError } from "../lib/errors.js";
 import {
   dualContentResultBytes,
@@ -33,7 +34,7 @@ function requireCore(value: unknown, budget: number, actionRecordId: string) {
     throw new ApiError(
       413,
       "protected_context_requires_detail_reads",
-      `The protected core exceeds the response ceiling. Read get_record with recordId=${actionRecordId} and includeUnreviewed=true for the action or checkpoint. Use get_task for state and list_blockers for blocker details.`,
+      `The protected core exceeds the response ceiling. Read get_record with recordId=${actionRecordId}, includeUnreviewed=true, evidenceOffset=${RECORD_READ_DEFAULTS.evidenceOffset}, and evidenceLimit=${RECORD_READ_DEFAULTS.evidenceLimit} for the action or checkpoint. Use get_task for state and list_blockers for blocker details.`,
     );
   }
   if (requiredChars > budget) {
@@ -43,10 +44,6 @@ function requireCore(value: unknown, budget: number, actionRecordId: string) {
       `Set totalContextBudgetChars to at least ${requiredChars} for this current state.`,
     );
   }
-}
-
-function recordRecovery(recordId: string) {
-  return { tool: "get_record", recordId, includeUnreviewed: true };
 }
 
 function currentDossier(deps: ServiceDeps, d: Dossier) {
