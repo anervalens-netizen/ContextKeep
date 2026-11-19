@@ -104,7 +104,7 @@ Inventory after review: **50 items — 11 PLANNED, 6 GATED, 15 IN_PROGRESS, 2 IM
 | Baseline and gates | ME-01 and ME-03. The frozen private corpus, observation windows, source/runtime identity and metric semantics passed independent review. ME-04 corrected the dated runtime and backup description through the owner revision fence. Unknown lifecycle and closed tasks were preserved. | ME-02 needs equivalent synthetic scenarios and a separately scored agent outcome. Wider volatility policy is covered by ME-08. |
 | Retrieval and fidelity | ME-06 bounded current/history behavior and ME-10 budgeted record cards passed in the releases built from [#36](https://github.com/anervalens-netizen/ContextKeep/pull/36) and [#37](https://github.com/anervalens-netizen/ContextKeep/pull/37). | ME-07 still has available evidence outside the top ten, predominantly in saturated queries. ME-08 needs evidence-class applicability and revalidation policy. ME-09 passed a read-only ChatGPT panel and native MCP comparison for completed and active tasks. A separate live case matched all seven present blockers and an empty run list. Synthetic task-navigation tests cover paused/retired state and invalidated proof. Full browser parity for those lifecycle cases remains open. ME-13 needs task/source scope qualification. ME-15 needs measured incremental invalidation and restart. ME-16 needs invalid-span handling and legacy source parity. |
 | Review and operator experience | ME-20 has a qualified companion owner CLI view. ME-26 and ME-31 have bounded diagnostic codes, omissions and capture guidance. | ME-20 needs native current-review presentation. ME-26 needs SDK rejection visibility before dispatch. ME-31 needs real-client capture, rebase and closure verification. |
-| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 and ME-41 have live host source discovery and exact excerpt identity, offset and version parity. Reapply applicable gates at each release. ME-44 retains deferred DSH review and dependency disposition. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
+| Release and recovery | ME-42, ME-43 and ME-47 qualify the installed #37 release. Bounded rebuild, compatible isolated rollback, deployed canaries, independent restore, authority controls and cleanup passed. The subsequent scheduled capture reached both off-host destinations with matching checksums. | ME-14 and ME-41 have live host source discovery and exact excerpt identity, offset and version parity. Reapply applicable gates at each release. ME-44 retains the previously deferred DSH review. The named dependency advisory was withdrawn and documented. ME-46 maps all 20 audit findings to tracker items and private receipts. The existing task retains the proposed handoff and its readback. ME-50 remains active while programme acceptance remains open. |
 | Prospective evidence | Bounded capacity, stress and restore findings are in private operational evidence. | ME-27, ME-45 and ME-48 alone depend on the 24 November matched full-window checkpoint. Compare attribution denominators, post-release outcomes and storage under the same probes/store. None depends on Windows. |
 
 The paired release comparison improved development Recall@5 on two cases.
@@ -971,12 +971,11 @@ Dependencies: ME-42 · Validation: [V-44](docs/plans/2026-11-16-memory-evolution
   records the immediate wording follow-up, applied in this completion record.
   Grouped review closure was read back. This offline helper change requires
   no application deployment.
-- [ ] Pre-existing dependency follow-up: Triage the low `deepmerge`
+- [x] Dependency advisory disposition, 19 November: GitHub marks
   [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)
-  advisory. Runtime exposure remains unverified; no patched version is listed
-  in the checked evidence. CI uses an audit threshold of `moderate`, which does
-  not resolve a low advisory. Preserve the explicit disposition under ME-46 /
-  ME-50; any remedy is separate from PR #29 and adds no programme item.
+  withdrawn on 16 November and explains its determination in the advisory.
+  Closed as withdrawn. No dependency change is required for this advisory.
+  The required moderate-or-higher audit remains part of release qualification.
 
 ### ME-45
 
