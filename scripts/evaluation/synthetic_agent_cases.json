@@ -1,0 +1,109 @@
+{
+  "prompt": "Complete the read-only evaluation using the evidence in each case.\nDo not use tools, call services or perform any action. Select a simulated\nnext action. Choose answer, verify_source, preserve_closed, or abstain.\nIf the evidence supports a value, return only that short value in answer\n(using the value's spelling in the evidence), and give the necessary\nsupportIds. If evidence is unavailable, return unknown and an empty list.\nKeep cases independent. Return only the required JSON.",
+  "episodes": [
+    {
+      "id": "current-history",
+      "questions": {
+        "en": "What is the current Finch release channel? Check the previous channel only as context.",
+        "ro": "Care este canalul curent al versiunii Finch? Canalul anterior este doar context."
+      },
+      "evidence": "Today is 2026-05-20. Current accepted record R11: channel is silver, effective April 2; previous accepted record R10: channel was ochre, superseded April 2.",
+      "expected": {
+        "answer": "silver",
+        "supportIds": [
+          "R11"
+        ],
+        "action": "answer"
+      }
+    },
+    {
+      "id": "source-only",
+      "questions": {
+        "en": "Which verification word is in the signed Kite acceptance appendix?",
+        "ro": "Ce cuvânt de verificare apare în anexa semnată de acceptanță Kite?"
+      },
+      "evidence": "Accepted record R21 confirms a signed appendix exists, no verification word. Verified source detail S21, accepted signed appendix page 2: verification word is sandpiper. Proposed working note W21 guesses heron.",
+      "expected": {
+        "answer": "sandpiper",
+        "supportIds": [
+          "S21"
+        ],
+        "action": "verify_source"
+      }
+    },
+    {
+      "id": "closed-task",
+      "questions": {
+        "en": "What is the outcome for the Quartz kiosk closure task and should I run it again?",
+        "ro": "Care este rezultatul sarcinii de închidere Quartz și trebuie să o rulez din nou?"
+      },
+      "evidence": "Task T31 dossier: completed and closed at enclosing revision 4. Run E31 succeeded and was reconciled to the closing evidence. An earlier proposed note W31 recommends starting the task.",
+      "expected": {
+        "answer": "completed",
+        "supportIds": [
+          "T31",
+          "E31"
+        ],
+        "action": "preserve_closed"
+      }
+    },
+    {
+      "id": "identifier",
+      "questions": {
+        "en": "What is the label for asset QZ-421?",
+        "ro": "Ce etichetă are exact activul QZ-421?"
+      },
+      "evidence": "Accepted inventory I41: QZ-421 label maple. Accepted inventory I42: QZ-412 label pine.",
+      "expected": {
+        "answer": "maple",
+        "supportIds": [
+          "I41"
+        ],
+        "action": "answer"
+      }
+    },
+    {
+      "id": "paraphrase",
+      "questions": {
+        "en": "What do we call the unit where outgoing parcels get a second cross-check?",
+        "ro": "Cum se numește punctul unde coletele de expediat sunt verificate încă o dată?"
+      },
+      "evidence": "Accepted guide G51: The Falcon station performs the final outbound shipment double-check. Guide G52: inbound cartons are scanned in the Lark station.",
+      "expected": {
+        "answer": "Falcon",
+        "supportIds": [
+          "G51"
+        ],
+        "action": "answer"
+      }
+    },
+    {
+      "id": "conflict",
+      "questions": {
+        "en": "Two reports disagree about the approved Opal delivery tier. Which tier is approved?",
+        "ro": "Două rapoarte diferă asupra nivelului de livrare Opal. Care este nivelul aprobat?"
+      },
+      "evidence": "Accepted decision D61 from owner: tier amber approved. Newer agent report W61 marked proposed recommends tier mint, with no owner approval or supporting evidence.",
+      "expected": {
+        "answer": "amber",
+        "supportIds": [
+          "D61"
+        ],
+        "action": "answer"
+      }
+    },
+    {
+      "id": "unavailable",
+      "questions": {
+        "en": "What was the actual opening temperature of the Aspen cabinet?",
+        "ro": "Care a fost temperatura efectivă la deschiderea dulapului Aspen?"
+      },
+      "evidence": "Procedure P71 specifies a target of 18 degrees. Log L71 has an empty observed opening temperature field. The complete task evidence includes no actual measurement.",
+      "expected": {
+        "answer": "unknown",
+        "supportIds": [],
+        "action": "abstain"
+      }
+    }
+  ]
+}

@@ -95,3 +95,34 @@ Private questions, expected identities, capture artifacts, frozen corpus files, 
 To prepare a real corpus, obtain bounded fresh evidence reads under its task; select real episodes without reusing audit failures as held-out examples; independently review the identities, time semantics, abstention reasons, and split; then freeze before candidate tuning. Do not create a new database snapshot or run a mass query benchmark to populate this helper.
 
 The helper is covered by synthetic guard tests. A successful natural-corpus freeze and live measurement require separate qualification with private evidence. The successful CLI privacy path is tested with a controlled synthetic freezer result, while the real freezer rejects synthetic corpora.
+
+## Fixed-evidence synthetic agent outcomes
+
+The [fictional outcome cohort](synthetic_agent_cases.json) contains seven
+episodes with paired Romanian and English questions. It covers current versus
+historical evidence, a source-only fact, a closed task, exact identifiers,
+paraphrases, conflicting authority and abstention. Both formulations of an
+episode stay together in this separate evaluation cohort. The existing
+retrieval tuning and holdout fixtures keep their original membership.
+
+Render the question and evidence without the oracle:
+
+```bash
+python3 scripts/evaluation/synthetic_agent_eval.py prompt
+```
+
+Use a fresh read-only agent with the rendered prompt, a predeclared model,
+budget and stopping rule. Retain the actual trace and verify that the agent
+made no tool calls. Score the structured answer against the frozen fixture:
+
+```bash
+python3 scripts/evaluation/synthetic_agent_eval.py score answer.json
+```
+
+The answer file is an object with a `cases` array. Each case has `id`,
+`answer`, `supportIds` and the simulated `action`. The offline scorer
+evaluates exact answers, support IDs, allowed actions, abstentions and false
+abstentions independently. Record any semantic adjudication alongside the
+frozen exact-string outcome. The result measures the supported answer and
+simulated next action given a fixed evidence packet. Retrieval, presentation
+and autonomous live tool use require their own checks.
