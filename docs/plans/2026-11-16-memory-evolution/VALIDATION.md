@@ -426,6 +426,27 @@ placements with post-question timestamps increased from 17 to 21.
 gain leaves regressions across the evaluated sets unresolved. V-07 remains
 partial.
 
+**2026-11-19 opt-in excerpt recovery.** A separate read-only MCP call returned
+redacted linked passages while preserving project, review authority and
+cutoff boundaries. It recovered one exact expected evidence placement in
+each of two development cases. Across 24 new queries and 35 control queries,
+ordinary search response hashes matched on all 57 valid requests. The two
+queries above the input length limit were rejected identically.
+
+The first independently labeled holdout had 14 queries and one directly
+covered query. The opt-in path recovered no additional directly expected
+evidence there. The second independently labeled holdout had ten queries,
+including four directly covered queries with five expected working-evidence
+placements. Ordinary search reached 1/5. One matched source passage in the
+separate opt-in list raised combined evidence coverage to 2/5. Four opt-in
+calls were eligible. Their measured latency was 18 ms p50 and 28 ms p95.
+
+The 35-query control set had no qualifying positive recovery with the
+revised path. The audit confirmed one misleading topical match, compared
+with three in the initial prototype audit. These counts describe inspected
+control results. V-07 stays partial, and the experimental path remains
+undeployed.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved

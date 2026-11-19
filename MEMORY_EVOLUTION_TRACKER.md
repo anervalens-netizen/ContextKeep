@@ -504,6 +504,12 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   On the reserve set, the second candidate recovered one of two expected
   direct placements, with a latency increase. Regressions across the
   evaluated sets blocked deployment. See [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
+- [ ] 2026-11-19 opt-in excerpt recovery, development agent. A separate
+  read-only response recovered one expected placement in the second
+  independently labeled holdout. Ordinary search responses matched exactly
+  on all 57 valid requests across the two holdouts and the control set.
+  The control audit still found one misleading topical match. The opt-in
+  path remains experimental. See [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
 
 ### ME-08
 
