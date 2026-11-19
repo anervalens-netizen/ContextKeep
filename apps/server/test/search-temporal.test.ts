@@ -504,7 +504,7 @@ describe("ME-06 bounded retrieval and authority", () => {
     },
   );
 
-  it("finds the newest matching observation beyond 400 stronger lexical matches", async () => {
+  it("finds a distant temporal match and recovers it from LIKE saturation through a recorded-day filter", async () => {
     const { t, projectId, add, matches } = await fixture();
     const wanted = "ffffffff-ffff-4fff-8fff-ffffffffffff";
     t.app.ck.deps.sqlite.transaction(() => {
@@ -517,6 +517,7 @@ describe("ME-06 bounded retrieval and authority", () => {
       }
       add({
         id: wanted,
+        recordedAt: "2026-05-18T00:00:00.000Z",
         sourceEventAt: recent,
         text: "Beacon current deployment" + " background".repeat(64),
       });
@@ -542,6 +543,59 @@ describe("ME-06 bounded retrieval and authority", () => {
       candidateLimitReached: true,
       mayHaveMore: true,
     });
+    const baseArgs = {
+      q: "Beacon current deployment",
+      projectId,
+      scope: "canonical",
+      compact: true,
+      limit: 10,
+    };
+    const invoke = async (
+      overrides: { q?: string; recordedFrom?: string; recordedTo?: string } = {},
+    ) => {
+      const response = await t.app.inject({
+        method: "POST",
+        url: "/mcp",
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/json, text/event-stream",
+        },
+        payload: {
+          jsonrpc: "2.0",
+          id: randomUUID(),
+          method: "tools/call",
+          params: { name: "search_context", arguments: { ...baseArgs, ...overrides } },
+        },
+      });
+      expect(response.statusCode).toBe(200);
+      const result = response.json().result;
+      expect(result.isError).not.toBe(true);
+      return McpSearchResultDto.parse(result.structuredContent);
+    };
+
+    const broad = await invoke();
+    expect(broad.records.map((record) => record.recordId)).not.toContain(wanted);
+    expect(broad.completeness.records).toEqual({
+      returned: 10,
+      limit: 10,
+      candidateLimitReached: true,
+      mayHaveMore: true,
+    });
+
+    // The day is a caller-provided capture boundary, independent of the record ID.
+    const narrowed = await invoke({
+      recordedFrom: "2026-05-18",
+      recordedTo: "2026-05-18",
+    });
+    expect(narrowed.records.map((record) => record.recordId)).toEqual([wanted]);
+    expect(narrowed.completeness.records).toEqual({
+      returned: 1,
+      limit: 10,
+      candidateLimitReached: false,
+      mayHaveMore: false,
+    });
+    const exact = await invoke({ q: wanted });
+    expect(exact.records.map((record) => record.recordId)).toEqual([wanted]);
   });
 
   it("does not report saturation when the full lexical lane covers a smaller temporal lane", async () => {
