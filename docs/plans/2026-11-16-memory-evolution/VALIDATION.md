@@ -394,6 +394,38 @@ comparison shows that wording changes can recover some placements on the
 installed build. Direct as-of evidence remains unrecovered. Qualification of
 a recovery path for long questions remains open.
 
+**2026-11-19 cutoff and ranking follow-up.** The day-level production filter
+missed the expected evidence in two development cases. In an isolated
+comparison, applying the same exact timestamp cutoff to both arms recovered
+one qualifying placement per case. Each placement was verified against a
+redacted linked excerpt. The exact timestamp cutoff was experimental.
+
+The fresh holdout contained 23 queries, including five with direct evidence
+coverage and 14 expected placements across those five. The first ranking
+candidate left direct evidence placements in the top ten at 3/14 with the
+exact cutoff and 2/14 with the production day filter. The second also left
+direct coverage at 3/14 with the exact cutoff. It lost one expected partial
+placement, gained another, and added one labeled wrong placement. Warm p95
+rose from 121 to 321 ms. In the separately labeled retrospective evaluation,
+the second candidate improved direct placements from 7/31 to 8/31 while
+known wrong placements increased from one to two. On the earlier cohort with
+the production day filter, top-ten expected placements fell from 3/15 to
+2/15 and returned placements with post-question timestamps rose from six to
+13. Counts of known wrong placements apply to adjudicated results. Overall
+precision was outside the evaluation scope.
+
+The reserve set comprised 12 queries from 11 conversations, including two
+directly covered queries. The second candidate raised top-ten direct
+placements from 0/2 to 1/2 with either cutoff and raised all expected
+placements from 2/12 to 3/12. It retained all previously retrieved labeled
+expected placements. The known wrong count remained one. Warm p95 with the
+exact cutoff rose from 235 to 315 ms. On the production day filter, returned
+placements with post-question timestamps increased from 17 to 21.
+
+**Decision: STOP both ranking experiments before deployment.** The reserve
+gain leaves regressions across the evaluated sets unresolved. V-07 remains
+partial.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved

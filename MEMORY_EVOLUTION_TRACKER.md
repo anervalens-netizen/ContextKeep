@@ -495,6 +495,15 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   4/15 retrospectively, with 0/4 placements on directly covered as-of questions.
   ME-07 remains in progress. The [validation result](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07)
   records the candidate and ranking misses and the scope of the comparison.
+- [ ] 2026-11-19 cutoff and ranking follow-up, development agent. On two
+  development cases missed with the existing day filter, a shared exact
+  timestamp cutoff recovered one qualifying placement per case from a
+  redacted linked excerpt. Two experimental ranking changes left top-ten
+  direct-evidence coverage unchanged on a fresh holdout. The second also added
+  a labeled wrong placement and increased warm p95 from 121 to 321 ms.
+  On the reserve set, the second candidate recovered one of two expected
+  direct placements, with a latency increase. Regressions across the
+  evaluated sets blocked deployment. See [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
 
 ### ME-08
 
