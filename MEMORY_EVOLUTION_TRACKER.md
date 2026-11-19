@@ -5,7 +5,14 @@ Programme: memory, current-state retrieval, source indexing and usage efficiency
 Plan: [PLAN.md](docs/plans/2026-11-16-memory-evolution/PLAN.md)\
 Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDATION.md)
 
-## Current state
+## Current inventory — 2026-11-19
+
+**50 items — 26 VERIFIED, 1 DONE, 2 IMPLEMENTED, 4 IN_PROGRESS,
+11 PLANNED, 6 GATED.** The [item index](#item-index) is the source for this
+count. ME-07, ME-27, ME-45 and ME-48 are in progress. ME-11 and ME-12 are
+implemented and retain their listed acceptance requirements.
+
+## Historical delivery checkpoints
 
 **Batches 1–4 delivered their bounded scopes: effective task-state search,
 forward review ingestion, a frozen private baseline and the compact/conditional
@@ -53,18 +60,18 @@ See [Batch 8](docs/plans/2026-11-16-memory-evolution/BATCH_8_BUDGETED_SEARCH.md)
 
 The complete private audit and operational evidence map remain in the ContextKeep
 project. This public tracker contains technical scope and synthetic acceptance
-contracts. It is not a production status report.
+contracts. Production status is recorded separately.
 
 **2026-11-18 consolidated source candidate.** Development agent, based on the
 stacked PR36 head `67f86dd0735b58aed98f6c72f70aaf31945e5ceb`. ME-11 and ME-12
 move PLANNED → IMPLEMENTED. ME-06, ME-08 and ME-10 remain IN_PROGRESS.
 V-06/V-08 retain a bounded fallback recall limit. V-10 retains source/excerpt
 card discovery as open work. The [integrated source result](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#consolidated-source-batch)
-records the synthetic comparison, local gates and remaining limits. Current
+records the synthetic comparison, local gates and remaining limits. Historical source candidate
 inventory: **50 items — 18 PLANNED, 6 GATED, 19 IN_PROGRESS, 2 IMPLEMENTED,
 4 VERIFIED, 1 DONE.**
 
-### Consolidated release qualification
+### Historical consolidated release qualification
 
 [PR #36](https://github.com/anervalens-netizen/ContextKeep/pull/36) merged as
 `930f42ee4ceb0d50295231a0c2d27c00e8087868`. Its source covers corrected
@@ -83,21 +90,21 @@ selected expected results omitted at the lower budget. Source/excerpt discovery
 is separate from this record-card contract. Raw cases and operational
 measurements remain in the private evidence ledger.
 
-Current inventory: **50 items — 16 PLANNED, 6 GATED, 21 IN_PROGRESS,
+Historical release inventory: **50 items — 16 PLANNED, 6 GATED, 21 IN_PROGRESS,
 2 IMPLEMENTED, 4 VERIFIED, 1 DONE.** The release advances specific acceptance
 slices. The item rows retain remaining scope and verification requirements.
 
-### Source evidence and operator support candidate
+### Historical source evidence and operator support candidate
 
 The follow-on source candidate adds bounded project source discovery and
-operator error guidance without a persistent schema change. Its programme
-inventory is **50 items — 11 PLANNED, 6 GATED, 25 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**.
+operator error guidance without a persistent schema change. Its historical
+candidate inventory was **50 items — 11 PLANNED, 6 GATED, 25 IN_PROGRESS, 3 IMPLEMENTED, 4 VERIFIED, 1 DONE**.
 This records source implementation. Installed verification and wider traffic outcomes retain
 their individual acceptance gates.
 
-### 2026-11-19 evidence reconciliation
+### 2026-11-19 evidence reconciliation checkpoint
 
-Inventory after review: **50 items — 11 PLANNED, 6 GATED, 7 IN_PROGRESS, 2 IMPLEMENTED, 23 VERIFIED, 1 DONE**.
+Historical inventory after that review: **50 items — 11 PLANNED, 6 GATED, 7 IN_PROGRESS, 2 IMPLEMENTED, 23 VERIFIED, 1 DONE**.
 
 | Outcome | Verified scope | Remaining acceptance |
 | --- | --- | --- |
@@ -182,7 +189,7 @@ Scope and continuation gates: [BATCH_2.md](docs/plans/2026-11-16-memory-evolutio
   automatic repeat passed their scoped checks; continued operation, historical
   recovery and later programme releases retain their own gates.
 
-The opening creation inventory is historical. Current item rows own status.
+The inventory snapshots above describe their individual checkpoints. The [item index](#item-index) records the current item statuses.
 
 ## Batch 3 — 2026-11-16
 
