@@ -770,3 +770,34 @@ describe("record filters and bounded result windows", () => {
     expect(await mirror.readCache(mirror.searchKey(identity), searchCacheScope(identity))).toBeNull();
   });
 });
+
+it("labels unavailable source excerpts and renders valid excerpts with offsets", async () => {
+  fetchMock.mockImplementation((inputUrl, init) => {
+    if (!String(inputUrl).startsWith("/api/search?")) return serve(inputUrl, init);
+    const payload = result();
+    payload.sources = [{
+      source: {
+        id: "synthetic-source", kind: "paste", title: "Synthetic source", originalFilename: null,
+        contentHash: "synthetic", normalizedHash: "synthetic", importedAt: fetchedAt,
+        eventAt: null, authorLabel: null, provenanceBasis: "uploader_metadata", projectId: "alpha",
+        redactionState: "none", excerptCount: 3,
+      },
+      matchedExcerpts: [
+        { id: "legacy-negative", sourceId: "synthetic-source", text: "unusable cached excerpt",
+          exactTextHash: "legacy", startOffset: -1, endOffset: 2 },
+        { id: "invalid", sourceId: "synthetic-source", text: "", exactTextHash: "invalid",
+          startOffset: 0, endOffset: 0, unavailableReason: "invalid_normalized_utf16_span" },
+        { id: "valid", sourceId: "synthetic-source", text: "valid synthetic excerpt",
+          exactTextHash: "valid", startOffset: 1, endOffset: 24 },
+      ],
+    }];
+    return Promise.resolve(response(payload, init));
+  });
+  await mount(["/search?q=release&projectId=alpha"]);
+  fireEvent.click(await screen.findByText("3 matched excerpt(s)"));
+  expect(screen.getAllByText("Excerpt unavailable because its stored offsets are invalid.")).toHaveLength(2);
+  expect(screen.queryByText("unusable cached excerpt")).toBeNull();
+  expect(screen.queryByText("offsets 0–0")).toBeNull();
+  expect(screen.getByText("UTF-16 offsets 1–24")).toBeTruthy();
+  expect(screen.getByText("“valid synthetic excerpt”")).toBeTruthy();
+});

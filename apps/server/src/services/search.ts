@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { SearchTemporalDto, EvidenceDto, RecordDto, SearchMatch, SearchMode, SearchResultDto, SearchScope } from "@contextkeep/shared";
 import type { Db } from "../db/client.js";
 import { projects, recordEvidence, records, sourceExcerpts, sources } from "../db/schema.js";
+import { ownerSourceExcerpt } from "./source-offsets.js";
 import { escapeLike } from "../lib/like.js";
 import { attachProjectNames, loadEvidenceFor, toProjectDto, toSourceDto } from "./mappers.js";
 import type { ServiceDeps } from "./import.js";
@@ -751,18 +752,13 @@ function sourcesForQuery(db: Db, q: string, limit: number, projectId: string | n
     .groupBy(sourceExcerpts.sourceId)
     .all();
   const counts = new Map(excerptCounts.map((row) => [row.sourceId, Number(row.n)]));
+  const sourceText = new Map(sourceRows.map((source) => [source.id, source.normalizedText]));
   const matches = new Map<string, SearchResultDto["sources"][number]["matchedExcerpts"]>();
-  for (const e of excerptRows) {
-    const list = matches.get(e.sourceId) ?? [];
-    if (list.length < 5) list.push({
-      id: e.id,
-      sourceId: e.sourceId,
-      startOffset: e.startOffset,
-      endOffset: e.endOffset,
-      text: e.exactText,
-      exactTextHash: e.exactTextHash,
-    });
-    matches.set(e.sourceId, list);
+  for (const excerpt of excerptRows) {
+    const list = matches.get(excerpt.sourceId) ?? [];
+    if (list.length < 5)
+      list.push(ownerSourceExcerpt(sourceText.get(excerpt.sourceId)!, excerpt));
+    matches.set(excerpt.sourceId, list);
   }
   return sourceRows.map((s) => ({ source: toSourceDto(s, counts.get(s.id) ?? 0), matchedExcerpts: matches.get(s.id) ?? [] }));
 }

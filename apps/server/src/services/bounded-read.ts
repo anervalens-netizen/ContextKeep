@@ -10,11 +10,10 @@ export type TimelineReadCursor = {
 };
 
 export type ExcerptReadCursor = {
-  version: 1;
+  version: 1 | 2;
   kind: "source_excerpts";
   sourceId: string;
   normalizedHash: string;
-  startOffset: number;
   excerptId: string;
 };
 
@@ -60,14 +59,11 @@ export function decodeExcerptCursor(
 ): ExcerptReadCursor {
   const cursor = decodeCursor(raw);
   if (
-    cursor.version !== 1 ||
+    (cursor.version !== 1 && cursor.version !== 2) ||
     cursor.kind !== "source_excerpts" ||
     cursor.sourceId !== sourceId ||
     typeof cursor.normalizedHash !== "string" ||
     cursor.normalizedHash.length === 0 ||
-    typeof cursor.startOffset !== "number" ||
-    !Number.isSafeInteger(cursor.startOffset) ||
-    cursor.startOffset < 0 ||
     typeof cursor.excerptId !== "string" ||
     cursor.excerptId.length === 0
   ) {

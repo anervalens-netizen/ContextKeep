@@ -31,3 +31,31 @@ export function isUtf16ExcerptSpan(text: string, start: number, end: number) {
     !splitsPair(end)
   );
 }
+
+export function unavailableUtf16Excerpt() {
+  return {
+    startOffset: 0,
+    endOffset: 0,
+    text: "",
+    unavailableReason: "invalid_normalized_utf16_span" as const,
+  };
+}
+
+/** The owner HTTP surfaces retain the stored text for usable spans. */
+export function ownerSourceExcerpt(
+  normalizedText: string,
+  row: {
+    id: string;
+    sourceId: string;
+    startOffset: number;
+    endOffset: number;
+    exactText: string;
+    exactTextHash: string;
+  },
+) {
+  const { id, sourceId, startOffset, endOffset, exactText, exactTextHash } = row;
+  const excerpt = isUtf16ExcerptSpan(normalizedText, startOffset, endOffset)
+    ? { startOffset, endOffset, text: exactText }
+    : unavailableUtf16Excerpt();
+  return { id, sourceId, exactTextHash, ...excerpt };
+}

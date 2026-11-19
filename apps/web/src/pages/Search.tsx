@@ -332,10 +332,16 @@ export default function Search(): ReactNode {
                         <ul className="mt-1 space-y-1">
                           {s.matchedExcerpts.map((ex) => (
                             <li key={ex.id} className="rounded-lg bg-ck-bg p-2">
-                              “{ex.text}”
-                              <span className="block text-[10px] text-ck-muted">
-                                offsets {ex.startOffset}–{ex.endOffset}
-                              </span>
+                              {ex.unavailableReason || ex.startOffset < 0 || ex.endOffset <= ex.startOffset ? (
+                                <span className="text-ck-muted">Excerpt unavailable because its stored offsets are invalid.</span>
+                              ) : (
+                                <>
+                                  “{ex.text}”
+                                  <span className="block text-[10px] text-ck-muted">
+                                    UTF-16 offsets {ex.startOffset}–{ex.endOffset}
+                                  </span>
+                                </>
+                              )}
                             </li>
                           ))}
                         </ul>

@@ -14,6 +14,7 @@ import { httpRequestsTotal } from "./lib/telemetry.js";
 import { loadConfig, serverRoot, type AppConfig } from "./config.js";
 import { openDatabase, type DbHandle } from "./db/client.js";
 import { acquireRuntimeLease, canonicalDatabasePath } from "./db/directory-lock.js";
+import { closeSourceEvidenceIndexes } from "./services/source-evidence-search.js";
 import { ensureContextCursorBaselines } from "./services/context-journal.js";
 import { APP_VERSION, bootstrapDatabase } from "./db/bootstrap.js";
 import { createAdapterRegistry } from "./adapters/registry.js";
@@ -433,7 +434,11 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   app.addHook("onClose", async () => {
     await syncCoordinator.stopAndDrain();
     try {
-      handle.sqlite.close();
+      try {
+        closeSourceEvidenceIndexes(handle.sqlite);
+      } finally {
+        handle.sqlite.close();
+      }
     } finally {
       runtimeLease?.release();
       runtimeLease = undefined;

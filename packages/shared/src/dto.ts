@@ -44,6 +44,7 @@ export const ExcerptDto = z.object({
   endOffset: z.number().int(),
   text: z.string(),
   exactTextHash: z.string(),
+  unavailableReason: z.literal("invalid_normalized_utf16_span").optional(),
 });
 export type ExcerptDto = z.infer<typeof ExcerptDto>;
 
