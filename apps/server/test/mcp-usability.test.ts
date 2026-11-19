@@ -205,12 +205,20 @@ describe("bounded operational resume", () => {
     });
     expect(await resumeOmissions()).toBe(before);
     expect(resumed.truncated).toBe(true);
-    expect(resumed.omitted).toContainEqual({
+    const pointer = resumed.omitted.find(
+      (item: { field?: string }) => item.field === "nextAction",
+    );
+    expect(pointer).toEqual({
       field: "nextAction",
       recordId: progress.recordId,
       tool: "get_record",
       includeUnreviewed: true,
+      evidenceOffset: 0,
+      evidenceLimit: 3,
     });
+    const { field: _field, tool, ...recoveryArgs } = pointer;
+    const record = await call(app, tool, recoveryArgs);
+    expect(record).toMatchObject({ id: progress.recordId, reviewStatus: "proposed" });
     expect(JSON.stringify(resumed).length).toBeLessThanOrEqual(6000);
   });
 

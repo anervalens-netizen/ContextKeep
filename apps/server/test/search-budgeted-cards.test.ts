@@ -275,6 +275,23 @@ describe("ME10 budgeted MCP search cards", () => {
     expect(after).toEqual(before);
   });
 
+  it("keeps four cards per scope at 16000 bytes with callable detail arguments", async () => {
+    const { t, projectId } = await fixture();
+    const result = await call(t, {
+      projectId,
+      scope: "all",
+      representation: "cards",
+      maxResultBytes: 16_000,
+      limit: 15,
+    });
+    expect(result.isError).not.toBe(true);
+    const parsed = McpSearchResultDto.parse(result.structuredContent);
+    expect(parsed.records).toHaveLength(4);
+    expect(parsed.workingRecords).toHaveLength(4);
+    expect(parsed.records[0]).toMatchObject({ textOmitted: true });
+    expect(Buffer.byteLength(JSON.stringify(result.structuredContent))).toBeLessThanOrEqual(16_000);
+  });
+
   it("rejects impossible budgets, does not silently truncate full results, preserves legacy mode", async () => {
     const { t, projectId } = await fixture();
     const full = await call(t, { projectId, limit: 3, compact: false });

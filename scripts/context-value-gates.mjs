@@ -15,6 +15,7 @@ const modules = [
   "apps/server/src/services/workspace-policy.ts",
   "apps/server/src/services/workspace-scan-skip.ts",
   "apps/server/src/services/checkpoint.ts",
+  "apps/server/src/services/evidence-read-defaults.ts",
 ];
 
 /** Inspect real imports, not matching words in comments and string content. */

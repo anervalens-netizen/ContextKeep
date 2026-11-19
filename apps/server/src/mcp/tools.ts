@@ -419,6 +419,10 @@ export function createContextKeepMcpServer(deps: ServiceDeps, secrets: string[],
       const errorSchema = z.toJSONSchema(McpToolErrorMetadata, { target: "draft-7" }) as Record<string, unknown>;
       const { $schema: _successDraft, definitions, ...successBranch } = successSchema;
       const { $schema: _errorDraft, ...errorBranch } = errorSchema;
+      // The envelope already requires an object, so repeating that type in
+      // either branch cannot constrain the published output any further.
+      if (successBranch.type === "object") delete successBranch.type;
+      if (errorBranch.type === "object") delete errorBranch.type;
       const outputSchema = {
         $schema: "http://json-schema.org/draft-07/schema#",
         type: "object",

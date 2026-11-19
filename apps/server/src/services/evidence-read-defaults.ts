@@ -3,6 +3,15 @@ export const RECORD_READ_DEFAULTS = {
   evidenceLimit: 3,
 } as const;
 
+export function recordRecovery(recordId: string) {
+  return {
+    tool: "get_record",
+    recordId,
+    includeUnreviewed: true,
+    ...RECORD_READ_DEFAULTS,
+  } as const;
+}
+
 export const SOURCE_READ_DEFAULTS = {
   representation: "normalized",
   offset: 0,

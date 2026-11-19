@@ -5,6 +5,7 @@ import {
   compactLatestCheckpoint,
   summarizeContextSection,
 } from "./context-packing.js";
+import { recordRecovery } from "./evidence-read-defaults.js";
 function clip(value: string, max: number): string {
   return value.length <= max ? value : `${value.slice(0, max)}…`;
 }
@@ -453,6 +454,10 @@ export function fitWorkContext(
     !Array.isArray(resumeCapsule.followUp)
       ? (resumeCapsule.followUp as Record<string, unknown>)
       : null;
+  const followUpRecovery =
+    typeof followUp?.checkpointRecordId === "string"
+      ? recordRecovery(followUp.checkpointRecordId)
+      : { tool: "get_work_context" };
   const compactFollowUp = followUp
     ? {
         checkpointRecordId: followUp.checkpointRecordId,
@@ -474,32 +479,19 @@ export function fitWorkContext(
             followUp.nextAction.length > 180) ||
           (typeof followUp.summary === "string" &&
             followUp.summary.length > 180),
-        recovery:
-          typeof followUp.checkpointRecordId === "string"
-            ? {
-                tool: "get_record",
-                recordId: followUp.checkpointRecordId,
-                includeUnreviewed: true,
-              }
-            : { tool: "get_work_context" },
+        recovery: followUpRecovery,
       }
     : null;
+  // Reserve room for a callable recovery pointer at the minimum budget.
   const minimalFollowUp = followUp
     ? {
         checkpointRecordId: followUp.checkpointRecordId,
         nextAction:
           typeof followUp.nextAction === "string"
-            ? clip(followUp.nextAction, 96)
+            ? clip(followUp.nextAction, 60)
             : null,
         detailOmittedForBudget: true,
-        recovery:
-          typeof followUp.checkpointRecordId === "string"
-            ? {
-                tool: "get_record",
-                recordId: followUp.checkpointRecordId,
-                includeUnreviewed: true,
-              }
-            : { tool: "get_work_context" },
+        recovery: followUpRecovery,
       }
     : null;
   const compactResumeCapsule = resumeCapsule

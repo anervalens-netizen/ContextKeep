@@ -39,6 +39,14 @@ function clip(value: unknown, limit: number): string | null {
   return value.slice(0, end) + "…";
 }
 
+const CARD_PREVIEW_CHARS = 144;
+const SHORT_CARD_PREVIEW_CHARS = 96;
+
+function shortenPreview(card: Record<string, unknown>): Record<string, unknown> {
+  const text = clip(card.text, SHORT_CARD_PREVIEW_CHARS);
+  return text === card.text ? card : { ...card, text, textOmitted: true };
+}
+
 function card(record: Record<string, unknown>): Record<string, unknown> {
   const evidence = Array.isArray(record.evidence) ? record.evidence : [];
   const evidenceTotal = typeof record.evidenceCount === "number" ? record.evidenceCount : evidence.length;
@@ -56,8 +64,8 @@ function card(record: Record<string, unknown>): Record<string, unknown> {
   } = record;
   return {
     ...core,
-    text: clip(text, 144) ?? "",
-    textOmitted: typeof text === "string" && text.length > 144,
+    text: clip(text, CARD_PREVIEW_CHARS) ?? "",
+    textOmitted: typeof text === "string" && text.length > CARD_PREVIEW_CHARS,
     evidence: [],
     evidenceOmittedCount: evidenceTotal,
     evidenceOmitted: evidenceTotal > 0,
@@ -102,7 +110,7 @@ export function packSearchCards(
     },
   };
   delete packed.canonicalRecords;
-  packed.budget = {
+  const budget = {
     requestedBytes: maxResultBytes,
     actualBytes: 0,
     totalRecordsBeforePacking: originalRecords,
@@ -117,7 +125,7 @@ export function packSearchCards(
     ),
     recoverDetailsWith: "get_record",
   };
-  const budget = packed.budget as Record<string, string | number | boolean>;
+  packed.budget = budget;
   const serializedSize = (): number => {
     // The reported byte count is part of structuredContent itself. When its
     // decimal width grows (9999 -> 10000), a single measurement undercounts.
@@ -133,7 +141,33 @@ export function packSearchCards(
       "Could not establish an exact serialized search byte budget.",
     );
   };
-  while (serializedSize() > maxResultBytes) {
+  function tryShorterPreviews(): boolean {
+    const { records, workingRecords } = packed;
+    const { truncated } = budget;
+    const shorterRecords = records.map(shortenPreview);
+    const shorterWorking = workingRecords.map(shortenPreview);
+    if (
+      shorterRecords.every((row, index) => row === records[index]) &&
+      shorterWorking.every((row, index) => row === workingRecords[index])
+    ) return false;
+    packed.records = shorterRecords;
+    packed.workingRecords = shorterWorking;
+    budget.truncated = true;
+    if (serializedSize() <= maxResultBytes) return true;
+    packed.records = records;
+    packed.workingRecords = workingRecords;
+    budget.truncated = truncated;
+    return false;
+  }
+
+  let bytes = serializedSize();
+  while (bytes > maxResultBytes) {
+    const cardCount = packed.records.length + packed.workingRecords.length;
+    // A UTF-16 unit takes at most six JSON bytes when escaped. Skip the
+    // second serialization when even that much preview trimming cannot fit.
+    const maxPreviewSaving =
+      cardCount * (CARD_PREVIEW_CHARS - SHORT_CARD_PREVIEW_CHARS + 1) * 6;
+    if (bytes - maxResultBytes <= maxPreviewSaving && tryShorterPreviews()) break;
     const canRemoveAccepted =
       packed.records.length > (originalRecords > 0 ? 1 : 0);
     const canRemoveWorking =
@@ -160,9 +194,10 @@ export function packSearchCards(
     packed.completeness.records.returned = packed.records.length;
     packed.completeness.workingRecords.returned = packed.workingRecords.length;
     packed.completeness.records.mayHaveMore ||=
-      (budget.omittedRecords as number) > 0;
+      budget.omittedRecords > 0;
     packed.completeness.workingRecords.mayHaveMore ||=
-      (budget.omittedWorking as number) > 0;
+      budget.omittedWorking > 0;
+    bytes = serializedSize();
   }
   const finalBytes = serializedSize();
   if (finalBytes > maxResultBytes) {

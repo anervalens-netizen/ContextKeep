@@ -11,6 +11,7 @@ import {
 } from "./run-evidence.js";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 import { captureWork } from "./capture-work.js";
+import { recordRecovery } from "./evidence-read-defaults.js";
 import { requireRecord, requireProject } from "./memory-management.js";
 import { requireTaskScope } from "./task-scope.js";
 import {
@@ -824,7 +825,7 @@ export function resumeTask(
   });
   const limits = { compact: 600, balanced: 1600, deep: 4800 };
   const max = limits[depth];
-  const omitted: Array<{ field: string; recordId: string; tool: string }> = [];
+  const omitted: Array<{ field: string } & ReturnType<typeof recordRecovery>> = [];
   const detail = (recordId: string | undefined, field: "summary" | "nextAction" | "text", fallback: string | null): string | null => {
     if (!recordId) return fallback;
     const row = requireRecord(deps, recordId);
@@ -836,7 +837,7 @@ export function resumeTask(
     }
     if (typeof value !== "string") return null;
     const redacted = safeText(value, secrets);
-    if (redacted.length > max && !omitted.some(item => item.field === field && item.recordId === recordId)) omitted.push({ field, recordId, tool: "get_record" });
+    if (redacted.length > max && !omitted.some(item => item.field === field && item.recordId === recordId)) omitted.push({ field, ...recordRecovery(recordId) });
     return clip(redacted, max);
   };
   dossier.objective = clip(safeText(requireRecord(deps, taskId).text, secrets), 1600);
@@ -871,7 +872,7 @@ export function resumeTask(
       "A later report does not change task progress or replace the explicit next action.",
     ] : []),
     `Continuation: ${JSON.stringify(dossier.continuation)}.`,
-    ...omitted.map(item => `Detail truncated: ${item.field}; recover get_record recordId=${item.recordId}, includeUnreviewed=true.`),
+    ...omitted.map(item => `Detail truncated: ${item.field}; recover get_record recordId=${item.recordId}, includeUnreviewed=true, evidenceOffset=${item.evidenceOffset}, evidenceLimit=${item.evidenceLimit}.`),
     `Current task state: ${dossier.state} (${dossier.stateSource}).`,
     ...(dossier.lifecycleSuppressed ? [`Continuation suppressed: ${dossier.lifecycleSuppressionReason}. Inspect active runs and evidence; do not infer authorization to resume project work.`] : []),
     ...dossier.attention.items.map(item => `Attention ${item.category}: ${item.reason}; count=${item.count}; requiresAction=${item.requiresAction}. These categories do not authorize a new execution.`),
