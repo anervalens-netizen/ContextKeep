@@ -267,7 +267,15 @@ complete.
 ### V-04
 
 **ME-04 — Reconcile metadata and lifecycle evidence**\
-Status: **NOT RUN**
+Status: **VERIFIED — Dated, revision-fenced description correction and lifecycle preservation**
+
+The live catalogue preserved explicit unknown lifecycle. The maintainer
+applied the verified runtime and scheduled-backup description using the
+current owner revision. Readback matched the new description while preserving
+project identity, aliases, parent and lifecycle. An independently sampled
+closed task stayed closed. Synthetic MCP regression coverage rejects a stale
+project revision. Evidence-class volatility policy is assessed separately
+under V-08.
 
 - **Setup:** Create a project description naming an old runtime, a newer dated
   observation, an unknown lifecycle and a closed task with historical follow-up.
@@ -392,6 +400,15 @@ Executed subset: HTTP, compact/legacy MCP and PWA task-state/provenance
   behavior. Ranking, freshness, lifecycle and the remaining host/attention matrix
   are not closed by this batch. See [BATCH_1.md](BATCH_1.md).
 
+A live read-only comparison on 19 November matched the authenticated ChatGPT
+task panel and native MCP dossier for a completed task with an explicit null
+next action and an active task with verified execution evidence and the same
+dated next action. Proposed provenance agreed in both. A third case showed
+matching attention, seven active blockers and no recorded runs. Synthetic
+server coverage confirms paused/retired suppression and retained invalidated
+execution evidence. Browser parity for those lifecycle cases remains open.
+
+
 - **Setup:** Prepare open, closed, paused and retired synthetic cases, including
   explicit null next actions, unresolved verification and post-closure follow-up.
 - **Action:** Read corresponding search, HTTP, MCP, PWA and advertised host views
@@ -512,7 +529,7 @@ Status: **PARTIAL — MCP project/type/recordedAt filters in source candidate**
 ### V-14
 
 **ME-14 — Index detailed sources and excerpts with FTS**\
-Status: **PARTIAL — bounded source-evidence contract exercised**
+Status: **VERIFIED — Installed source-only discovery and version-fenced evidence expansion through the advertised host**
 
 - **Source result:** Synthetic term discovery, separate evidence authority, cross-project exclusion, title hits, and version-bound detail navigation passed at source.
 
@@ -1028,7 +1045,7 @@ Status: **NOT RUN**
 ### V-41
 
 **ME-41 — Maintain client and host compatibility**\
-Status: **NOT RUN**
+Status: **VERIFIED — Legacy and additive MCP reads, including live host discovery and detail expansion**
 
 - **Setup:** Prepare old and updated synthetic MCP/HTTP clients, cached host
   resource metadata and requests that omit all newly added fields.
@@ -1120,7 +1137,13 @@ Status: **PARTIAL — exploratory readout, prospective matched evaluation NOT RU
 ### V-46
 
 **ME-46 — Keep the private evidence ledger and handoffs complete**\
-Status: **NOT RUN**
+Status: **VERIFIED — 20 audit findings, private receipts and durable task handoff**
+
+The maintainer checked that each finding in the plan maps to existing tracker
+IDs, added version-specific evidence or the precise remaining acceptance, and
+recorded the private crosswalk in the original task. Native readback matched
+the proposed progress and separately retrieved the proposed handoff. The
+handoff starts no execution. Existing accepted task content was preserved.
 
 - **Setup:** Use a synthetic audit with findings spanning implementation,
   diagnosis, conditional pilots and unresolved external verification.
