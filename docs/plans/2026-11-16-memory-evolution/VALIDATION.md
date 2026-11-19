@@ -484,6 +484,29 @@ partial passages, three topical leads and two wrong-endpoint passages.
 The manual audit leaves the frozen labels and reported comparisons intact.
 V-07 remains partial.
 
+**2026-11-19 paired scoring check.** The installed baseline and [PR #42](https://github.com/anervalens-netizen/ContextKeep/pull/42)
+ran the actual MCP search handler against identical copies of a consistent
+SQLite snapshot. There were 73 frozen real questions and four independently
+worded probes based on two real release episodes. Three timed passes used
+alternating order after warm-up. The local timings include handler
+serialization and exclude network transit.
+
+- Baseline top-ten evidence coverage was 17 of 88 expected placements on
+  the real questions. Of 71 misses, 36 were outside the scored candidate
+  set and 35 ranked below ten. A saturated bucket was observed for 63
+  misses. Candidate recall remains a separate validation criterion.
+- A scoped explicit-number ranking experiment raised an expected placement
+  from rank 49 to rank 1. It surfaced an additional expected result in one
+  probe and also surfaced an outdated status from the same reference.
+  The experiment stopped without rollout.
+- The deployed scoring optimization at `bee7ee1` reuses normalized
+  record and checkpoint text. The ordered IDs, authority fields and
+  saturation flags matched on all 77 inputs. On the 73 real questions,
+  including all valid coverage classes, warm median was 95.28 versus
+  86.06 ms and p95 was 211.70 versus 199.06 ms. These figures describe
+  the evaluation host and sample. Installed connector readback and
+  isolated recovery passed. Recall remains open.
+
 - **Setup:** Place relevant records among many synthetic lexical decoys, including
   an exact identifier and a current observation near a candidate boundary.
 - **Action:** Compare baseline selection with bounded widening or improved

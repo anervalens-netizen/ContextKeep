@@ -525,6 +525,21 @@ Dependencies: ME-02, ME-03 · Validation: [V-07](docs/plans/2026-11-16-memory-ev
   Topical overlap and misleading matches still require explicit verification.
   The results and limits are recorded in [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
 
+- 2026-11-19 paired scoring check. On 73 frozen real questions, 17 of
+  88 expected placements were in the top ten. Of the 71 misses, 36 were
+  absent from the scored candidate set and 35 ranked below the top ten.
+  A saturated candidate bucket was observed for 63 of the misses.
+- [x] [PR #42](https://github.com/anervalens-netizen/ContextKeep/pull/42) reduced repeated processing of record text. The ordered
+  results and saturation flags matched on all 73 real questions and four
+  separately worded probes. In-process MCP median fell from 95 to 86 ms
+  and p95 from 212 to 199 ms on the real set. Release `bee7ee1` passed
+  the installed connector and runtime readback.
+- [ ] The numbered-reference experiment raised an expected result from
+  rank 49 to rank 1, and another probe returned a stale same-reference
+  checkpoint. The experiment was stopped. Candidate recall and precedence
+  among records for the same reference remain open. See
+  [V-07](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-07).
+
 ### ME-08
 
 **Define event, validity, capture and verification time**\
