@@ -14,7 +14,6 @@ export type ExcerptReadCursor = {
   kind: "source_excerpts";
   sourceId: string;
   normalizedHash: string;
-  startOffset?: number;
   excerptId: string;
 };
 

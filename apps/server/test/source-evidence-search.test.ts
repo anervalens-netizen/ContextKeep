@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { sha256 } from "../src/lib/hash.js";
@@ -330,10 +330,45 @@ describe("project source evidence discovery", () => {
       text: "", unavailableReason: "invalid_normalized_utf16_span",
     });
     expect(db.prepare("SELECT total_changes() AS total").get()).toEqual(before);
-    db.prepare("UPDATE sources SET normalized_text = ? WHERE id = ?").run("🌿 changed source content", sourceId);
-    const changed = await app.get(url + "&cursor=" + encodeURIComponent(first.pagination.nextCursor));
-    expect(changed.statusCode).toBe(409);
-    expect(changed.json<any>().error.code).toBe("source_excerpt_snapshot_changed");
+    const external = new Database(app.config.dbPath);
+    try {
+      external.prepare("UPDATE sources SET normalized_text = ? WHERE id = ?").run("🌿 changed source content", sourceId);
+      const changed = await app.get(url + "&cursor=" + encodeURIComponent(first.pagination.nextCursor));
+      expect(changed.statusCode).toBe(409);
+      expect(changed.json<any>().error.code).toBe("source_excerpt_snapshot_changed");
+    } finally {
+      external.close();
+    }
+  });
+
+  it("upgrades a legacy source cursor after its compatible first continuation", async () => {
+    const { app, add } = await fixture();
+    const text = "synthetic legacy cursor";
+    const { sourceId, excerptId } = add("Synthetic legacy", text);
+    const db = app.app.ck.deps.sqlite;
+    const insert = db.prepare(
+      "INSERT INTO source_excerpts(id,source_id,start_offset,end_offset,exact_text,exact_text_hash) VALUES(?,?,?,?,?,?)",
+    );
+    const following = [randomUUID(), randomUUID()];
+    insert.run(following[0], sourceId, 2, text.length, text.slice(2), "h1");
+    insert.run(following[1], sourceId, 3, text.length, text.slice(3), "h2");
+    const oldFingerprint = createHash("sha256");
+    for (const row of db.prepare("SELECT id,start_offset,end_offset,exact_text_hash,length(exact_text) AS size FROM source_excerpts WHERE source_id=? ORDER BY start_offset,id").all(sourceId) as Record<string, unknown>[])
+      oldFingerprint.update(JSON.stringify([row.id, row.start_offset, row.end_offset, row.exact_text_hash, row.size]) + "\n");
+    const v1 = Buffer.from(JSON.stringify({
+      version: 1, kind: "source_excerpts", sourceId, startOffset: 0,
+      excerptId, normalizedHash: oldFingerprint.digest("hex"),
+    })).toString("base64url");
+    const url = "/api/sources/" + sourceId + "?limit=1&cursor=";
+    const second = (await app.get(url + v1)).json<any>();
+    expect(second.excerpts[0].id).toBe(following[0]);
+    const upgraded = JSON.parse(Buffer.from(second.pagination.nextCursor, "base64url").toString("utf8"));
+    expect(upgraded).toMatchObject({
+      version: 2, excerptId: following[0], normalizedHash: second.pagination.snapshotExcerptFingerprint,
+    });
+    const last = (await app.get(url + second.pagination.nextCursor)).json<any>();
+    expect(last.excerpts[0].id).toBe(following[1]);
+    expect(last.pagination.nextCursor).toBeNull();
   });
 
   it("rebuilds a discarded derived index and drops replaced or deleted source text", async () => {

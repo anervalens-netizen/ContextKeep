@@ -75,4 +75,5 @@ Owner HTTP source detail and search use the same invalid-span marker while
 retaining authorized text for valid stored spans. The source response labels
 excerpt offsets as normalized UTF-16. Use the opaque page cursor even when the
 last excerpt is unavailable. Its displayed empty span carries no ordering
-information.
+information. A valid legacy cursor continues from its original position and
+receives a new cursor bound to the normalized source snapshot.

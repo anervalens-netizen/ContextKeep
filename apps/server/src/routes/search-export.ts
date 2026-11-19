@@ -50,13 +50,10 @@ const SourceExcerptQuery = z.object({
 function sourceExcerptSetFingerprint(
   sqlite: Database.Database,
   sourceId: string,
-  normalized?: { hash: string; text: string },
+  normalizedDigest?: string,
 ): string {
   const digest = crypto.createHash("sha256");
-  if (normalized) {
-    digest.update(JSON.stringify([normalized.hash, normalized.text.length]) + "\n", "utf8");
-    digest.update(normalized.text, "utf8");
-  }
+  if (normalizedDigest !== undefined) digest.update(`source:${normalizedDigest}\n`, "utf8");
   const rows = sqlite.prepare<
     [string],
     {
@@ -86,8 +83,27 @@ function sourceExcerptSetFingerprint(
   return digest.digest("hex");
 }
 
+function readSourceChangeStamp(sqlite: Database.Database): string {
+  const { changes } = sqlite.prepare("SELECT total_changes() AS changes").get() as { changes: number };
+  return `${changes}:${sqlite.pragma("data_version", { simple: true })}`;
+}
+
 export function registerSearchExportRoutes(app: FastifyInstance): void {
   const { deps } = app.ck;
+  let lastSourceDigest: { id: string; stamp: string; digest: string } | undefined;
+
+  function normalizedSourceDigest(row: typeof sources.$inferSelect, stamp: string): string {
+    // Both readings fence the selected row. An external commit between them
+    // can leave the read snapshot valid but prevents reuse outside that snapshot.
+    const stable = readSourceChangeStamp(deps.sqlite) === stamp;
+    if (stable && lastSourceDigest?.id === row.id && lastSourceDigest.stamp === stamp)
+      return lastSourceDigest.digest;
+    const hash = crypto.createHash("sha256");
+    hash.update(JSON.stringify([row.normalizedHash, row.normalizedText.length]) + "\n", "utf8");
+    const digest = hash.update(row.normalizedText, "utf8").digest("hex");
+    if (stable) lastSourceDigest = { id: row.id, stamp, digest };
+    return digest;
+  }
 
   app.get("/api/search", async (request) => {
     const q = parseWith(SearchQuery, request.query, "search query");
@@ -181,6 +197,9 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
 
   app.get("/api/sources/:id", (request, reply) => deps.sqlite.transaction(() => {
     const { id } = request.params as { id: string };
+    const rawQuery = request.query as Record<string, unknown>;
+    const paginated = rawQuery.limit !== undefined || rawQuery.cursor !== undefined;
+    const stamp = paginated ? readSourceChangeStamp(deps.sqlite) : undefined;
     const row = deps.db.select().from(sources).where(eq(sources.id, id)).get();
     if (!row) {
       reply.code(404);
@@ -192,9 +211,6 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
         },
       };
     }
-    const rawQuery = request.query as Record<string, unknown>;
-    const paginated =
-      rawQuery.limit !== undefined || rawQuery.cursor !== undefined;
     const query = paginated
       ? parseWith(SourceExcerptQuery, rawQuery, "source excerpts query")
       : undefined;
@@ -202,13 +218,13 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
       query?.cursor === undefined
         ? undefined
         : decodeExcerptCursor(query.cursor, id);
-    const cursorVersion = cursor?.version ?? 2;
-    const excerptSetFingerprint = paginated
-      ? sourceExcerptSetFingerprint(deps.sqlite, id, cursorVersion === 2
-          ? { hash: row.normalizedHash, text: row.normalizedText }
-          : undefined)
+    const legacyFingerprint = cursor?.version === 1
+      ? sourceExcerptSetFingerprint(deps.sqlite, id)
       : undefined;
-    if (cursor && cursor.normalizedHash !== excerptSetFingerprint) {
+    let excerptSetFingerprint = stamp !== undefined && legacyFingerprint === undefined
+      ? sourceExcerptSetFingerprint(deps.sqlite, id, normalizedSourceDigest(row, stamp))
+      : undefined;
+    if (cursor && cursor.normalizedHash !== (legacyFingerprint ?? excerptSetFingerprint)) {
       reply.code(409);
       return {
         error: {
@@ -259,6 +275,8 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
       : allExcerpts;
     const hasNext = paginated && allExcerpts.length > excerpts.length;
     const last = excerpts.at(-1);
+    if (stamp !== undefined && excerptSetFingerprint === undefined)
+      excerptSetFingerprint = sourceExcerptSetFingerprint(deps.sqlite, id, normalizedSourceDigest(row, stamp));
     return {
       source: toSourceDto(row, total ?? excerpts.length),
       projectIds: sourceProjectIds(deps, row.id),
@@ -274,11 +292,10 @@ export function registerSearchExportRoutes(app: FastifyInstance): void {
               nextCursor:
                 hasNext && last
                   ? encodeReadCursor({
-                      version: cursorVersion,
+                      version: 2,
                       kind: "source_excerpts",
                       sourceId: id,
                       normalizedHash: excerptSetFingerprint!,
-                      ...(cursorVersion === 1 ? { startOffset: last.startOffset } : {}),
                       excerptId: last.id,
                     } satisfies ExcerptReadCursor)
                   : null,
