@@ -27,6 +27,10 @@ the public repository or CI logs.
 `effectiveTo` describe an inclusive start and exclusive end of validity.
 `recordedAt` is capture or import time. `reviewedAt` is the review action time
 and `reviewDueAt` is a review deadline. A missing timestamp remains unknown.
+Legacy empty-string structured timestamps are treated as absent for freshness
+eligibility, not as a new event date. Such capture-only working observations
+may still prompt review without supporting staleness; malformed nonempty and
+future/expired dates remain ineligible for current-state support.
 Current search can use a valid effective start when event time is absent.
 
 - **Operational facts.** An accepted current-state claim can warrant

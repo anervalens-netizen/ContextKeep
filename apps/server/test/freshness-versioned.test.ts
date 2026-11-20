@@ -466,7 +466,8 @@ describe("versioned freshness evidence", () => {
       workingRecords: working,
     });
     expect(expected.supportRecordIds).toEqual([id(2), id(3)]);
-    expect(expected.possiblyRelatedRecordIds).toEqual([id(4)]);
+    // Blank structured time must remain capture-only review evidence.
+    expect(expected.possiblyRelatedRecordIds).toEqual([id(4), id(8)]);
     expect(f.freshness()).toEqual(expected);
     const ctx = loadRecordFreshnessContext(
       f.t.app.ck.deps.db,
@@ -477,6 +478,29 @@ describe("versioned freshness evidence", () => {
       .preloadedSignals!.get(f.canonical.id)!
       .supportRecordIds.push("synthetic-mutation");
     expect(f.freshness()).toEqual(expected);
+  });
+
+  it("preserves capture-only hints for blank times but rejects malformed and future evidence", async () => {
+    const f = await fixture();
+    const working = [
+      f.row(2, { sourceEventAt: "", effectiveFrom: "" }),
+      f.row(3, { sourceEventAt: "not-a-date", effectiveFrom: null }),
+      f.row(4, { sourceEventAt: null, effectiveFrom: AFTER, effectiveTo: "" }),
+      f.row(5, { sourceEventAt: AFTER, effectiveTo: "not-a-date" }),
+      f.row(6, { sourceEventAt: "2030-01-01T00:00:00Z" }),
+    ];
+    f.insert([f.canonical, ...working]);
+    const reference = classifyRecordFreshness(f.canonical, {
+      nowIso: NOW,
+      workingRecords: working,
+    });
+    expect(reference.supportRecordIds).toEqual([id(4)]);
+    expect(reference.possiblyRelatedRecordIds).toEqual([id(2)]);
+    expect(reference.requiresReview).toBe(true);
+    for (let repeat = 0; repeat < 2; repeat++)
+      expect(f.freshness()).toEqual(reference);
+    f.bump();
+    expect(f.freshness()).toEqual(reference);
   });
 
   it("keeps the version read and a cold scan in one snapshot during an external commit", async () => {

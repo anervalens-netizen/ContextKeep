@@ -43,6 +43,12 @@ export function observationWindow({
   effectiveFrom,
   effectiveTo,
 }: ObservationTimes): { starts: string | null; ends: string | null } | null {
+  // Legacy DTOs may contain empty strings for missing structured time.
+  // An absent event/effective date is capture-only evidence, not a fabricated
+  // current event. Keep genuinely malformed nonempty dates invalid.
+  sourceEventAt = sourceEventAt === "" ? null : sourceEventAt;
+  effectiveFrom = effectiveFrom === "" ? null : effectiveFrom;
+  effectiveTo = effectiveTo === "" ? null : effectiveTo;
   const times = [sourceEventAt, effectiveFrom, effectiveTo];
   if (
     times.some((time) => time !== null && !verifiedObservationInstant.safeParse(time).success) ||
