@@ -577,7 +577,7 @@ Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-ev
   [exact-head disposition](https://github.com/anervalens-netizen/ContextKeep/pull/40#issuecomment-7005913416)
   records the owner-approved single-PR review substitution and the DSH
   provider failure. The standard workflow remains in force.
-- [ ] 2026-11-20 follow-up of [PR #40](https://github.com/anervalens-netizen/ContextKeep/pull/40): fix the low-severity capture-only hint regression for legacy empty structured timestamps. The failing test was reproduced before correction; focused tests pass after correction. Full CI, independent review, release checks and deployed readback remain separate gates.
+- [ ] 2026-11-20 follow-up of [PR #40](https://github.com/anervalens-netizen/ContextKeep/pull/40): fix the low-severity capture-only hint regression for legacy empty structured timestamps. The failing test was reproduced before correction; focused tests pass after correction. Codex found that search ranking also used the blank event string ahead of a valid effective start; follow-up correction and regression tests now use the same missing-time semantics for freshness and search. Full current-head CI, independent review, release checks and deployed readback remain separate gates.
 
 ### ME-09
 

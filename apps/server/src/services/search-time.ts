@@ -1,4 +1,4 @@
-import { compareInstants, observationEligibility } from "./instant.js";
+import { compareInstants, observationEligibility, optionalObservationInstant } from "./instant.js";
 import { z } from "zod";
 import type { SearchTemporalDto } from "@contextkeep/shared";
 import {
@@ -13,13 +13,17 @@ export function searchTemporal(
   row: FreshnessRecord,
   nowIso: string,
 ): SearchTemporalDto {
+  // Use the same absent-time semantics as freshness eligibility so temporal
+  // ranking and public HTTP/MCP provenance cannot disagree on legacy blanks.
+  const eventTime = optionalObservationInstant(row.sourceEventAt);
+  const effectiveTime = optionalObservationInstant(row.effectiveFrom);
   const basis =
-    row.sourceEventAt !== null
+    eventTime !== null
       ? "source_event"
-      : row.effectiveFrom !== null
+      : effectiveTime !== null
         ? "effective_from"
         : "unknown";
-  const rankTime = row.sourceEventAt ?? row.effectiveFrom;
+  const rankTime = eventTime ?? effectiveTime;
   const eligibility = observationEligibility(row, nowIso);
   const invalidReviewTime = row.reviewDueAt !== null &&
     !instant.safeParse(row.reviewDueAt).success;
