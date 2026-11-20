@@ -85,6 +85,20 @@ describe("ME-08 temporal policy", () => {
       12,
     ],
     [
+      { sourceEventAt: "", effectiveFrom: recent },
+      "effective_from",
+      recent,
+      "dated",
+      12,
+    ],
+    [
+      { sourceEventAt: "", effectiveFrom: "" },
+      "unknown",
+      null,
+      "unknown",
+      0,
+    ],
+    [
       { sourceEventAt: null, recordedAt: recent },
       "unknown",
       null,
@@ -320,6 +334,20 @@ describe("ME-06 bounded retrieval and authority", () => {
       for (const id of [future, invalid, expired])
         expect(ids.indexOf(current)).toBeLessThan(ids.indexOf(id));
     }
+  });
+
+  it("ranks a legacy blank event by its valid effective start, not by empty text", async () => {
+    const { add, matches } = await fixture();
+    const older = add({ sourceEventAt: old, recordedAt: recent });
+    const newer = add({ sourceEventAt: "", effectiveFrom: recent });
+    const results = matches("Beacon currently deployed");
+    expect(results[0]?.row.id).toBe(newer);
+    expect(searchTemporal(results[0]!.row, now)).toMatchObject({
+      basis: "effective_from",
+      rankTime: recent,
+      eligibility: "dated",
+    });
+    expect(results.some((hit) => hit.row.id === older)).toBe(true);
   });
 
   it("preserves scope, historical toggle, constraints, provenance and business state on reads", async () => {

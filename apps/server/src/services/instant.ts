@@ -38,11 +38,22 @@ type ObservationTimes = {
   effectiveTo: string | null;
 };
 
+/** An exact legacy empty string means missing time, never a dated observation. */
+export function optionalObservationInstant(time: string | null): string | null {
+  return time === "" ? null : time;
+}
+
 export function observationWindow({
   sourceEventAt,
   effectiveFrom,
   effectiveTo,
 }: ObservationTimes): { starts: string | null; ends: string | null } | null {
+  // Legacy DTOs may contain empty strings for missing structured time.
+  // An absent event/effective date is capture-only evidence, not a fabricated
+  // current event. Keep genuinely malformed nonempty dates invalid.
+  sourceEventAt = optionalObservationInstant(sourceEventAt);
+  effectiveFrom = optionalObservationInstant(effectiveFrom);
+  effectiveTo = optionalObservationInstant(effectiveTo);
   const times = [sourceEventAt, effectiveFrom, effectiveTo];
   if (
     times.some((time) => time !== null && !verifiedObservationInstant.safeParse(time).success) ||
