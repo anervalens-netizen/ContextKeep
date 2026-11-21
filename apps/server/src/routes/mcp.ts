@@ -1,5 +1,6 @@
 import path from "node:path";
 import { PANEL_SETTINGS_CAPABILITIES } from "../mcp/panel-settings.js";
+import { betaEventHeaderMismatch, createBetaEventsServer } from "../mcp/beta-events.js";
 import { WorkflowEvents } from "../services/workflow-events.js";
 import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
@@ -20,7 +21,8 @@ import { createContextKeepMcpServer } from "../mcp/tools.js";
 export function registerMcpRoutes(app: FastifyInstance): void {
   const { config, deps } = app.ck;
   const token = config.mcpToken;
-  const workflowEvents = token ? new WorkflowEvents(deps,crypto.createHash("sha256").update(token).digest("hex"),config.sessionSecret) : undefined;
+  const principal = token && crypto.createHash("sha256").update(token).digest("hex");
+  const workflowEvents = principal ? new WorkflowEvents(deps,principal,config.sessionSecret) : undefined;
   let pumping: Promise<unknown> | undefined;
   const timer = workflowEvents ? setInterval(()=>{ if(!pumping) pumping=workflowEvents.pump().catch(()=>app.log.error("Workflow delivery failed; details omitted.")).finally(()=>{pumping=undefined;}); },2000) : undefined;
   timer?.unref();
@@ -85,12 +87,25 @@ export function registerMcpRoutes(app: FastifyInstance): void {
       }
     },
   };
-  const nodeMcpHandler = toNodeHandler(mcpHandler, {
+  const beta = createMcpHandler(() => createBetaEventsServer(deps, principal!, config.sessionSecret), {
+    legacy: "reject",
+    onerror: () => app.log.error("MCP beta handler failed; details omitted."),
+  });
+  app.addHook("onClose", async () => { await beta.close(); });
+  const betaHandler = {
+    fetch: async (request: Request, options?: McpHandlerRequestOptions) =>
+      betaEventHeaderMismatch(request, options?.parsedBody) ?? beta.fetch(request, options),
+  };
+  const adapterOptions = {
     maxRequestBodySize: 128 * 1024,
     onerror: () => app.log.error("MCP node adapter failed; payload and credentials omitted."),
-  });
-  app.route({
-    method: ["POST", "GET", "DELETE"], url: "/mcp", bodyLimit: 128 * 1024,
+  };
+  const endpoints = [
+    ["/mcp", toNodeHandler(mcpHandler, adapterOptions)],
+    ["/mcp/events-beta", toNodeHandler(betaHandler, adapterOptions)],
+  ] as const;
+  for (const [url, handler] of endpoints) app.route({
+    method: ["POST", "GET", "DELETE"], url, bodyLimit: 128 * 1024,
     config: { rateLimit: false },
     errorHandler: (error, _request, reply) => {
       // Parser errors can contain submitted text. Do not log or echo them.
@@ -114,7 +129,7 @@ export function registerMcpRoutes(app: FastifyInstance): void {
     handler: async (request, reply) => {
       reply.hijack();
       reply.raw.setHeader("cache-control", "no-store");
-      await nodeMcpHandler(request.raw, reply.raw, request.body);
+      await handler(request.raw, reply.raw, request.body);
     },
   });
 }

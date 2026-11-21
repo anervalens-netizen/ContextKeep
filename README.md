@@ -107,7 +107,10 @@ Ordinary working-memory captures remain compatible and proposal-only.
 The shared task view preserves explicitly cleared next steps, includes task-scoped
 blocker-resolution history, and distinguishes subscription configuration from real
 delivery status. Project cards keep loaded pages current after pagination errors.
-Event delivery supports generation-safe renewal and bounded graceful shutdown.
+The ChatGPT endpoint supports signed webhook delivery with generation-safe renewal
+and bounded graceful shutdown. Beta clients can poll the same `execution.finished`
+events at `POST /mcp/events-beta` and resume from a durable cursor.
+See [workflow event delivery](docs/WORKFLOW_EVENTS.md#sep-3415-beta-poll).
 The host widget advertises v7.3 while retaining compatibility reads of installed v2/v3/v4/v5/v6/v7/v7.1/v7.2 resources.
 
 Private monitoring can use authenticated `GET /api/health`. It reports a real
