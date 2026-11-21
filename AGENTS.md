@@ -23,6 +23,10 @@ server-side merge action to select that identity. Never disable the privacy
 hook or relax its assertions. Preserve concurrent work and validate the exact
 remote head before repairing published metadata.
 
+## Daybreak security review
+
+Assess the security impact of each change. For changes that materially affect authentication, project or task isolation, memory provenance, exports or token handling, review the changed code at a pinned commit. Validate concrete concerns with Codex Security's source-only `codex-security validate` on a clean copy of that revision. Reuse applicable evidence for the same commit. Record the commit, scope and outcome in the active ContextKeep task; if code review identifies no concern to validate or the tool is unavailable, record the reason there. Keep findings in the private task.
+
 <!-- portfolio-review:start -->
 ## Development review
 
