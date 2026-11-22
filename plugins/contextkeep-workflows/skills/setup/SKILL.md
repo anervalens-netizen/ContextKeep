@@ -7,7 +7,7 @@ Use the existing ContextKeep connection and discovered tool schemas; reuse capab
 
 Call get_capabilities once on the existing connection. Report observed MCP version and supported workflows; do not infer deployment from this package version. MCP 2.16 adds create_task/actual_tasks. Discover schema support for structured bounded resume (MCP 2.19+); older servers use their supported compact arguments. Unsupported writes are unavailable, not a reason to change authentication or install another connection.
 
-Use list_projects with the supplied name, or one bounded page. Do not create projects/tasks as connectivity probes. If a project is chosen, use get_project_dossier(selection=actual_tasks when supported); reuse a known task or offer relevant candidates. Resume reads start no jobs.
+Use a bounded list_projects query only when the project ID is unknown. Prefer projection=compact when supported. It returns catalogue metadata. A cached catalogue version does not validate project memory. Do not create projects/tasks as connectivity probes. For a known task, resume it directly. For task selection, use list_tasks(selection=actual_tasks) when supported, or get_project_dossier for project-wide orientation. Resume reads start no jobs.
 
 Separate installed skills, successful tool reads and observed host UI capabilities. Desktop success does not prove Android. Open open_task_panel only when useful for the selected context. For MCP 2.17+, inspect discovered settings.read/settings.update; read before any user-requested preference change. Do not change preferences to test connectivity. Native settings require actual host support; the panel editor is a fallback.
 
