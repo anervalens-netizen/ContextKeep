@@ -26,6 +26,19 @@ IP and SSH-config alias, without a port or other transport syntax.
 invoking a writer; `--report-space` reports retained runtime-kit count/bytes
 and filesystem capacity. Neither option deletes snapshots or kits.
 
+The three-host backup format keeps its original field names for compatibility.
+Use the private profile and the running service to identify each machine.
+
+| Status entry | Destination when a profile is supplied |
+| --- | --- |
+| `copies.server` | The copy on the configured `primary_host` |
+| `copies.dell` | The SSH replica at `dell_target` and `dell_dir` |
+| `copies.nas` | The configured NAS directory |
+
+The same roles apply to `publication`. Read a historical receipt against the
+profile in use for that run. After a migration, check the service and profile
+installed on the current primary before using a template.
+
 The normal backup still retains snapshots and kits, records references from a
 snapshot manifest to its runtime kit, verifies hashes and SQLite integrity,
 and publishes the existing online-backup status contract. When an explicit
