@@ -102,6 +102,34 @@ describe("L5.4 memory housekeeping", () => {
     expect(deletion).toEqual({ actor: "system:housekeeping", operation: "record.delete", recoverable: 1 });
   });
 
+  it("counts accepted volatile deadlines at their actual review instant", async () => {
+    const { t, recordId } = await projectWithProposal("synthetic review deadline");
+    const checkedAt = "2026-09-18T05:30:00.000Z";
+    const update = t.app.ck.handle.sqlite.prepare(
+      "UPDATE records SET review_status=?,volatile=?,review_due_at=?,created_at=? WHERE id=?",
+    );
+    const cases = [
+      ["accepted", 1, checkedAt, 1],
+      ["accepted", 1, "2026-09-18T07:29:59+02:00", 1],
+      ["accepted", 1, "2026-09-18T01:30:01-04:00", 0],
+      ["accepted", 1, "2026-09-18T05:30:00.000001Z", 0],
+      ["accepted", 1, "invalid deadline", 1],
+      ["accepted", 1, null, 0],
+      ["accepted", 0, checkedAt, 0],
+      ["proposed", 1, checkedAt, 0],
+      ["rejected", 1, checkedAt, 0],
+      ["superseded", 1, checkedAt, 0],
+    ] as const;
+    for (const [status, volatile, due, expected] of cases) {
+      update.run(status, volatile, due, checkedAt, recordId);
+      const result = runMemoryHousekeeping(
+        t.app.ck.deps, { housekeepingProposalRetentionDays: 30 }, undefined, Date.parse(checkedAt),
+      );
+      expect(result.overdueAccepted, `${status}, volatile=${volatile}, due=${due}`).toBe(expected);
+      expect(result.checkedProposals).toBe(0);
+    }
+  });
+
   it("runs immediately when periodic housekeeping is enabled", async () => {
     const { t, recordId } = await projectWithProposal("scheduled stale proposal");
     t.app.ck.handle.sqlite.prepare("UPDATE records SET created_at=? WHERE id=?")

@@ -7,6 +7,7 @@ import {
 } from "./retention-policy.js";
 export { previewMemoryHousekeeping } from "./retention-policy.js";
 import { deleteRecord } from "./memory-management.js";
+import { reviewOverdue } from "./memory-freshness.js";
 import type { ActorCtx, ServiceDeps } from "./import.js";
 
 export interface HousekeepingResult {
@@ -26,6 +27,17 @@ export interface HousekeepingResult {
 
 function count(deps: ServiceDeps, sql: string, ...params: unknown[]): number {
   return (deps.sqlite.prepare(sql).get(...params) as { n: number }).n;
+}
+
+function countOverdueAccepted(deps: ServiceDeps, checkedAt: string): number {
+  const deadlines = deps.sqlite.prepare<[], string>(
+    "SELECT review_due_at FROM records WHERE review_status='accepted' AND volatile=1 AND review_due_at IS NOT NULL",
+  ).pluck().iterate();
+  let overdue = 0;
+  for (const reviewDueAt of deadlines) {
+    if (reviewOverdue({ volatile: true, reviewDueAt }, checkedAt)) overdue++;
+  }
+  return overdue;
 }
 
 /** Recoverable retention of generic proposals only; operational history never expires here. */
@@ -130,11 +142,7 @@ export function runMemoryHousekeeping(
     skipped,
     errors,
     status: errors.length ? "partial" : "ok",
-    overdueAccepted: count(
-      deps,
-      "SELECT count(*) AS n FROM records WHERE review_status='accepted' AND volatile=1 AND review_due_at IS NOT NULL AND review_due_at < ?",
-      checkedAt,
-    ),
+    overdueAccepted: countOverdueAccepted(deps, checkedAt),
     superseded: count(
       deps,
       "SELECT count(*) AS n FROM records WHERE review_status='superseded'",

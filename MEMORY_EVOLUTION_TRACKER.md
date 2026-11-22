@@ -581,6 +581,9 @@ Dependencies: ME-01, ME-02 · Validation: [V-08](docs/plans/2026-11-16-memory-ev
 - The cached owner HTTP brief now uses the shared overdue predicate. Synthetic
   endpoint cases cover equality, UTC offsets, fractional precision, successive
   deadlines and clock reversal without a record write.
+- The housekeeping summary uses the same review-deadline predicate for accepted
+  volatile records. Synthetic cases cover equality, offsets, fractional and
+  invalid deadlines, and exclusions by status and volatility.
 
 ### ME-09
 
