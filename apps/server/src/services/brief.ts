@@ -18,6 +18,8 @@ import type { Db } from "../db/client.js";
 import { readWithDatabaseGeneration } from "../db/cache-generation.js";
 import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
+import { compareInstants } from "./instant.js";
+import { reviewOverdue } from "./memory-freshness.js";
 import {
   attachProjectNames,
   loadEvidenceFor,
@@ -83,6 +85,7 @@ interface BriefCacheEntry {
   revision: number;
   contentVersion: number;
   updatedAt: string;
+  generatedAt: string;
   nextReviewDueAt: string | null;
   json: string;
   payload: Buffer;
@@ -100,25 +103,6 @@ function projectCacheState(
     .get(projectId) as
     { revision: number; contentVersion: number; updatedAt: string } | undefined;
   return project ?? null;
-}
-
-function nextVolatileReviewDueAt(
-  deps: ServiceDeps,
-  projectId: string,
-  now: string,
-): string | null {
-  const row = deps.sqlite
-    .prepare(
-      `SELECT min(review_due_at) AS due
-       FROM records
-       WHERE project_id = ?
-         AND review_status = 'accepted'
-         AND volatile = 1
-         AND review_due_at IS NOT NULL
-         AND review_due_at > ?`,
-    )
-    .get(projectId, now) as { due: string | null };
-  return row.due;
 }
 
 function briefCacheEntry(
@@ -154,15 +138,18 @@ function briefCacheSnapshot(
     cached.revision === state.revision &&
     cached.contentVersion === state.contentVersion &&
     cached.updatedAt === state.updatedAt &&
-    (cached.nextReviewDueAt === null || now < cached.nextReviewDueAt)
+    now >= cached.generatedAt &&
+    (cached.nextReviewDueAt === null || compareInstants(now, cached.nextReviewDueAt) < 0)
   ) {
     return cached;
   }
-  const json = JSON.stringify(buildBrief(deps, projectId));
+  const { brief, nextReviewDueAt } = buildBriefWithDeadline(deps, projectId, now);
+  const json = JSON.stringify(brief);
   const entry: BriefCacheEntry = {
     generation,
     ...state,
-    nextReviewDueAt: nextVolatileReviewDueAt(deps, projectId, now),
+    generatedAt: now,
+    nextReviewDueAt,
     json,
     payload: Buffer.from(json),
   };
@@ -196,6 +183,14 @@ export function buildBriefPayload(
  * budget; better-sqlite3's native row mapping is ~10x cheaper.
  */
 export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
+  return buildBriefWithDeadline(deps, projectId, nowIso()).brief;
+}
+
+function buildBriefWithDeadline(
+  deps: ServiceDeps,
+  projectId: string,
+  now: string,
+): { brief: BriefDto; nextReviewDueAt: string | null } {
   const { db, sqlite } = deps;
   const project = db
     .select()
@@ -261,9 +256,18 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
     reviewDueAt: null,
   };
   let lastReviewedAt: string | null = null;
+  let nextReviewDueAt: string | null = null;
 
   for (const row of recordRows) {
     const evidence = evidenceByRecord.get(row.id) ?? [];
+    const due = row.review_due_at;
+    const isOverdue = reviewOverdue({ volatile: row.volatile, reviewDueAt: due }, now);
+    if (
+      row.volatile === 1 && due !== null && !isOverdue &&
+      (nextReviewDueAt === null || compareInstants(due, nextReviewDueAt) < 0)
+    ) {
+      nextReviewDueAt = due;
+    }
     const dto: RecordDto = {
       id: row.id,
       projectId: row.project_id,
@@ -286,10 +290,7 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
       reviewedAt: row.reviewed_at,
       reviewDueAt: row.review_due_at,
       volatile: row.volatile === 1,
-      isOverdue:
-        row.volatile === 1 &&
-        row.review_due_at !== null &&
-        row.review_due_at < new Date().toISOString(),
+      isOverdue,
       revision: row.revision,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -336,7 +337,7 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
     }
   }
 
-  return {
+  const brief: BriefDto = {
     project: toProjectDto(project),
     lifecycle,
     description: project.description,
@@ -346,10 +347,11 @@ export function buildBrief(deps: ServiceDeps, projectId: string): BriefDto {
     openQuestions,
     actions,
     lastReviewedAt,
-    generatedAt: nowIso(),
+    generatedAt: now,
     revision: project.revision,
     contentVersion: project.contentVersion,
   };
+  return { brief, nextReviewDueAt };
 }
 
 /**

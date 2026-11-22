@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { BriefDto, TimelineDto } from "@contextkeep/shared";
 import { expectStatus, getProjectByName, makeTestApp, reviewCurrent, type TestApp } from "./helpers.js";
 
@@ -74,45 +74,66 @@ describe("current brief (M0 scope 5)", () => {
     );
   });
 
-  it("invalidates cached overdue flags when a volatile review deadline passes without a write", async () => {
-    await withApp(async (t) => {
-      const project = (await t.post("/api/projects", { name: "Deadline Cache Project" })).json<{ id: string }>();
-      const imp = await t.post("/api/imports/text", {
-        text: "volatile-fact: deployment SHA is cache-deadline-123",
-        adapterId: "faketest",
-        projectId: project.id,
+  it.each([
+    ["UTC equality", "2030-01-01T12:00:01.500Z", 499, 500],
+    ["offset equality", "2030-01-01T13:00:01.500+01:00", 499, 500],
+    ["sub-millisecond deadline", "2030-01-01T12:00:01.5005Z", 500, 501],
+  ] as const)("refreshes the cached brief without a write at %s", async (_case, dueAt, beforeMs, afterMs) => {
+    // Mock only Date. Establish the owner session on the same clock as its requests.
+    const utcSecond = Date.parse("2030-01-01T12:00:01Z");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(utcSecond + beforeMs);
+      await withApp(async (t) => {
+        const project = (await t.post("/api/projects", { name: "Deadline Cache Project" })).json<{ id: string }>();
+        const imp = await t.post("/api/imports/text", {
+          text: "volatile-fact: first review deadline\nvolatile-fact: second review deadline",
+          adapterId: "faketest",
+          projectId: project.id,
+        });
+        expectStatus(imp, 201, "volatile import");
+        const candidates = (await t.get(`/api/inbox?projectId=${project.id}`))
+          .json<{ candidates: { id: string; text: string }[] }>().candidates;
+        const first = candidates.find((item) => item.text.includes("first review deadline"))!;
+        const second = candidates.find((item) => item.text.includes("second review deadline"))!;
+        expectStatus(await reviewCurrent(t, [first.id, second.id], "accept"), 200, "accept both volatile facts");
+        const setDue = t.app.ck.deps.sqlite.prepare("UPDATE records SET review_due_at = ? WHERE id = ?");
+        setDue.run(dueAt, first.id);
+        // This later instant sorts first as text.
+        setDue.run("2030-01-01T10:00:01.700-02:00", second.id);
+
+        const readBrief = async () => {
+          const response = await t.get(`/api/projects/${project.id}/brief`);
+          expectStatus(response, 200, "get brief");
+          const brief = response.json<BriefDto>();
+          const firstRecord = brief.facts.find((fact) => fact.record.id === first.id)!.record;
+          const secondRecord = brief.facts.find((fact) => fact.record.id === second.id)!.record;
+          expect(firstRecord.reviewDueAt).toBe(dueAt);
+          return { generatedAt: brief.generatedAt, overdue: [firstRecord.isOverdue, secondRecord.isOverdue] };
+        };
+
+        const before = await readBrief();
+        expect(before.overdue).toEqual([false, false]);
+
+        vi.setSystemTime(utcSecond + afterMs);
+        const after = await readBrief();
+        expect(after.overdue).toEqual([true, false]);
+        expect(after.generatedAt).not.toBe(before.generatedAt);
+
+        vi.setSystemTime(utcSecond + 700);
+        const bothDue = await readBrief();
+        expect(bothDue.overdue).toEqual([true, true]);
+        vi.setSystemTime(utcSecond + 1_000);
+        expect(await readBrief()).toEqual(bothDue);
+
+        // A clock correction can also move a deadline back into the future.
+        vi.setSystemTime(utcSecond + beforeMs);
+        expect((await readBrief()).overdue).toEqual([false, false]);
       });
-      expectStatus(imp, 201, "volatile import");
-      const candidate = (await t.get(`/api/inbox?projectId=${project.id}`))
-        .json<{ candidates: { id: string }[] }>()
-        .candidates[0]!;
-      expectStatus(await reviewCurrent(t, [candidate.id], "accept"), 200, "accept volatile");
-
-      // Change only the time-dependent field, not updated_at. The first response
-      // is cached before the deadline; after real time crosses that deadline no
-      // database write occurs. Fake timers are intentionally avoided because the
-      // Fastify/test harness uses timers for lifecycle and cleanup work.
-      const dueAtMs = Date.now() + 5_000;
-      const dueAt = new Date(dueAtMs).toISOString();
-      t.app.ck.deps.sqlite
-        .prepare("UPDATE records SET review_due_at = ? WHERE id = ?")
-        .run(dueAt, candidate.id);
-
-      const before = (await t.get(`/api/projects/${project.id}/brief`)).json<BriefDto>();
-      const beforeRecord = before.facts.find((s) => s.record.id === candidate.id)!.record;
-      expect(beforeRecord.reviewDueAt).toBe(dueAt);
-      expect(beforeRecord.isOverdue).toBe(false);
-
-      const remaining = Math.max(0, dueAtMs - Date.now() + 150);
-      await new Promise<void>((resolve) => setTimeout(resolve, remaining));
-
-      const after = (await t.get(`/api/projects/${project.id}/brief`)).json<BriefDto>();
-      const afterRecord = after.facts.find((s) => s.record.id === candidate.id)!.record;
-      expect(afterRecord.reviewDueAt).toBe(dueAt);
-      expect(afterRecord.isOverdue).toBe(true);
-      expect(after.generatedAt).not.toBe(before.generatedAt);
-    });
-  }, 15_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it("404s for unknown projects", async () => {
     await withApp(async (t) => {
