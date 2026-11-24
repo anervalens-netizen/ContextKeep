@@ -72,6 +72,64 @@ Pending deliveries survive restart. Capturing an agent report emits no event,
 preventing report-triggered feedback loops. Event data are observations, never
 instructions or new authority.
 
+#### Subscribe from ChatGPT Work Cloud
+
+1. In the desktop app, select **ChatGPT** in the product menu. Start a **new
+   chat**, select **Work** in the **Chat / Work** toggle, then choose **Cloud**
+   in the composer before sending. ChatGPT Work on the web can also create the
+   subscription. For a desktop test, send the subscription request from the app
+   even if you read the result in the browser. See the
+   [ChatGPT Work guide](https://help.openai.com/en/articles/20001275-chatgpt-work-and-codex)
+   and the [MCP Events setup guide](https://developers.openai.com/plugins/build/mcp-events).
+2. Check that the ContextKeep app is connected and that its plugin details list
+   `execution.finished` under **Events**. If you need to verify the chat's
+   execution mode, send a unique marker from desktop and look for the same
+   message and reply in ChatGPT web, using the same account and workspace.
+   This checks Work Cloud synchronization. Record where you sent the
+   subscription request separately.
+3. Select `@ContextKeep` and send the following request. Replace both example
+   IDs with those of one authorized test project and task.
+
+   > Create one native ChatGPT webhook subscription to `execution.finished`
+   > with `projectId=11111111-1111-4111-8111-111111111111` and
+   > `taskId=22222222-2222-4222-8222-222222222222`. Confirm the subscription
+   > or report the exact error. On delivery, reply in this chat with the
+   > `eventId` and `runId`. Use the native webhook without polling or simulated
+   > events. The test job will be started separately.
+
+4. Confirm that ChatGPT reports an active trigger and that the operator sees a
+   verified, active ContextKeep subscription for the exact project and task.
+   Start one fresh, read-only test job after that confirmation. Use the
+   [executor correlation workflow](#executor-correlation) to bind the job to
+   the same task. Match the `eventId` and `runId` in the automatic reply against
+   the ContextKeep event and delivery record. An HTTP `2xx` receipt alone
+   establishes transport delivery. The automatic reply establishes that ChatGPT
+   processed the event.
+5. After the test, open **Scheduled** in ChatGPT web, find the event-triggered
+   task for that exact chat, and choose **Pause** from its actions menu. Verify
+   that ChatGPT shows the task as paused and that the matching subscription is
+   inactive in ContextKeep (`workflow_subscriptions.active = 0`). Perform this
+   check even if you requested a short duration. The tested setup did not
+   expose a 15-minute expiry.
+
+#### Diagnose a missing subscription in Codex Cloud
+
+ChatGPT Work Cloud and Codex Cloud use separate product routes. In a Codex
+Cloud attempt, the session could call the connected app's `get_capabilities`
+tool, but it did not invoke the ChatGPT event trigger or send
+`events/subscribe`. ContextKeep therefore had no subscription to store. The
+same connector subsequently completed the webhook lifecycle in a synchronized
+ChatGPT Work Cloud chat.
+
+`events/subscribe` is an MCP protocol method on `/mcp`. It is separate from
+the callable tools that `get_capabilities` describes. If an attempt stops at
+tool discovery, check the product selection and try a new ChatGPT **Work**
+chat with **Cloud** selected. Use the plugin's **Events** list and an active
+subscription record to check whether native discovery and registration worked.
+If the host reports a `404`, identify which request returned it. A Cloud
+configuration or dot lookup error does not establish that `/mcp` received or
+rejected `events/subscribe`.
+
 ### SEP-3415 beta poll
 
 Connect a modern MCP client to `POST /mcp/events-beta` using the same owner

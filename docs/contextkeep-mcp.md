@@ -21,6 +21,9 @@ mentions. Prefer search_context compact=true for agent reads when the legacy
 canonicalRecords alias is not needed. Never put private project records into
 the public repository or CI logs.
 
+For native `execution.finished` subscriptions, see the
+[ChatGPT Work Cloud webhook workflow](WORKFLOW_EVENTS.md#subscribe-from-chatgpt-work-cloud).
+
 ## Evidence times and revalidation
 
 `sourceEventAt` describes when an observation happened. `effectiveFrom` and
