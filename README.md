@@ -95,6 +95,14 @@ limit, use `list_sources` and scoped `get_source` reads. Excerpt offsets use
 UTF-16 units in the length-preserving redacted normalized text.
 The `get_source` text pager continues to use Unicode code points.
 
+## Workflow skills over MCP
+
+MCP 2.25 publishes the six bundled ContextKeep Workflows procedures through
+`skills/list`, `skills/get` and digest-verified `resources/read`. The existing
+packaged plugin remains the compatibility path for hosts without native skill
+import. See [workflow skills](docs/mcp/workflow-skills.md) for the release,
+authentication, cache and client contracts.
+
 ## Reliable task continuity
 
 MCP 2.23.0 / schema 19 retains explicit execution-evidence correlation and immutable

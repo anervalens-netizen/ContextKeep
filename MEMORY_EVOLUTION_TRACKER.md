@@ -5,6 +5,15 @@ Programme: memory, current-state retrieval, source indexing and usage efficiency
 Plan: [PLAN.md](docs/plans/2026-11-16-memory-evolution/PLAN.md)\
 Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDATION.md)
 
+## 2026-11-25 MCP procedure publication
+
+MCP 2.25 exposes the existing six plugin procedures as authenticated standard
+skill resources, with complete byte manifests, bounded immutable snapshots and
+legacy client compatibility. See [workflow skills](docs/mcp/workflow-skills.md).
+This is protocol publication, not a new retrieval experiment; no ME item or
+runtime verification status is advanced by the source change. Exact release
+qualification, review and installed probes remain in the private evidence ledger.
+
 ## Current inventory — 2026-11-19
 
 **50 items — 27 VERIFIED, 1 DONE, 1 IMPLEMENTED, 4 IN_PROGRESS,

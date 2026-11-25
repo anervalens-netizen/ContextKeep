@@ -1,6 +1,6 @@
 # MCP interface
 
-> Current source contract: MCP 2.23 / schema 19. Compact and conditional project
+> Current source contract: MCP 2.25 / schema 19. Compact and conditional project
 > catalogue reads extend the existing full response. Explicit task creation,
 > compatible task selection and classified attention build on the existing
 > task-scope, execution-evidence and no-replay contracts. Reports remain proposed.
@@ -8,9 +8,10 @@
 > [Execution evidence](VERIFICATION_EVIDENCE.md). The host widget is v7.4;
 > older installed resource reads remain available.
 
-MCP interface version: 2.24.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.25.0. Supported protocol contract: 2026-07-28.
 Read `get_capabilities` for the installed version; a source contract is not
-deployment evidence.
+deployment evidence. The bundled workflow procedures are also discoverable through
+[Skills over MCP](mcp/workflow-skills.md); installed plugin skills remain available.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve
 a project, select the explicit task, read resume_task, and preserve canonical

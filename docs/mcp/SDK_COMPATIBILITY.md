@@ -1,13 +1,13 @@
 # SDK compatibility
 
-MCP interface version: 2.24.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.25.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 Runtime dependency: @modelcontextprotocol/server@2.4.0. Verify the dependency version in apps/server/package.json when upgrading.
 
 ## Additive source discovery in 2.24
 
-MCP 2.24.0 exposes 63 tools (61 model-visible and two app-only selectors).
+MCP 2.25.0 exposes 63 tools (61 model-visible and two app-only selectors).
 The additive read-only `search_source_evidence` tool uses the existing
 project authorization and leaves schema version 19 and installed widget
 resources intact. Refresh the host's tool list to discover the new tool.
