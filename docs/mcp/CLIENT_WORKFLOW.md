@@ -1,6 +1,6 @@
 # Client workflow
 
-MCP interface version: 2.24.0. Supported protocol contract: 2026-07-28.
+MCP interface version: 2.25.0. Supported protocol contract: 2026-07-28.
 
 Use authenticated MCP requests against an operator-configured endpoint. Resolve a project, read bounded work context, preserve canonical versus proposed provenance, then capture progress with a stable idempotency key. Never put private project records into the public repository or CI logs.
 
@@ -60,7 +60,7 @@ For source evidence without a known source identity, start with a project-scoped
 `search_source_evidence` query. Use the hit's `detailArgs` to verify evidence.
 Keep source excerpts, accepted records and proposed progress separate. If a
 page version changed, restart the read before continuing. Refresh the tool list
-after upgrading an existing connection to MCP 2.24.0.
+after upgrading an existing connection to MCP 2.25.0.
 
 After a working search reports candidate saturation, use this fallback only
 when the question names a concrete object within a known project. Issue up

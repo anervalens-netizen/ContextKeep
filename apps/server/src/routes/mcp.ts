@@ -1,4 +1,5 @@
 import path from "node:path";
+import { WORKFLOW_SKILLS_CAPABILITIES, workflowSkillCatalog } from "../mcp/workflow-skills.js";
 import { PANEL_SETTINGS_CAPABILITIES } from "../mcp/panel-settings.js";
 import { betaEventHeaderMismatch, createBetaEventsServer } from "../mcp/beta-events.js";
 import { WorkflowEvents } from "../services/workflow-events.js";
@@ -20,6 +21,8 @@ import { createContextKeepMcpServer } from "../mcp/tools.js";
  */
 export function registerMcpRoutes(app: FastifyInstance): void {
   const { config, deps } = app.ck;
+  // A release missing its procedures must fail readiness instead of advertising broken skills.
+  if (config.mcpToken) app.addHook("onReady", async () => { await workflowSkillCatalog(); });
   const token = config.mcpToken;
   const principal = token && crypto.createHash("sha256").update(token).digest("hex");
   const workflowEvents = principal ? new WorkflowEvents(deps,principal,config.sessionSecret) : undefined;
@@ -65,7 +68,7 @@ export function registerMcpRoutes(app: FastifyInstance): void {
             if(workflowEvents)body.result.capabilities.events={};
             // SDK2 discovery filters draft extensions; publish the installed native contract on the wire.
             for (const key of ["extensions", "experimental"] as const) {
-              body.result.capabilities[key] = { ...(body.result.capabilities[key] as Record<string, unknown> ?? {}), ...PANEL_SETTINGS_CAPABILITIES[key] };
+              body.result.capabilities[key] = { ...(body.result.capabilities[key] as Record<string, unknown> ?? {}), ...PANEL_SETTINGS_CAPABILITIES[key], ...(key === "extensions" ? WORKFLOW_SKILLS_CAPABILITIES : {}) };
             }
           }
           const headers=new Headers(response.headers);headers.delete("content-length");

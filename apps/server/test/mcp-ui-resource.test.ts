@@ -40,7 +40,7 @@ it("advertises a new UI cache key while preserving the installed legacy resource
     {type:"thread"},
   ]);
   const listed = (await rpc("resources/list")).result.resources;
-  expect(listed.map((resource: { uri: string }) => resource.uri)).toEqual([uri]);
+  expect(listed.filter((resource: { uri: string }) => resource.uri.startsWith("ui://")).map((resource: { uri: string }) => resource.uri)).toEqual([uri]);
   const current = (await rpc("resources/read", { uri })).result.contents[0];
   const legacy = (await rpc("resources/read", { uri: "ui://contextkeep/tasks" })).result.contents[0];
   expect(OpenAIUiResourceMetadataSchema.safeParse(current._meta["openai/ui"]).success).toBe(true);
