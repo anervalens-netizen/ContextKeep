@@ -5,6 +5,18 @@ Programme: memory, current-state retrieval, source indexing and usage efficiency
 Plan: [PLAN.md](docs/plans/2026-11-16-memory-evolution/PLAN.md)\
 Acceptance cases: [VALIDATION.md](docs/plans/2026-11-16-memory-evolution/VALIDATION.md)
 
+## 2026-11-27 Codex continuity source candidate
+
+The [continuity plan](docs/plans/2026-11-27-codex-continuity.md) reuses the existing
+resume procedure and evaluation harness. ME-17 is IN_PROGRESS for a measured
+Romanian latest-query alias and explicit calendar-intent slice. Candidate bounds
+and the ranking algorithm are unchanged; ME-07 remains IN_PROGRESS. The existing
+ME-31/ME-41 procedures gain explicit fresh-session, task-switch and restored-context
+triggers plus an optional preservation-safe native instruction installer. The
+separate four-episode agent cohort extends ME-02/ME-03/ME-47 without changing its
+original cohort. Source tests, actual host behavior and installed release proof
+remain distinct; operational receipts are private.
+
 ## 2026-11-25 MCP procedure publication
 
 MCP 2.25 exposes the existing six plugin procedures as authenticated standard
@@ -14,11 +26,11 @@ This is protocol publication, not a new retrieval experiment; no ME item or
 runtime verification status is advanced by the source change. Exact release
 qualification, review and installed probes remain in the private evidence ledger.
 
-## Current inventory — 2026-11-19
+## Current inventory — 2026-11-27
 
-**50 items — 27 VERIFIED, 1 DONE, 1 IMPLEMENTED, 4 IN_PROGRESS,
-11 PLANNED, 6 GATED.** The [item index](#item-index) is the source for this
-count. ME-07, ME-27, ME-45 and ME-48 are in progress. ME-11 is verified on
+**50 items — 27 VERIFIED, 1 DONE, 1 IMPLEMENTED, 5 IN_PROGRESS,
+10 PLANNED, 6 GATED.** The [item index](#item-index) is the source for this
+count. ME-07, ME-17, ME-27, ME-45 and ME-48 are in progress. ME-11 is verified on
 the installed MCP connector. ME-12 has verified record and source paging
 and retains the freshness-reference acceptance requirement.
 
@@ -310,7 +322,7 @@ only by an unanswered use case. These are priorities, not incident severities.
 | [ME-14](#me-14) | Index detailed sources and excerpts with FTS | VERIFIED | P1 | W2 | Retrieval | ME-02, ME-13 |
 | [ME-15](#me-15) | Make index lifecycle incremental and reconstructible | VERIFIED | P1 | W2 | Backend | ME-14 |
 | [ME-16](#me-16) | Preserve source representations, offsets and redaction | VERIFIED | P0 | W2 | Backend | ME-12, ME-14 |
-| [ME-17](#me-17) | Improve RO/EN aliases and exact matching | PLANNED | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
+| [ME-17](#me-17) | Improve RO/EN aliases and exact matching | IN_PROGRESS | P1 | W2 | Retrieval | ME-02, ME-03, ME-07 |
 | [ME-18](#me-18) | Fix reviewer and review-status attribution | VERIFIED | P0 | W1 | Integration | ME-01 |
 | [ME-19](#me-19) | Preserve review event identity and replay safety | VERIFIED | P0 | W1 | Integration | ME-18 |
 | [ME-20](#me-20) | Project current reviews by PR, reviewer and head | VERIFIED | P1 | W1 | Integration | ME-18, ME-19 |
@@ -730,7 +742,7 @@ Dependencies: ME-12, ME-14 · Validation: [V-16](docs/plans/2026-11-16-memory-ev
 ### ME-17
 
 **Improve RO/EN aliases and exact matching**\
-Status: **PLANNED** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
+Status: **IN_PROGRESS** · Priority: P1 · Wave: W2 · Owner role: Retrieval\
 Dependencies: ME-02, ME-03, ME-07 · Validation: [V-17](docs/plans/2026-11-16-memory-evolution/VALIDATION.md#v-17)
 
 - [ ] Scope: Extend existing aliases only for measured misses. Compare equivalent paraphrases, broad terms, phrase queries and exact names/IDs; record failures left for semantic experiments.

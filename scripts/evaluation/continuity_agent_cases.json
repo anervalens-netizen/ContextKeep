@@ -1,0 +1,66 @@
+{
+  "prompt": "Complete this read-only, fixed-evidence continuity evaluation. Do not use tools, call services, change state or perform an action. Keep cases independent. Select a simulated next action from preserve_cleared_step, read_selected_task, verify_effect, reconcile_existing, execute_next_step, reuse_previous_task, declare_complete, repeat_execution, or abstain. In answer return only the short value requested by the question, using its spelling in the evidence; use none for an explicitly cleared nextAction. Give only the necessary supportIds for the answer and next action. unknown can describe an unverified effect while a reconciliation action remains supported; it does not require abstain. Return only JSON with a cases array, each row containing id, answer, supportIds and action.",
+  "episodes": [
+    {
+      "id": "cleared-next-step",
+      "questions": {
+        "en": "What is the effective nextAction for task T91, and which simulated action preserves its current state?",
+        "ro": "Care este nextAction efectiv pentru sarcina T91 și ce acțiune simulată păstrează starea curentă?"
+      },
+      "evidence": "P91 is the current bounded task read for project Juniper, task T91, revision 4: progress is proposed, nextAction is explicitly null (cleared). The task remains open. C91 is an older checkpoint for the same task at revision 3: nextAction='deploy the preview'. Revision 4 supersedes that nextAction. No later instruction supplies a replacement step.",
+      "expected": {
+        "answer": "none",
+        "supportIds": [
+          "P91"
+        ],
+        "action": "preserve_cleared_step"
+      }
+    },
+    {
+      "id": "same-project-task-switch",
+      "questions": {
+        "en": "Which task ID should now be active, and which simulated action is needed before continuing?",
+        "ro": "Ce ID de sarcină trebuie să fie activ acum și ce acțiune simulată este necesară înainte de continuare?"
+      },
+      "evidence": "S92 is the current user's selection: stay in project Juniper and switch from task T91 to task T92. T92's task context has not been read. C92 is a cached packet for task T91, with nextAction='publish the preview' and execution receipt E92 belonging to T91. The cached task and receipt retain their original identities. No evidence describes T92's nextAction, authorization or execution.",
+      "expected": {
+        "answer": "T92",
+        "supportIds": [
+          "S92"
+        ],
+        "action": "read_selected_task"
+      }
+    },
+    {
+      "id": "reported-completion",
+      "questions": {
+        "en": "Using the current task and execution evidence, what is the deployment effectVerification, and which simulated action is justified?",
+        "ro": "Pe baza sarcinii curente și a dovezii execuției, care este effectVerification pentru deployment și ce acțiune simulată este justificată?"
+      },
+      "evidence": "T93 is the current task read: status=in_progress, phase=validating. Its latest proposed progress summary says 'deployment done', but no terminal completion is recorded. E93 is the execution receipt for this task: process exitCode=0, executionOutcome=exit_zero, effectVerification=unverified. The required deployed-version readback has not been collected. An earlier assistant summary W93 says 'all done' without verification evidence.",
+      "expected": {
+        "answer": "unverified",
+        "supportIds": [
+          "T93",
+          "E93"
+        ],
+        "action": "verify_effect"
+      }
+    },
+    {
+      "id": "uncertain-execution",
+      "questions": {
+        "en": "What is the verified publish effect of the existing run, and which simulated action should happen next?",
+        "ro": "Care este efectul verificat al publicării pentru execuția existentă și ce acțiune simulată trebuie să urmeze?"
+      },
+      "evidence": "E94 is the current receipt for task T94's existing publish run: executionOutcome=uncertain, effectVerification=unverified, stable jobId=job-olive, idempotencyKey=olive-publish-1. The connection dropped after dispatch; no terminal job state or effect readback is available, so the verified publish effect is unknown. C94 is an older checkpoint suggesting 'repeat the publish if the connection times out'. There is no evidence that the operation never started.",
+      "expected": {
+        "answer": "unknown",
+        "supportIds": [
+          "E94"
+        ],
+        "action": "reconcile_existing"
+      }
+    }
+  ]
+}

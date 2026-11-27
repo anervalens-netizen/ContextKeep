@@ -147,16 +147,9 @@ async function startBrowser() {
     browserServer = await chromium.launchServer({ ...options, executablePath });
     report.browser = "explicit-executable";
   } else {
-    try {
-      browserServer = await chromium.launchServer({
-        ...options,
-        channel: "chrome",
-      });
-      report.browser = "chrome";
-    } catch {
-      browserServer = await chromium.launchServer(options);
-      report.browser = "bundled-chromium";
-    }
+    // Default to Playwright's browser so CI does not depend on system Chrome.
+    browserServer = await chromium.launchServer(options);
+    report.browser = "bundled-chromium";
   }
   browser = await chromium.connect(browserServer.wsEndpoint());
   context = await browser.newContext({
