@@ -27,6 +27,8 @@ the full gate is run by the integrator on a trusted revision.
 
 Tests use isolated temporary data. Never point CI at a production database or import real account, customer or employee data. Run application-specific regression checks before publishing changes.
 
+Browser checks use the Chromium version installed for the locked Playwright package. Before local browser or release checks, run `pnpm --filter @contextkeep/web exec playwright install chromium` (add `--with-deps` on a fresh Linux host). `CK_NAV_EXECUTABLE_PATH` remains an explicit operator override; the default never selects an unrelated system Chrome.
+
 ## Deployment
 
 Configure actual hosts, filesystem paths and secrets privately. Files under deploy/ are templates, not an inventory of live machines. Preserve installed application identifiers and existing databases during upgrades. Operator deployment records and rollback procedures belong outside Git.

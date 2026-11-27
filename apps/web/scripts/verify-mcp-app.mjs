@@ -47,9 +47,8 @@ if (process.env.CK_NAV_EXECUTABLE_PATH) {
     executablePath: process.env.CK_NAV_EXECUTABLE_PATH,
   });
 } else {
-  browser = await chromium
-    .launch({ ...options, channel: "chrome" })
-    .catch(() => chromium.launch(options));
+  // Default to Playwright's browser so CI does not depend on system Chrome.
+  browser = await chromium.launch(options);
 }
 const cases = [];
 try {
