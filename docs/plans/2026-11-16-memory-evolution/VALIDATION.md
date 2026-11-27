@@ -10,6 +10,22 @@ documentation check is not evidence that application behavior passes. Each V ite
 maps to the ME item with the same number. The tracker owns implementation status;
 this catalogue defines the evidence needed to assess that item's acceptance.
 
+## 2026-11-27 bounded continuity qualification
+
+The [continuity candidate](../2026-11-27-codex-continuity.md) adds a bounded
+V-17 intent slice and consumer-side V-31/V-41 procedures. Require Romanian latest
+formulations to use the existing currentness ranking while preserving explicit
+calendar history, mixed current/history requests, exact versions, project scope
+and proposal authority. Calendar intent is not an event-time/as-of filter.
+
+Keep installer safety, native instruction loading, actual fresh/task-switch/
+restored-context tool calls and fixed-evidence reasoning as separate checks.
+The new four-episode RO/EN cohort extends V-02/V-03/V-47. Render without its oracle,
+score an independent agent, retain failures and never substitute harness unit
+tests for that agent outcome. Its score does not establish live retrieval or
+universal compaction handling. Private paired controls and release receipts
+remain in the operational evidence ledger; broader V-07 recall stays open.
+
 ## Execution status
 
 The initial planning snapshot had all 50 cases NOT RUN. Batch 1 qualifies V-05

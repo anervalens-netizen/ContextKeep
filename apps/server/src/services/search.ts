@@ -32,6 +32,7 @@ const STOPWORDS = new Set([
 const CONCEPT_ALIASES: Record<string, string> = {
   actual: "current", acum: "current", active: "current", currently: "current", curent: "current", curenta: "current",
   curentă: "current", deployed: "current", live: "current", latest: "current", now: "current", running: "current",
+  ultimul: "current", ultima: "current", ultimele: "current", ultimii: "current",
   foloseste: "current", folosește: "current", ruleaza: "current", rulează: "current",
   istoric: "historical", anterior: "historical", anteriorul: "historical", inainte: "historical", previously: "historical",
   actuala: "current", prezent: "current", momentan: "current",
@@ -136,6 +137,18 @@ function operationalIdentifiers(query: string): string[] {
   return [...new Set(found)];
 }
 
+// Explicit calendar clauses request a dated context, not a current-state claim.
+// This is intent detection only: it does not implement an event-time/as-of filter.
+// A bare number or a version such as 2024.1 is deliberately not a date clause.
+const DATED_QUERY_CLAUSE = new RegExp(
+  "\\b(?:as of|from|in|on|before|after|din|la(?: data de)?|inainte de|dupa)\\s+" +
+  "(?:\\d{4}(?:-\\d{2}-\\d{2})?|(?:\\d{1,2}\\s+)?" +
+  "(?:ianuarie|februarie|martie|aprilie|mai|iunie|iulie|august|septembrie|octombrie|noiembrie|decembrie|" +
+  "january|february|march|april|may|june|july|september|october|november|december)\\s+(?:\\d{1,2},?\\s+)?\\d{4})" +
+  "(?![\\p{L}\\p{N}_/-]|\\.\\d)",
+  "u",
+);
+
 export function buildSearchProfile(query: string): SearchProfile {
   const rawTokens = tokenizeSearch(query);
   // Romanian "ai" remains a stopword in normal sentences, while an explicit
@@ -144,6 +157,7 @@ export function buildSearchProfile(query: string): SearchProfile {
   const tokens = rawTokens.filter((token) => !STOPWORDS.has(token) || (token === "ai" && preserveAi));
   const concepts = [...new Set(tokens.map((token) => CONCEPT_ALIASES[token] ?? token))];
   const pastQuestion = /\b(?:(?:what|which|where) (?:was|were)|(?:ce|care|unde) (?:era|erau|rula|rulau|a fost))\b/u.test(fold(query));
+  const historicalQuestion = pastQuestion || DATED_QUERY_CLAUSE.test(fold(query));
   // "what was deployed" remains historical, even when "deployed" maps to
   // the current-state concept. A second explicit present-tense clause is mixed.
   const presentQuestion = /\b(?:(?:what|which|where) (?:is|are)|(?:ce|care|unde) (?:este|sunt)|now|acum|momentan)\b/u.test(fold(query));
@@ -154,8 +168,8 @@ export function buildSearchProfile(query: string): SearchProfile {
     identifiers: operationalIdentifiers(query),
     normalizedQuery: tokens.join(" "),
     // One question can explicitly request previous and current state.
-    currentIntent: concepts.includes("current") && (!pastQuestion || presentQuestion),
-    historicalIntent: concepts.includes("historical") || pastQuestion,
+    currentIntent: concepts.includes("current") && (!historicalQuestion || presentQuestion),
+    historicalIntent: concepts.includes("historical") || historicalQuestion,
   };
 }
 

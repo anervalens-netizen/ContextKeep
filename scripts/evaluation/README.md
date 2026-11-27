@@ -126,3 +126,83 @@ abstentions independently. Record any semantic adjudication alongside the
 frozen exact-string outcome. The result measures the supported answer and
 simulated next action given a fixed evidence packet. Retrieval, presentation
 and autonomous live tool use require their own checks.
+## Continuity regression cohort
+
+The separate [continuity cohort](continuity_agent_cases.json) adds four
+wholly synthetic episodes, each with Romanian and English formulations:
+
+| Failure to prevent | Required simulated behavior |
+| --- | --- |
+| An old checkpoint revives an explicitly cleared nextAction | Preserve the current cleared step. |
+| A task switch inside the same project inherits the previous task's action or receipt | Keep both identities intact and read the selected task. |
+| A proposed "done" summary or exit code becomes verified completion | Verify the required effect before claiming completion. |
+| A connection loss becomes permission to repeat a dispatched operation | Reconcile the existing run and its effects. |
+
+The original seven-episode cohort, its default command and historical scores
+remain separate. Select this cohort explicitly:
+
+```bash
+python3 scripts/evaluation/synthetic_agent_eval.py prompt \
+  --fixture scripts/evaluation/continuity_agent_cases.json
+python3 scripts/evaluation/synthetic_agent_eval.py score answer.json \
+  --fixture scripts/evaluation/continuity_agent_cases.json
+```
+
+The renderer reads JSON only and prints the prompt, questions and evidence;
+it never prints the oracle or executes fixture content. The scorer also
+reads inputs only. It rejects duplicate JSON keys, malformed or extra
+fields, missing formulations, duplicate response identities, ambiguous
+support IDs and inputs larger than 2 MiB. Every episode has an ID, paired
+`en`/`ro` questions, evidence and an expected answer/action/supportIds object,
+as shown in the checked-in fixtures.
+
+Score actions and evidence separately from the answer. In the uncertain-run
+episode, `unknown` is the supported answer about the unverified effect and
+`reconcile_existing` is the supported action. That case is not an
+abstention. The existing `answerableCases` metric means cases whose oracle
+does not require `abstain`; it does not count verified successful effects.
+
+The existing `pnpm test:private-corpus` gate checks both CLI paths and rejects
+deliberately unsafe answers. Passing those unit tests only verifies the
+renderer/scorer and its negative controls. A real agent outcome requires
+the separate fresh-agent run described above. Neither result proves that
+Codex loaded a skill, retrieved these records or used the live tools
+correctly. Keep those acceptance checks separate.
+
+## Turn a significant failure into an existing regression
+
+Use this path when an observed failure would change a decision, revive
+superseded work, lose task scope or repeat an uncertain operation. Avoid
+adding a case for every wording difference.
+
+1. Preserve the incident in its existing private ContextKeep task: intended
+   behavior, observed behavior, source or execution references, relevant
+   revision, uncertainty and impact. A report is not proof of the effect.
+2. Find the layer that failed. A search miss belongs in the existing search
+   evaluation; incorrect server state or authorization needs an existing
+   functional test. Use this fixed-evidence cohort for an agent that had
+   sufficient evidence but selected the wrong answer, source or next action.
+3. Reduce the incident to a wholly synthetic episode. Invent all names,
+   identities, values and prose. Keep only the causal structure, including
+   the misleading old/proposed evidence and the authoritative correction.
+   Never copy private source text, receipts, queries or production IDs into
+   this public directory. Keep the private incident-to-case mapping with
+   the existing task.
+4. Review the minimal evidence and expected answer, support IDs and action
+   before testing the candidate. Add both language formulations together.
+   An already observed failure is a development/regression case, not new
+   held-out evidence. Freeze a separate fixture if changing this cohort
+   would make its earlier score incomparable.
+5. Render with `--fixture`, give only that output to a fresh read-only agent,
+   retain its actual answer and trace privately, and score it with the same
+   fixture. Record the fixture revision or SHA-256, model, budget, stopping
+   rule and failed metrics. An oracle copied into an answer file can test
+   the scorer, but is not an agent outcome.
+6. Keep the failed result, fix the responsible layer and rerun the same case.
+   Add a negative control when a harness change could hide the failure.
+   Do not relax the oracle or merge the result with unrelated historical
+   scores to make it pass. Record any semantic adjudication separately.
+
+This adds cases to the existing evaluation path. It adds no collection
+service, automatic incident promotion, scheduled job or second memory
+store.
