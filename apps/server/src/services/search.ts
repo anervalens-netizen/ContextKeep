@@ -137,14 +137,18 @@ function operationalIdentifiers(query: string): string[] {
   return [...new Set(found)];
 }
 
-// Explicit calendar clauses request a dated context, not a current-state claim.
-// This is intent detection only: it does not implement an event-time/as-of filter.
-// A bare number or a version such as 2024.1 is deliberately not a date clause.
+// Explicit calendar clauses request dated context; this is not an as-of filter.
+// Bare years after temporal prepositions are inferred only within 1900–2099.
+// Explicit year/anul/as-of/date wording does not need that inference range.
+// Bare on/la + digits can identify ports, so those prefixes require a full date.
+// Dotted versions remain excluded; structured ISO time suffixes remain dated.
 const DATED_QUERY_CLAUSE = new RegExp(
-  "\\b(?:as of|from|in|on|before|after|din|la(?: data de)?|inainte de|dupa)\\s+" +
-  "(?:\\d{4}(?:-\\d{2}-\\d{2})?|(?:\\d{1,2}\\s+)?" +
+  "\\b(?:(?:as of|la data de|(?:in |din )?(?:the year|year|anul))\\s+\\d{4}|" +
+  "(?:from|in|before|after|din|inainte de|dupa)\\s+(?:19|20)\\d{2}|" +
+  "(?:as of|from|in|on|before|after|din|la(?: data de)?|inainte de|dupa)\\s+" +
+  "(?:\\d{4}-\\d{2}-\\d{2}(?:t\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:z|[+-]\\d{2}:?\\d{2})?)?|(?:\\d{1,2}\\s+)?" +
   "(?:ianuarie|februarie|martie|aprilie|mai|iunie|iulie|august|septembrie|octombrie|noiembrie|decembrie|" +
-  "january|february|march|april|may|june|july|september|october|november|december)\\s+(?:\\d{1,2},?\\s+)?\\d{4})" +
+  "january|february|march|april|may|june|july|september|october|november|december)\\s+(?:\\d{1,2},?\\s+)?\\d{4}))" +
   "(?![\\p{L}\\p{N}_/-]|\\.\\d)",
   "u",
 );

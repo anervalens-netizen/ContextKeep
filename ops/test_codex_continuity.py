@@ -1,5 +1,6 @@
 """Safety contracts for the opt-in Codex instruction installer."""
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -119,6 +120,36 @@ class ContinuityInstallerTests(unittest.TestCase):
                 self.install()
         self.assertEqual(self.target.read_text(), "Concurrent owner edit")
         self.assertEqual(list(self.profile.glob(".contextkeep-agents-*")), [])
+
+    def test_cli_reports_retained_backup_when_concurrent_edit_aborts_install(self):
+        self.target.write_text("Original owner instructions")
+        real_read = module.read_file
+        reads = 0
+
+        def changing_read(path):
+            nonlocal reads
+            if path == self.target:
+                reads += 1
+                if reads == 2:
+                    self.target.write_text("Concurrent owner edit")
+            return real_read(path)
+
+        error = io.StringIO()
+        with mock.patch.object(module, "read_file", side_effect=changing_read), \
+                mock.patch.object(module.sys, "stderr", error):
+            code = module.main(["install", "--codex-home", str(self.profile)])
+        self.assertEqual(code, 2)
+        result = json.loads(error.getvalue())
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error"], "AGENTS.md changed during preparation; no replacement made")
+        backup = Path(result["backup"])
+        self.assertEqual(list(self.profile.glob("AGENTS.md.contextkeep-backup-*")), [backup])
+        self.assertEqual(backup.read_text(), "Original owner instructions")
+        self.assertEqual(stat.S_IMODE(backup.stat().st_mode), 0o600)
+        self.assertEqual(self.target.read_text(), "Concurrent owner edit")
+        self.assertEqual(list(self.profile.glob(".contextkeep-agents-*")), [])
+        with module.profile_lock(self.profile):
+            pass  # Failure released the lock; a later owner action can acquire it.
 
     def test_replace_failure_preserves_original_and_recovery_backup(self):
         self.target.write_text("Original")

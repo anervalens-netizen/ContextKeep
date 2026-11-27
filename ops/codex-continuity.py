@@ -156,27 +156,32 @@ def apply(profile: Path, action: str, fragment: bytes | None) -> dict:
                 os.fsync(stream.fileno())
         temp_name = None
         try:
-            fd, temp_name = tempfile.mkstemp(prefix=".contextkeep-agents-", dir=profile)
-            with os.fdopen(fd, "wb") as stream:
-                os.fchmod(stream.fileno(), stat.S_IMODE(info.st_mode) if info else 0o600)
-                stream.write(after)
-                stream.flush()
-                os.fsync(stream.fileno())
-            current, current_info = read_file(target)
-            if fingerprint(current_info) != fingerprint(info) or current != before:
-                raise InstallError("AGENTS.md changed during preparation; no replacement made")
-            if action != "remove":
-                ensure_unshadowed(profile)
-            os.replace(temp_name, target)
-            temp_name = None
-            directory_fd = os.open(profile, os.O_RDONLY | os.O_DIRECTORY)
             try:
-                os.fsync(directory_fd)
+                fd, temp_name = tempfile.mkstemp(prefix=".contextkeep-agents-", dir=profile)
+                with os.fdopen(fd, "wb") as stream:
+                    os.fchmod(stream.fileno(), stat.S_IMODE(info.st_mode) if info else 0o600)
+                    stream.write(after)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                current, current_info = read_file(target)
+                if fingerprint(current_info) != fingerprint(info) or current != before:
+                    raise InstallError("AGENTS.md changed during preparation; no replacement made")
+                if action != "remove":
+                    ensure_unshadowed(profile)
+                os.replace(temp_name, target)
+                temp_name = None
+                directory_fd = os.open(profile, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
             finally:
-                os.close(directory_fd)
-        finally:
-            if temp_name is not None:
-                os.unlink(temp_name)
+                if temp_name is not None:
+                    os.unlink(temp_name)
+        except (InstallError, OSError, UnicodeError) as exc:
+            if backup is not None:
+                exc.retained_backup = backup
+            raise
         return {"status": "installed" if action == "install" else "removed",
                 "changed": True, "instruction_bytes": len(after),
                 "backup": str(backup) if backup else None}
@@ -199,7 +204,11 @@ def main(argv=None) -> int:
         print(json.dumps(result, sort_keys=True))
         return 1 if result["status"] == "missing_or_outdated" else 0
     except (InstallError, OSError, UnicodeError) as exc:
-        print(json.dumps({"status": "error", "error": str(exc)}), file=sys.stderr)
+        result = {"status": "error", "error": str(exc)}
+        backup = getattr(exc, "retained_backup", None)
+        if backup is not None:
+            result["backup"] = str(backup)
+        print(json.dumps(result), file=sys.stderr)
         return 2
 
 
